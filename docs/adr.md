@@ -24,3 +24,5 @@ Each entry follows this structure:
 | 2026-06-19 | Tree + connection modeled as discriminated unions (ADT) keyed on `kind`/`type` | Exhaustive `switch`/guards over panels; no ifology; matches spec data model |
 | 2026-06-19 | Results tab renders a real TanStack Table grid (not a text body) | DB-authentic result view; TanStack Table already a dependency |
 | 2026-06-19 | Removed `@tanstack/react-form` + `@tanstack/react-hotkeys` deps with the bootstrap demos/palette | Nothing uses them after layout; keep dep surface honest (re-add when a real form / hotkeys land) |
+| 2026-06-19 | Reworked layout: database = sidebar leaf; workbench tabs SQL/Tables/Views/Connection; statement bar removed | User feedback - matches real DB tools (TablePlus/Postico); the HTTP-ish target bar made no sense for a DB client |
+| 2026-06-19 | SQL-tab editor\|results is a fixed side-by-side split, not drag-resizable | A nested react-resizable-panels group inside radix Tabs content breaks tab-switching under jsdom (see learnings); only the two shell splits are drag-resizable |

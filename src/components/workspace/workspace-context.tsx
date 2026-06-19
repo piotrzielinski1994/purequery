@@ -2,46 +2,42 @@ import {
   createContext,
   useContext,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
 import {
   mockConsoleLines,
   mockTree,
-  type QueryNode,
+  type DatabaseNode,
   type TreeNode,
 } from "@/components/workspace/mock-data";
 
-export type QueryTab = "sql" | "params" | "options" | "connection" | "script";
-export type ResultTab = "results" | "columns";
+export type WorkbenchTab = "sql" | "tables" | "views" | "connection";
 
 type WorkspaceContextValue = {
   tree: TreeNode[];
   consoleLines: string[];
   expandedFolderIds: Set<string>;
   selectedNodeId: string | null;
-  openQueryIds: string[];
-  activeQueryId: string | null;
-  activeQueryTab: QueryTab;
-  activeResultTab: ResultTab;
-  queriesById: Map<string, QueryNode>;
-  activeQuery: QueryNode | null;
+  openDatabaseIds: string[];
+  activeDatabaseId: string | null;
+  activeWorkbenchTab: WorkbenchTab;
+  databasesById: Map<string, DatabaseNode>;
+  activeDatabase: DatabaseNode | null;
   toggleFolder: (id: string) => void;
   selectNode: (id: string) => void;
-  setActiveQuery: (id: string) => void;
-  closeQuery: (id: string) => void;
-  setQueryTab: (tab: QueryTab) => void;
-  setResultTab: (tab: ResultTab) => void;
-  newQuery: () => void;
+  setActiveDatabase: (id: string) => void;
+  closeDatabase: (id: string) => void;
+  setWorkbenchTab: (tab: WorkbenchTab) => void;
+  newDatabaseTab: () => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
-function indexQueries(nodes: TreeNode[]): Map<string, QueryNode> {
-  const flatten = (node: TreeNode): QueryNode[] =>
-    node.kind === "query" ? [node] : node.children.flatMap(flatten);
-  return new Map(nodes.flatMap(flatten).map((query) => [query.id, query]));
+function indexDatabases(nodes: TreeNode[]): Map<string, DatabaseNode> {
+  const flatten = (node: TreeNode): DatabaseNode[] =>
+    node.kind === "database" ? [node] : node.children.flatMap(flatten);
+  return new Map(nodes.flatMap(flatten).map((db) => [db.id, db]));
 }
 
 function toggleInSet(set: Set<string>, id: string): Set<string> {
@@ -59,7 +55,7 @@ type WorkspaceProviderProps = {
   tree?: TreeNode[];
   consoleLines?: string[];
   initialExpandedIds?: string[];
-  initialActiveQueryId?: string;
+  initialActiveDatabaseId?: string;
 };
 
 export function WorkspaceProvider({
@@ -67,54 +63,47 @@ export function WorkspaceProvider({
   tree = mockTree,
   consoleLines = mockConsoleLines,
   initialExpandedIds = [],
-  initialActiveQueryId,
+  initialActiveDatabaseId,
 }: WorkspaceProviderProps) {
-  const [drafts, setDrafts] = useState<QueryNode[]>([]);
-  const draftCounter = useRef(0);
-
-  const queriesById = useMemo(() => {
-    const byId = indexQueries(tree);
-    drafts.forEach((draft) => byId.set(draft.id, draft));
-    return byId;
-  }, [tree, drafts]);
+  const databasesById = useMemo(() => indexDatabases(tree), [tree]);
 
   const [expandedFolderIds, setExpandedFolderIds] = useState(
     () => new Set(initialExpandedIds),
   );
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
-    initialActiveQueryId ?? null,
+    initialActiveDatabaseId ?? null,
   );
-  const [openQueryIds, setOpenQueryIds] = useState<string[]>(
-    initialActiveQueryId ? [initialActiveQueryId] : [],
+  const [openDatabaseIds, setOpenDatabaseIds] = useState<string[]>(
+    initialActiveDatabaseId ? [initialActiveDatabaseId] : [],
   );
-  const [activeQueryId, setActiveQueryId] = useState<string | null>(
-    initialActiveQueryId ?? null,
+  const [activeDatabaseId, setActiveDatabaseId] = useState<string | null>(
+    initialActiveDatabaseId ?? null,
   );
-  const [activeQueryTab, setActiveQueryTab] = useState<QueryTab>("sql");
-  const [activeResultTab, setActiveResultTab] = useState<ResultTab>("results");
+  const [activeWorkbenchTab, setActiveWorkbenchTab] =
+    useState<WorkbenchTab>("sql");
 
   const value = useMemo<WorkspaceContextValue>(() => {
     const selectNode = (id: string) => {
       setSelectedNodeId(id);
-      const query = queriesById.get(id);
-      if (!query) {
+      const db = databasesById.get(id);
+      if (!db) {
         setExpandedFolderIds((current) => toggleInSet(current, id));
         return;
       }
-      setOpenQueryIds((current) =>
+      setOpenDatabaseIds((current) =>
         current.includes(id) ? current : [...current, id],
       );
-      setActiveQueryId(id);
+      setActiveDatabaseId(id);
     };
 
-    const closeQuery = (id: string) => {
-      setOpenQueryIds((current) => {
+    const closeDatabase = (id: string) => {
+      setOpenDatabaseIds((current) => {
         const index = current.indexOf(id);
         if (index === -1) {
           return current;
         }
         const next = current.filter((openId) => openId !== id);
-        setActiveQueryId((active) => {
+        setActiveDatabaseId((active) => {
           if (active !== id) {
             return active;
           }
@@ -122,35 +111,6 @@ export function WorkspaceProvider({
         });
         return next;
       });
-      setDrafts((current) => current.filter((draft) => draft.id !== id));
-    };
-
-    const newQuery = () => {
-      draftCounter.current += 1;
-      const id = `draft-${draftCounter.current}`;
-      const draft: QueryNode = {
-        kind: "query",
-        id,
-        name: "Untitled",
-        statementKind: "SELECT",
-        target: "",
-        sql: "",
-        params: [],
-        options: [],
-        connection: { type: "none" },
-        scripts: { pre: "", post: "" },
-        result: {
-          status: "success",
-          timeMs: 0,
-          rowCount: 0,
-          columns: [],
-          rows: [],
-          message: "",
-        },
-      };
-      setDrafts((current) => [...current, draft]);
-      setOpenQueryIds((current) => [...current, id]);
-      setActiveQueryId(id);
     };
 
     return {
@@ -158,32 +118,31 @@ export function WorkspaceProvider({
       consoleLines,
       expandedFolderIds,
       selectedNodeId,
-      openQueryIds,
-      activeQueryId,
-      activeQueryTab,
-      activeResultTab,
-      queriesById,
-      activeQuery:
-        activeQueryId !== null ? (queriesById.get(activeQueryId) ?? null) : null,
+      openDatabaseIds,
+      activeDatabaseId,
+      activeWorkbenchTab,
+      databasesById,
+      activeDatabase:
+        activeDatabaseId !== null
+          ? (databasesById.get(activeDatabaseId) ?? null)
+          : null,
       toggleFolder: (id) =>
         setExpandedFolderIds((current) => toggleInSet(current, id)),
       selectNode,
-      setActiveQuery: setActiveQueryId,
-      closeQuery,
-      setQueryTab: setActiveQueryTab,
-      setResultTab: setActiveResultTab,
-      newQuery,
+      setActiveDatabase: setActiveDatabaseId,
+      closeDatabase,
+      setWorkbenchTab: setActiveWorkbenchTab,
+      newDatabaseTab: () => {},
     };
   }, [
     tree,
     consoleLines,
     expandedFolderIds,
     selectedNodeId,
-    openQueryIds,
-    activeQueryId,
-    activeQueryTab,
-    activeResultTab,
-    queriesById,
+    openDatabaseIds,
+    activeDatabaseId,
+    activeWorkbenchTab,
+    databasesById,
   ]);
 
   return (

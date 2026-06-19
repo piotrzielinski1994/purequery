@@ -39,12 +39,13 @@ npm install
 
 Rust backend tests: `cd src-tauri && cargo test`.
 
-> The home route renders the MVP workspace shell: a sidebar object tree (connection /
-> schema folders + query leaves with a statement-kind badge), a content area with open-query
-> tabs, a statement bar (kind + target + inert Run), side-by-side query/results panes, and a
-> console strip - all resizable. Everything is driven by mock data and UI-local state; there
-> is no real SQL execution, persistence, or editing yet. Real connections, schema browsing,
-> and query execution arrive in later features.
+> The home route renders the MVP workspace shell: a sidebar tree of databases grouped under
+> optional folders, a content area with open-database tabs, and a per-database workbench with
+> SQL / Tables / Views / Connection tabs (the SQL tab shows the editor beside the result grid
+> with an inert Run), plus a console strip. The sidebar|content and content|console splits are
+> resizable. Everything is driven by mock data and UI-local state; there is no real SQL
+> execution, persistence, or editing yet. Real connections, schema browsing, and query
+> execution arrive in later features.
 
 ## Repo layout
 
@@ -56,8 +57,8 @@ src/
   app/providers.tsx     QueryClientProvider
   routes/               __root (layout + 404), index (workspace home), settings
   components/
-    workspace/          workspace shell: context/provider, sidebar tree, tabs,
-                        statement bar, query/results panes, result grid, console
+    workspace/          workspace shell: context/provider, sidebar tree, database tabs,
+                        workbench (SQL/Tables/Views/Connection), result grid, console
     ui/                 shadcn primitives
   lib/                  tauri.ts (typed invoke wrappers), utils.ts (cn)
   index.css             Tailwind v4 + theme tokens

@@ -26,7 +26,7 @@ function renderApp(initialPath = "/") {
 }
 
 describe("workspace routing", () => {
-  // TC-001 / AC-001, AC-002 — behavior
+  // TC-001, AC-002 — behavior
   it("should render the workspace sidebar tree at the home route", async () => {
     renderApp("/");
     expect(
@@ -34,7 +34,7 @@ describe("workspace routing", () => {
     ).toBeInTheDocument();
   });
 
-  // AC-001, AC-012 — behavior
+  // TC-001, AC-013 — behavior
   it("should render the console region at the home route", async () => {
     renderApp("/");
     expect(
@@ -51,14 +51,14 @@ describe("workspace routing", () => {
     ).not.toBeInTheDocument();
   });
 
-  // AC-015 — behavior (command palette removed)
+  // AC-015 — behavior (no command palette dialog)
   it("should not render a command palette dialog", async () => {
     renderApp("/");
     await screen.findByRole("tree", { name: /navigator/i });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  // E-6 — behavior (settings route exists, no in-UI link)
+  // behavior (settings route renders its content)
   it("should still render the settings route content", async () => {
     renderApp("/settings");
     expect(
@@ -66,7 +66,7 @@ describe("workspace routing", () => {
     ).toBeInTheDocument();
   });
 
-  // E-6 — behavior (no in-UI link to settings on the home view)
+  // behavior (no in-UI settings link on the home view)
   it("should not render an in-UI settings link on the home view", async () => {
     renderApp("/");
     await screen.findByRole("tree", { name: /navigator/i });
@@ -75,7 +75,7 @@ describe("workspace routing", () => {
     ).not.toBeInTheDocument();
   });
 
-  // AC-001 — behavior (unknown route -> 404)
+  // behavior (unknown route -> 404)
   it("should render a not-found view for an unknown route", async () => {
     renderApp("/this-route-does-not-exist");
     expect(await screen.findByText(/404/i)).toBeInTheDocument();
