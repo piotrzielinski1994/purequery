@@ -1,8 +1,3 @@
-export type Connection =
-  | { type: "none" }
-  | { type: "password"; username: string; password: string }
-  | { type: "token"; token: string };
-
 export type ResultColumn = { name: string; type: string };
 
 export type QueryResult = {
@@ -28,7 +23,11 @@ export type DatabaseNode = {
   kind: "database";
   id: string;
   name: string;
-  connection: Connection;
+  host: string;
+  port: number;
+  database: string;
+  user: string;
+  password: string;
   tables: TableNode[];
   views: ViewObject[];
   sql: string;
@@ -116,7 +115,11 @@ const appDb: DatabaseNode = {
   kind: "database",
   id: "db-app",
   name: "app_db",
-  connection: { type: "token", token: "ey.mock.token" },
+  host: "localhost",
+  port: 5432,
+  database: "app",
+  user: "app_user",
+  password: "app-secret",
   tables: [usersTable, ordersTable, eventsTable],
   views: [{ name: "active_users" }, { name: "daily_signups" }],
   sql: "SELECT id, name, email\nFROM users\nWHERE last_seen > now() - interval '7 days'",
@@ -144,7 +147,11 @@ const adminDb: DatabaseNode = {
   kind: "database",
   id: "db-admin",
   name: "admin_db",
-  connection: { type: "password", username: "admin", password: "s3cr3t-pw" },
+  host: "db.internal",
+  port: 5433,
+  database: "admin",
+  user: "admin",
+  password: "s3cr3t-pw",
   tables: [accountsTable, auditLogTable],
   views: [{ name: "recent_admins" }],
   sql: "SELECT id, role FROM accounts",
@@ -170,7 +177,11 @@ const scratchDb: DatabaseNode = {
   kind: "database",
   id: "db-scratch",
   name: "scratch_db",
-  connection: { type: "none" },
+  host: "localhost",
+  port: 5432,
+  database: "scratch",
+  user: "postgres",
+  password: "",
   tables: [],
   views: [],
   sql: "SELECT 1 WHERE false",

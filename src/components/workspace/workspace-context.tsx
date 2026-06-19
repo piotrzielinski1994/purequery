@@ -13,7 +13,7 @@ import {
   type TreeNode,
 } from "@/components/workspace/mock-data";
 
-export type DatabaseTab = "sql" | "views" | "script" | "connection";
+export type DatabaseTab = "sql" | "views" | "script" | "settings";
 
 type OpenNode = DatabaseNode | TableNode;
 

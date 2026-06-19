@@ -39,6 +39,8 @@ npm install
 
 Rust backend tests: `cd src-tauri && cargo test`.
 
+The dev server runs on port 1431 (set in both `vite.config.ts` and `src-tauri/tauri.conf.json`).
+
 > The home route renders the workspace shell: a sidebar tree of databases grouped under
 > optional folders, where each database expands (chevron) to list its tables. Clicking a
 > database name opens a **database card** (sub-tabs SQL / Views / Script / Connection - the

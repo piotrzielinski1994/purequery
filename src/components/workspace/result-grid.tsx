@@ -38,7 +38,7 @@ export function ResultGrid({ result }: { result: QueryResult }) {
             {headerGroup.headers.map((header) => (
               <th
                 key={header.id}
-                className="px-3 py-1.5 font-mono font-medium text-muted-foreground"
+                className="border-r px-3 py-1.5 font-mono font-medium text-muted-foreground last:border-r-0"
               >
                 {flexRender(
                   header.column.columnDef.header,
@@ -53,7 +53,10 @@ export function ResultGrid({ result }: { result: QueryResult }) {
         {table.getRowModel().rows.map((row) => (
           <tr key={row.id} className="border-b last:border-0">
             {row.getVisibleCells().map((cell) => (
-              <td key={cell.id} className="px-3 py-1.5 font-mono">
+              <td
+                key={cell.id}
+                className="border-r px-3 py-1.5 font-mono last:border-r-0"
+              >
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </td>
             ))}

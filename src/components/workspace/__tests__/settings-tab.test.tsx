@@ -3,40 +3,44 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { ConnectionTab } from "@/components/workspace/connection-tab";
+import { SettingsTab } from "@/components/workspace/settings-tab";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
 
-function renderConnection(activeTabId?: string) {
+function renderSettings(activeTabId?: string) {
   return render(
     <WorkspaceProvider tree={fixtureTree} initialActiveTabId={activeTabId}>
-      <ConnectionTab />
+      <SettingsTab />
     </WorkspaceProvider>,
   );
 }
 
-describe("ConnectionTab", () => {
-  // AC-014, TC-006 — behavior (token variant)
-  it("should show a token textbox with the token value for a token connection", () => {
-    renderConnection("db-app");
-    expect(screen.getByRole("textbox", { name: /token/i })).toHaveValue(
-      "tok-abc-123",
+describe("SettingsTab", () => {
+  // AC-014 — behavior (host / port / database)
+  it("should show the host, port and database of the active database", () => {
+    renderSettings("db-admin");
+    expect(screen.getByRole("textbox", { name: /host/i })).toHaveValue(
+      "db.internal",
+    );
+    expect(screen.getByRole("textbox", { name: /port/i })).toHaveValue("5433");
+    expect(screen.getByRole("textbox", { name: /database/i })).toHaveValue(
+      "admin",
     );
   });
 
-  // AC-014 — behavior (password variant: username + masked password)
-  it("should show username and a masked password field for a password connection", () => {
-    renderConnection("db-admin");
-    expect(screen.getByRole("textbox", { name: /username/i })).toHaveValue(
+  // AC-014 — behavior (user + masked password)
+  it("should show the user and a masked password field", () => {
+    renderSettings("db-admin");
+    expect(screen.getByRole("textbox", { name: /user/i })).toHaveValue(
       "seed_admin",
     );
     const password = screen.getByLabelText("Password", { exact: true });
     expect(password).toHaveAttribute("type", "password");
   });
 
-  // AC-012 — behavior (password reveal toggle)
+  // AC-014 — behavior (password reveal toggle)
   it("should reveal the password as plain text when the show-password button is clicked", async () => {
     const user = userEvent.setup();
-    renderConnection("db-admin");
+    renderSettings("db-admin");
 
     expect(screen.getByLabelText("Password", { exact: true })).toHaveAttribute(
       "type",
@@ -49,11 +53,5 @@ describe("ConnectionTab", () => {
       "type",
       "text",
     );
-  });
-
-  // AC-014 — behavior (none variant)
-  it("should show a no-auth message for a none connection", () => {
-    renderConnection("db-scratch");
-    expect(screen.getByText(/no connection|no auth/i)).toBeInTheDocument();
   });
 });

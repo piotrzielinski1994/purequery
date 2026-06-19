@@ -21,7 +21,7 @@ What this feature delivers:
 - A sidebar tree: optional folders > **databases** (expandable) > **tables** (leaves). A
   database can sit at the root with no parent folder; folders nest arbitrarily.
 - A content area with open-tab header + per-tab **cards**: a **database card** (sub-tabs
-  SQL / Views / Script / Connection) and a **table card** (filter row + content grid).
+  SQL / Views / Script / Settings) and a **table card** (filter row + content grid).
 - A console strip at the bottom of the content area.
 - Resizable splits: sidebar\|content and content\|console.
 - UI-local interactivity only: expand/collapse, tab open/close/focus, selection, sub-tabs.
@@ -74,14 +74,14 @@ v  staging
 scratch_db                   <- root-level database leaf
 ```
 
-Database card - sub-tabs SQL / Views / Script / Connection. The SQL sub-tab is two columns,
+Database card - sub-tabs SQL / Views / Script / Settings. The SQL sub-tab is two columns,
 each with its OWN header (split, not merged):
 
 ```
 +--------------------------------------------------+
-| SQL | Views | Script | Connection                |
+| SQL | Views | Script | Settings                  |
 +----------------------------+---------------------+
-| active_users revenue [Run] | Success·142ms·3 rows |   <- two separate headers
+| [active_users x][revenue x]          [Run] | Success·142ms·3 rows |   <- saved-script tabs + split headers
 +----------------------------+---------------------+
 | SELECT id, name, email     | id | name | email    |
 | FROM users                 |  1 | Ada  | ada@ex   |
@@ -111,13 +111,13 @@ Table card - filter input row over the table content grid:
 | AC-005 | Clicking a database's name (not its chevron) opens/focuses its database card and selects it, without requiring expansion | Must |
 | AC-006 | Clicking a table leaf opens/focuses a table card and selects it | Must |
 | AC-007 | The content-header opens both database tabs and table tabs; each has a close (`x`) and a `+` placeholder; tab click focuses; no duplicate on re-open; closing the active tab reassigns to an adjacent tab or null | Must |
-| AC-008 | The database card has sub-tabs **SQL / Views / Script / Connection** (no Tables sub-tab); the active sub-tab's panel renders | Must |
+| AC-008 | The database card has sub-tabs **SQL / Views / Script / Settings** (no Tables sub-tab); the active sub-tab's panel renders | Must |
 | AC-009 | The SQL sub-tab's left (editor) column has its own header with an inline list of the database's saved-script names and an inert Run button | Must |
 | AC-010 | The SQL sub-tab's right (results) column has its own header with the status readout (`Success · 142ms · 3 rows`); the two headers are visually separate, not one merged bar | Must |
 | AC-011 | The SQL sub-tab renders the read-only SQL text (left) and the result grid (right); a zero-row result shows the grid empty state while the status readout still renders | Must |
 | AC-012 | The Views sub-tab lists the database's views (name); empty state when none | Must |
 | AC-013 | The Script sub-tab renders the database's script text (read-only); empty state when none | Must |
-| AC-014 | The Connection sub-tab renders the connection per union variant (none / password / token) | Must |
+| AC-014 | The Settings sub-tab renders the database connection fields: host, port, database, user, and a masked password (show/hide toggle) | Must |
 | AC-015 | A table card renders a filter input row (text filter input + column selector) and the table's content grid (column headers + one row per table row); empty state when the table has no rows | Must |
 | AC-016 | A console strip renders at the bottom with mock log lines | Must |
 | AC-017 | Splits are resizable via drag handles: sidebar\|content and content\|console | Must |
@@ -134,7 +134,7 @@ Table card - filter input row over the table content grid:
 **Steps:** click the chevron on `admin_db`. **Expected:** its tables (`accounts`, `audit_log`) appear as child leaves; the chevron flips open; no card opens. **Maps to:** AC-004.
 
 ### TC-003: Open a database card
-**Steps:** click the database name `admin_db`. **Expected:** a database card tab opens + focuses with sub-tabs SQL/Views/Script/Connection; the row is selected. **Maps to:** AC-005, AC-008.
+**Steps:** click the database name `admin_db`. **Expected:** a database card tab opens + focuses with sub-tabs SQL/Views/Script/Settings; the row is selected. **Maps to:** AC-005, AC-008.
 
 ### TC-004: Open a table card
 **Steps:** expand `admin_db`, click table `accounts`. **Expected:** a table card opens with a filter input row + the table's content grid. **Maps to:** AC-006, AC-015.
@@ -143,7 +143,7 @@ Table card - filter input row over the table content grid:
 **Steps:** open a database card, observe the SQL sub-tab. **Expected:** left column header = saved-script names + Run; right column header = status readout; separate headers. **Maps to:** AC-009, AC-010.
 
 ### TC-006: Database sub-tabs
-**Steps:** in a database card click Views, then Script, then Connection. **Expected:** each panel renders; no Tables sub-tab. **Maps to:** AC-008, AC-012, AC-013, AC-014.
+**Steps:** in a database card click Views, then Script, then Settings. **Expected:** each panel renders; no Tables sub-tab. **Maps to:** AC-008, AC-012, AC-013, AC-014.
 
 ### TC-007: Close a tab
 **Steps:** open a database and a table, close one. **Expected:** that tab removed, the other remains. **Maps to:** AC-007.
@@ -154,14 +154,9 @@ Table card - filter input row over the table content grid:
 ## 4. Data Model
 
 Mock data in one module (`mock-data.ts`). Discriminated-union tree keyed on `kind`
-(folder / database / table); connection union keyed on `type`.
+(folder / database / table).
 
 ```ts
-type Connection =
-  | { type: "none" }
-  | { type: "password"; username: string; password: string }
-  | { type: "token"; token: string };
-
 type ResultColumn = { name: string; type: string };
 
 type QueryResult = {
@@ -187,7 +182,11 @@ type DatabaseNode = {
   kind: "database";
   id: string;
   name: string;
-  connection: Connection;
+  host: string;                     // Settings sub-tab connection fields
+  port: number;
+  database: string;
+  user: string;
+  password: string;
   tables: TableNode[];              // children shown when expanded
   views: ViewObject[];
   sql: string;                      // SQL sub-tab editor (read-only)
@@ -269,3 +268,4 @@ sub-tab (tables moved to the sidebar + a table card).
 | 0.1.0 | 2026-06-19 | MVP workspace shell, query-centric (sidebar query leaves, statement bar, query/results panes) |
 | 0.2.0 | 2026-06-19 | Database-centric rework: database = sidebar leaf; workbench tabs SQL/Tables/Views/Connection; statement bar removed; window-height fix |
 | 0.3.0 | 2026-06-19 | Tables move into the sidebar (table leaves + table cards); database sub-tabs become SQL/Views/Script/Connection; split SQL editor / results headers; saved-scripts inline list |
+| 0.4.0 | 2026-06-20 | Connection sub-tab renamed Settings with real DB connection fields (host/port/database/user/password), HTTP-style auth union dropped; saved scripts rendered as closable tabs; Run button full-height/flush-right + square; table-card filter row restyled flush like the old URL bar; vertical borders on result/table grids; dev port moved 1420->1431 |

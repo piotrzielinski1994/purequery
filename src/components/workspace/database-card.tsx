@@ -6,7 +6,7 @@ import {
 import { SqlTab } from "@/components/workspace/sql-tab";
 import { ViewsTab } from "@/components/workspace/views-tab";
 import { ScriptTab } from "@/components/workspace/script-tab";
-import { ConnectionTab } from "@/components/workspace/connection-tab";
+import { SettingsTab } from "@/components/workspace/settings-tab";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 
 export function DatabaseCard() {
@@ -33,8 +33,8 @@ export function DatabaseCard() {
           <TabsTrigger value="script" className={PANE_TABS_TRIGGER}>
             Script
           </TabsTrigger>
-          <TabsTrigger value="connection" className={PANE_TABS_TRIGGER}>
-            Connection
+          <TabsTrigger value="settings" className={PANE_TABS_TRIGGER}>
+            Settings
           </TabsTrigger>
         </TabsList>
       </div>
@@ -50,8 +50,8 @@ export function DatabaseCard() {
       <TabsContent value="script" className="min-h-0 flex-1 overflow-auto">
         <ScriptTab />
       </TabsContent>
-      <TabsContent value="connection" className="min-h-0 flex-1 overflow-auto">
-        <ConnectionTab />
+      <TabsContent value="settings" className="min-h-0 flex-1 overflow-auto">
+        <SettingsTab />
       </TabsContent>
     </Tabs>
   );

@@ -16,12 +16,12 @@ function renderCard(activeTabId?: string) {
 
 describe("DatabaseCard", () => {
   // AC-008, TC-006 — behavior (the four sub-tabs)
-  it("should expose a database-sections tablist with SQL, Views, Script and Connection tabs", () => {
+  it("should expose a database-sections tablist with SQL, Views, Script and Settings tabs", () => {
     renderCard("db-app");
     expect(
       screen.getByRole("tablist", { name: /database sections|workbench/i }),
     ).toBeInTheDocument();
-    for (const name of ["SQL", "Views", "Script", "Connection"]) {
+    for (const name of ["SQL", "Views", "Script", "Settings"]) {
       expect(screen.getByRole("tab", { name })).toBeInTheDocument();
     }
   });
@@ -57,13 +57,14 @@ describe("DatabaseCard", () => {
     expect(screen.getByText(/VACUUM ANALYZE users/)).toBeInTheDocument();
   });
 
-  // AC-008, AC-014, TC-006 — behavior (switching to Connection)
-  it("should render the Connection panel when the Connection sub-tab is clicked", async () => {
+  // AC-008, AC-014, TC-006 — behavior (switching to Settings)
+  it("should render the Settings panel when the Settings sub-tab is clicked", async () => {
     const user = userEvent.setup();
     renderCard("db-app");
 
-    await user.click(screen.getByRole("tab", { name: "Connection" }));
-    expect(screen.getByRole("textbox", { name: /token/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Settings" }));
+    expect(screen.getByRole("textbox", { name: /host/i })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /user/i })).toBeInTheDocument();
   });
 
   // AC-019, E-1 — behavior (no active tab -> no sub-tab tablist)

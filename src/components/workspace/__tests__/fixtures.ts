@@ -1,19 +1,10 @@
 import type {
-  Connection,
   DatabaseNode,
   QueryResult,
   TableNode,
   TreeNode,
   ViewObject,
 } from "@/components/workspace/mock-data";
-
-const tokenConnection: Connection = { type: "token", token: "tok-abc-123" };
-const passwordConnection: Connection = {
-  type: "password",
-  username: "seed_admin",
-  password: "s3cr3t-pw",
-};
-const noneConnection: Connection = { type: "none" };
 
 const appUsersResult: QueryResult = {
   status: "success",
@@ -134,7 +125,11 @@ export const appDb: DatabaseNode = {
   kind: "database",
   id: "db-app",
   name: "app_db",
-  connection: tokenConnection,
+  host: "localhost",
+  port: 5432,
+  database: "app",
+  user: "app_user",
+  password: "app-secret",
   tables: [usersTable, ordersTable, emptyAuditTable],
   views: appViews,
   sql: "SELECT id, name, email\nFROM users\nWHERE last_seen > now() - interval '7 days'",
@@ -148,7 +143,11 @@ export const adminDb: DatabaseNode = {
   kind: "database",
   id: "db-admin",
   name: "admin_db",
-  connection: passwordConnection,
+  host: "db.internal",
+  port: 5433,
+  database: "admin",
+  user: "seed_admin",
+  password: "s3cr3t-pw",
   tables: [accountsTable, auditLogTable],
   views: [{ name: "recent_admins" }],
   sql: "SELECT id, role FROM accounts",
@@ -162,7 +161,11 @@ export const scratchDb: DatabaseNode = {
   kind: "database",
   id: "db-scratch",
   name: "scratch_db",
-  connection: noneConnection,
+  host: "localhost",
+  port: 5432,
+  database: "scratch",
+  user: "postgres",
+  password: "",
   tables: [],
   views: [],
   sql: "SELECT 1 WHERE false",
