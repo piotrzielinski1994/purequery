@@ -39,10 +39,12 @@ npm install
 
 Rust backend tests: `cd src-tauri && cargo test`.
 
-> Scaffold only - no database-client features yet. The home route renders demo widgets
-> proving each stack layer is wired: a Tauri IPC-backed greeting (Query), a static object
-> grid (Table), a connection-URL form (Form), and a `Mod+K` command-palette placeholder
-> (Hotkeys). Real connections, schema browsing, and query execution arrive in later features.
+> The home route renders the MVP workspace shell: a sidebar object tree (connection /
+> schema folders + query leaves with a statement-kind badge), a content area with open-query
+> tabs, a statement bar (kind + target + inert Run), side-by-side query/results panes, and a
+> console strip - all resizable. Everything is driven by mock data and UI-local state; there
+> is no real SQL execution, persistence, or editing yet. Real connections, schema browsing,
+> and query execution arrive in later features.
 
 ## Repo layout
 
@@ -51,9 +53,12 @@ index.html              Vite entry HTML
 src/
   main.tsx              React entry: providers + RouterProvider
   router.tsx            Code-based TanStack Router assembly
-  app/providers.tsx     QueryClientProvider + HotkeysProvider
-  routes/               __root (layout + 404), index (home), settings
-  components/           demo-table, demo-form, command-palette, ui/ (shadcn)
+  app/providers.tsx     QueryClientProvider
+  routes/               __root (layout + 404), index (workspace home), settings
+  components/
+    workspace/          workspace shell: context/provider, sidebar tree, tabs,
+                        statement bar, query/results panes, result grid, console
+    ui/                 shadcn primitives
   lib/                  tauri.ts (typed invoke wrappers), utils.ts (cn)
   index.css             Tailwind v4 + theme tokens
   test/setup.ts         Vitest + Testing Library setup
@@ -61,7 +66,3 @@ src-tauri/              Rust desktop shell (greet command, tauri.conf.json)
 tests/e2e/              Behavior smoke tests
 docs/                   spec/plan per feature, ADR, learnings
 ```
-
-## Keybindings
-
-- `Mod+K` (`Cmd+K` macOS / `Ctrl+K` elsewhere) - toggle the command palette placeholder.

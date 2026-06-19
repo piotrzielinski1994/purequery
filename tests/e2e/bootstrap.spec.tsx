@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
 import {
   createRouter,
   createMemoryHistory,
@@ -11,13 +10,6 @@ import { AppProviders } from "@/app/providers";
 import { rootRoute } from "@/routes/__root";
 import { indexRoute } from "@/routes/index";
 import { settingsRoute } from "@/routes/settings";
-import { DemoTable } from "@/components/demo-table";
-import { DemoForm } from "@/components/demo-form";
-import { invoke } from "@tauri-apps/api/core";
-
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-
-const invokeMock = vi.mocked(invoke);
 
 function renderApp(initialPath = "/") {
   const routeTree = rootRoute.addChildren([indexRoute, settingsRoute]);
@@ -33,149 +25,59 @@ function renderApp(initialPath = "/") {
   );
 }
 
-describe("bootstrap scaffold", () => {
-  beforeEach(() => {
-    invokeMock.mockReset();
-    invokeMock.mockResolvedValue("Hello, World! Greetings from Tauri.");
-  });
-
-  // TC-001 / AC-002, AC-008 — behavior
-  it("should render home route with heading and a button on launch", async () => {
+describe("workspace routing", () => {
+  // TC-001 / AC-001, AC-002 — behavior
+  it("should render the workspace sidebar tree at the home route", async () => {
     renderApp("/");
-
     expect(
-      await screen.findByRole("heading", { name: /home/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /primary action/i }),
+      await screen.findByRole("tree", { name: /navigator/i }),
     ).toBeInTheDocument();
   });
 
-  // TC-002 / AC-003 — behavior
-  it("should navigate between routes when a nav link is activated", async () => {
-    const user = userEvent.setup();
+  // AC-001, AC-012 — behavior
+  it("should render the console region at the home route", async () => {
     renderApp("/");
-
     expect(
-      await screen.findByRole("heading", { name: /home/i }),
+      await screen.findByRole("region", { name: /console/i }),
     ).toBeInTheDocument();
+  });
 
-    await user.click(screen.getByRole("link", { name: /settings/i }));
+  // AC-015 — behavior (bootstrap demo nav removed)
+  it("should not render the old bootstrap home nav link", async () => {
+    renderApp("/");
+    await screen.findByRole("tree", { name: /navigator/i });
+    expect(
+      screen.queryByRole("link", { name: /^home$/i }),
+    ).not.toBeInTheDocument();
+  });
 
+  // AC-015 — behavior (command palette removed)
+  it("should not render a command palette dialog", async () => {
+    renderApp("/");
+    await screen.findByRole("tree", { name: /navigator/i });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  // E-6 — behavior (settings route exists, no in-UI link)
+  it("should still render the settings route content", async () => {
+    renderApp("/settings");
     expect(
       await screen.findByText(/configuration lives here/i),
     ).toBeInTheDocument();
-
-    await user.click(screen.getByRole("link", { name: /^home$/i }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: /home/i }),
-      ).toBeInTheDocument();
-    });
   });
 
-  // TC-003 / AC-004, AC-011 — behavior
-  it("should resolve a query backed by a Tauri command and render the greeting", async () => {
-    invokeMock.mockResolvedValue("Hello, World! Greetings from Tauri.");
+  // E-6 — behavior (no in-UI link to settings on the home view)
+  it("should not render an in-UI settings link on the home view", async () => {
     renderApp("/");
-
+    await screen.findByRole("tree", { name: /navigator/i });
     expect(
-      await screen.findByText("Hello, World! Greetings from Tauri."),
-    ).toBeInTheDocument();
+      screen.queryByRole("link", { name: /^settings$/i }),
+    ).not.toBeInTheDocument();
   });
 
-  // UI state Loading / AC-004 — behavior
-  it("should show a loading indicator before the greeting query resolves", async () => {
-    let resolveGreet: ((value: string) => void) | undefined;
-    invokeMock.mockReturnValue(
-      new Promise<string>((resolve) => {
-        resolveGreet = resolve;
-      }),
-    );
-
-    renderApp("/");
-
-    expect(await screen.findByText(/loading/i)).toBeInTheDocument();
-
-    resolveGreet?.("Hello, World! Greetings from Tauri.");
-
-    expect(
-      await screen.findByText("Hello, World! Greetings from Tauri."),
-    ).toBeInTheDocument();
-  });
-
-  // Edge case (greet rejects) / AC-004 — behavior
-  it("should show an inline error and not crash when the greet command rejects", async () => {
-    invokeMock.mockRejectedValue(new Error("IPC failed"));
-    renderApp("/");
-
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
-    // app stays alive: home heading still present
-    expect(screen.getByRole("heading", { name: /home/i })).toBeInTheDocument();
-  });
-
-  // TC-004 / AC-007 — behavior
-  it("should toggle the command palette dialog on the Mod+K hotkey", async () => {
-    const user = userEvent.setup();
-    renderApp("/");
-
-    await screen.findByRole("heading", { name: /home/i });
-
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-
-    // Mod resolves to Control under jsdom (it reports as a non-mac platform).
-    await user.keyboard("{Control>}k{/Control}");
-    await waitFor(() => {
-      expect(screen.getByRole("dialog")).toBeInTheDocument();
-    });
-
-    await user.keyboard("{Control>}k{/Control}");
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    });
-  });
-
-  // AC-005 — behavior
-  it("should render a demo table with column headers and rows", () => {
-    render(<DemoTable />);
-
-    expect(
-      screen.getByRole("columnheader", { name: /kind/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("columnheader", { name: /name/i }),
-    ).toBeInTheDocument();
-
-    const rows = screen.getAllByRole("row");
-    // 1 header row + at least one data row
-    expect(rows.length).toBeGreaterThan(1);
-  });
-
-  // AC-005 (empty state) — behavior
-  it("should render an empty state when the demo table has no rows", () => {
-    render(<DemoTable rows={[]} />);
-
-    expect(screen.getByText(/no objects yet/i)).toBeInTheDocument();
-  });
-
-  // TC-006 / AC-006 — behavior
-  it("should show a validation error and not confirm submit when the form field is empty", async () => {
-    const user = userEvent.setup();
-    render(<DemoForm />);
-
-    await user.click(screen.getByRole("button", { name: /save connection/i }));
-
-    const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent(/required/i);
-
-    expect(screen.queryByText(/^saved:/i)).not.toBeInTheDocument();
-  });
-
-  // TC-002 (unknown route) / AC-003 — behavior
+  // AC-001 — behavior (unknown route -> 404)
   it("should render a not-found view for an unknown route", async () => {
     renderApp("/this-route-does-not-exist");
-
     expect(await screen.findByText(/404/i)).toBeInTheDocument();
     expect(screen.getByText(/does not exist/i)).toBeInTheDocument();
   });
