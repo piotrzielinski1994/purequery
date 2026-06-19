@@ -30,6 +30,7 @@ type WorkspaceContextValue = {
   openNode: (id: string) => void;
   setActiveTab: (id: string) => void;
   closeTab: (id: string) => void;
+  closeAllTabs: () => void;
   setDatabaseTab: (tab: DatabaseTab) => void;
   newTab: () => void;
 };
@@ -130,6 +131,10 @@ export function WorkspaceProvider({
       openNode,
       setActiveTab: setActiveTabId,
       closeTab,
+      closeAllTabs: () => {
+        setOpenTabIds([]);
+        setActiveTabId(null);
+      },
       setDatabaseTab: setActiveDatabaseTab,
       newTab: () => {},
     };

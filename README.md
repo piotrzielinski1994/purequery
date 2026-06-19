@@ -62,7 +62,8 @@ src/
   routes/               __root (layout + 404), index (workspace home), settings
   components/
     workspace/          workspace shell: context/provider, sidebar tree, content tabs,
-                        database card (SQL/Views/Script/Connection), table card, console
+                        database card (SQL/Views/Script/Connection), table card, console,
+                        command palette (Cmd/Ctrl+K)
     ui/                 shadcn primitives
   lib/                  tauri.ts (typed invoke wrappers), utils.ts (cn)
   index.css             Tailwind v4 + theme tokens
