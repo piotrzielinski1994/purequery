@@ -1,10 +1,9 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { KIND_COLOR } from "@/components/workspace/kind-color";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import type {
+  DatabaseNode,
   FolderNode,
-  QueryNode,
   TreeNode,
 } from "@/components/workspace/mock-data";
 
@@ -41,16 +40,16 @@ function FolderRow({ node, depth }: { node: FolderNode; depth: number }) {
   );
 }
 
-function QueryRow({ node, depth }: { node: QueryNode; depth: number }) {
-  const { activeQueryId, selectNode } = useWorkspace();
-  const isSelected = activeQueryId === node.id;
+function DatabaseRow({ node, depth }: { node: DatabaseNode; depth: number }) {
+  const { activeDatabaseId, selectNode } = useWorkspace();
+  const isSelected = activeDatabaseId === node.id;
 
   return (
     <li>
       <div
         role="treeitem"
         aria-selected={isSelected}
-        aria-label={`${node.statementKind} ${node.name}`}
+        aria-label={node.name}
         tabIndex={0}
         onClick={() => selectNode(node.id)}
         style={{ paddingLeft: `${depth * 14 + 10}px` }}
@@ -59,14 +58,7 @@ function QueryRow({ node, depth }: { node: QueryNode; depth: number }) {
           isSelected && "bg-accent",
         )}
       >
-        <span
-          className={cn(
-            "shrink-0 font-mono text-[12px]",
-            KIND_COLOR[node.statementKind],
-          )}
-        >
-          {node.statementKind}
-        </span>
+        <Database className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="truncate">{node.name}</span>
       </div>
     </li>
@@ -77,5 +69,5 @@ export function TreeRow({ node, depth }: { node: TreeNode; depth: number }) {
   if (node.kind === "folder") {
     return <FolderRow node={node} depth={depth} />;
   }
-  return <QueryRow node={node} depth={depth} />;
+  return <DatabaseRow node={node} depth={depth} />;
 }

@@ -1,31 +1,30 @@
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { cn } from "@/lib/utils";
-import { Plus, X } from "lucide-react";
-import { KIND_COLOR } from "@/components/workspace/kind-color";
+import { Database, Plus, X } from "lucide-react";
 
 export function ContentHeader() {
   const {
-    openQueryIds,
-    activeQueryId,
-    queriesById,
-    setActiveQuery,
-    closeQuery,
-    newQuery,
+    openDatabaseIds,
+    activeDatabaseId,
+    databasesById,
+    setActiveDatabase,
+    closeDatabase,
+    newDatabaseTab,
   } = useWorkspace();
 
   return (
     <div className="flex h-9 shrink-0 items-stretch overflow-x-auto border-b bg-muted/30">
       <div
         role="tablist"
-        aria-label="Open queries"
+        aria-label="Open databases"
         className="flex h-full items-stretch"
       >
-        {openQueryIds.map((id) => {
-          const query = queriesById.get(id);
-          if (!query) {
+        {openDatabaseIds.map((id) => {
+          const db = databasesById.get(id);
+          if (!db) {
             return null;
           }
-          const isActive = id === activeQueryId;
+          const isActive = id === activeDatabaseId;
           return (
             <div
               key={id}
@@ -40,27 +39,19 @@ export function ContentHeader() {
                 type="button"
                 role="tab"
                 aria-selected={isActive}
-                onClick={() => setActiveQuery(id)}
+                onClick={() => setActiveDatabase(id)}
                 className={cn(
                   "flex items-center gap-1.5 truncate",
                   isActive ? "text-foreground" : "text-muted-foreground",
                 )}
               >
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "shrink-0 font-mono text-[11px]",
-                    KIND_COLOR[query.statementKind],
-                  )}
-                >
-                  {query.statementKind}
-                </span>
-                {query.name}
+                <Database aria-hidden="true" className="size-3.5 shrink-0" />
+                {db.name}
               </button>
               <button
                 type="button"
-                aria-label={`Close ${query.name}`}
-                onClick={() => closeQuery(id)}
+                aria-label={`Close ${db.name}`}
+                onClick={() => closeDatabase(id)}
                 className="rounded-sm p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
               >
                 <X className="size-3" />
@@ -71,8 +62,8 @@ export function ContentHeader() {
       </div>
       <button
         type="button"
-        aria-label="New query"
-        onClick={newQuery}
+        aria-label="New database tab"
+        onClick={newDatabaseTab}
         className="shrink-0 px-2 py-1.5 text-muted-foreground hover:text-foreground"
       >
         <Plus className="size-4" />

@@ -5,178 +5,170 @@ import userEvent from "@testing-library/user-event";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { ContentHeader } from "@/components/workspace/content-header";
 import { SidebarTree } from "@/components/workspace/sidebar-tree";
-import { StatementBar } from "@/components/workspace/statement-bar";
+import { Workbench } from "@/components/workspace/workbench";
 import {
   fixtureTree,
-  expandedToActiveUsers,
+  expandedToAppDb,
 } from "@/components/workspace/__tests__/fixtures";
 
 describe("ContentHeader", () => {
-  // AC-007 — behavior
-  it("should expose a tablist named open queries", () => {
+  // AC-006 — behavior
+  it("should expose a tablist named open databases", () => {
     render(
-      <WorkspaceProvider tree={fixtureTree} initialActiveQueryId="q-seed-users">
+      <WorkspaceProvider tree={fixtureTree} initialActiveDatabaseId="db-admin">
         <ContentHeader />
       </WorkspaceProvider>,
     );
     expect(
-      screen.getByRole("tablist", { name: /open queries/i }),
+      screen.getByRole("tablist", { name: /open databases/i }),
     ).toBeInTheDocument();
   });
 
-  // AC-007 — behavior
-  it("should render an open query as a tab named by the query name", () => {
+  // AC-006 — behavior
+  it("should render an open database as a tab named by the database name", () => {
     render(
-      <WorkspaceProvider tree={fixtureTree} initialActiveQueryId="q-seed-users">
+      <WorkspaceProvider tree={fixtureTree} initialActiveDatabaseId="db-admin">
         <ContentHeader />
       </WorkspaceProvider>,
     );
-    expect(
-      screen.getByRole("tab", { name: "seed_users" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "admin_db" })).toBeInTheDocument();
   });
 
-  // AC-007 — behavior
-  it("should offer a new-query plus button", () => {
+  // AC-006 — behavior (placeholder + button, presence only)
+  it("should offer a new-tab plus button", () => {
     render(
-      <WorkspaceProvider tree={fixtureTree} initialActiveQueryId="q-seed-users">
+      <WorkspaceProvider tree={fixtureTree} initialActiveDatabaseId="db-admin">
         <ContentHeader />
       </WorkspaceProvider>,
     );
-    expect(
-      screen.getByRole("button", { name: /new query/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /new /i })).toBeInTheDocument();
   });
 
-  // AC-007 — behavior
+  // AC-006 — behavior
   it("should offer a close button per open tab", () => {
     render(
-      <WorkspaceProvider tree={fixtureTree} initialActiveQueryId="q-seed-users">
+      <WorkspaceProvider tree={fixtureTree} initialActiveDatabaseId="db-admin">
         <ContentHeader />
       </WorkspaceProvider>,
     );
     expect(
-      screen.getByRole("button", { name: "Close seed_users" }),
+      screen.getByRole("button", { name: "Close admin_db" }),
     ).toBeInTheDocument();
   });
 
-  // AC-005, AC-007, TC-003 — behavior
-  it("should open and focus a tab for a query selected from the tree", async () => {
+  // AC-004, AC-006, TC-003 — behavior
+  it("should open and focus a tab for a database selected from the tree", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider tree={fixtureTree} initialExpandedIds={expandedToActiveUsers}>
+      <WorkspaceProvider
+        tree={fixtureTree}
+        initialExpandedIds={expandedToAppDb}
+      >
         <SidebarTree />
         <ContentHeader />
       </WorkspaceProvider>,
     );
 
     expect(
-      screen.queryByRole("tab", { name: "active_users" }),
+      screen.queryByRole("tab", { name: "app_db" }),
     ).not.toBeInTheDocument();
 
-    await user.click(
-      screen.getByRole("treeitem", { name: "SELECT active_users" }),
-    );
+    await user.click(screen.getByRole("treeitem", { name: "app_db" }));
 
-    const tab = await screen.findByRole("tab", { name: "active_users" });
+    const tab = await screen.findByRole("tab", { name: "app_db" });
     expect(tab).toHaveAttribute("aria-selected", "true");
   });
 
-  // E-3 — behavior
-  it("should not duplicate a tab when an already-open query is re-selected", async () => {
+  // AC-006, E-3 — behavior
+  it("should not duplicate a tab when an already-open database is re-selected", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider tree={fixtureTree} initialExpandedIds={expandedToActiveUsers}>
+      <WorkspaceProvider
+        tree={fixtureTree}
+        initialExpandedIds={expandedToAppDb}
+      >
         <SidebarTree />
         <ContentHeader />
       </WorkspaceProvider>,
     );
 
-    const query = screen.getByRole("treeitem", { name: "SELECT active_users" });
-    await user.click(query);
-    await screen.findByRole("tab", { name: "active_users" });
-    await user.click(
-      screen.getByRole("treeitem", { name: "SELECT active_users" }),
-    );
+    await user.click(screen.getByRole("treeitem", { name: "app_db" }));
+    await screen.findByRole("tab", { name: "app_db" });
+    await user.click(screen.getByRole("treeitem", { name: "app_db" }));
 
-    expect(screen.getAllByRole("tab", { name: "active_users" })).toHaveLength(1);
+    expect(screen.getAllByRole("tab", { name: "app_db" })).toHaveLength(1);
   });
 
-  // TC-005 / AC-007 — behavior
+  // TC-006, AC-006 — behavior
   it("should remove only the closed tab and keep the other open", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider tree={fixtureTree} initialExpandedIds={[]}>
+      <WorkspaceProvider
+        tree={fixtureTree}
+        initialExpandedIds={["folder-prod", "folder-team"]}
+      >
         <SidebarTree />
         <ContentHeader />
       </WorkspaceProvider>,
     );
 
-    await user.click(screen.getByRole("treeitem", { name: "INSERT seed_users" }));
-    await user.click(
-      screen.getByRole("treeitem", { name: "DELETE purge_sessions" }),
-    );
+    await user.click(screen.getByRole("treeitem", { name: "app_db" }));
+    await user.click(screen.getByRole("treeitem", { name: "billing_db" }));
 
-    expect(screen.getByRole("tab", { name: "seed_users" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("tab", { name: "purge_sessions" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "app_db" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "billing_db" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Close seed_users" }));
+    await user.click(screen.getByRole("button", { name: "Close app_db" }));
 
     expect(
-      screen.queryByRole("tab", { name: "seed_users" }),
+      screen.queryByRole("tab", { name: "app_db" }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("tab", { name: "purge_sessions" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "billing_db" })).toBeInTheDocument();
   });
 
-  // E-4 — behavior
+  // AC-006, E-4 — behavior
   it("should move the active tab to a remaining tab when the active tab is closed", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider tree={fixtureTree} initialExpandedIds={[]}>
+      <WorkspaceProvider
+        tree={fixtureTree}
+        initialExpandedIds={["folder-prod", "folder-team"]}
+      >
         <SidebarTree />
         <ContentHeader />
-        <StatementBar />
       </WorkspaceProvider>,
     );
 
-    await user.click(screen.getByRole("treeitem", { name: "INSERT seed_users" }));
-    await user.click(
-      screen.getByRole("treeitem", { name: "DELETE purge_sessions" }),
-    );
+    await user.click(screen.getByRole("treeitem", { name: "app_db" }));
+    await user.click(screen.getByRole("treeitem", { name: "billing_db" }));
 
-    // purge_sessions is the active (last-selected) tab; close it.
-    await user.click(
-      screen.getByRole("button", { name: "Close purge_sessions" }),
-    );
+    // billing_db is the active (last-selected) tab; close it.
+    await user.click(screen.getByRole("button", { name: "Close billing_db" }));
 
     expect(
-      screen.queryByRole("tab", { name: "purge_sessions" }),
+      screen.queryByRole("tab", { name: "billing_db" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "seed_users" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "app_db" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
   });
 
-  // E-1, E-4 — behavior
-  it("should leave no active query and show an empty statement bar when the last tab is closed", async () => {
+  // AC-006, AC-016, E-1, E-4 — behavior
+  it("should leave no active database and show the workbench empty state when the last tab is closed", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider tree={fixtureTree} initialActiveQueryId="q-seed-users">
+      <WorkspaceProvider tree={fixtureTree} initialActiveDatabaseId="db-admin">
         <ContentHeader />
-        <StatementBar />
+        <Workbench />
       </WorkspaceProvider>,
     );
 
-    await user.click(screen.getByRole("button", { name: "Close seed_users" }));
+    await user.click(screen.getByRole("button", { name: "Close admin_db" }));
 
     expect(
-      screen.queryByRole("tab", { name: "seed_users" }),
+      screen.queryByRole("tab", { name: "admin_db" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/no query selected/i)).toBeInTheDocument();
+    expect(screen.getByText(/no database selected/i)).toBeInTheDocument();
   });
 });

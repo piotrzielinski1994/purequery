@@ -7,19 +7,19 @@ import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { SidebarTree } from "@/components/workspace/sidebar-tree";
 import {
   fixtureTree,
-  expandedToActiveUsers,
+  expandedToAppDb,
 } from "@/components/workspace/__tests__/fixtures";
 
 function renderTree(opts?: {
   expanded?: string[];
-  activeQueryId?: string;
+  activeDatabaseId?: string;
   children?: ReactNode;
 }) {
   return render(
     <WorkspaceProvider
       tree={fixtureTree}
       initialExpandedIds={opts?.expanded ?? []}
-      initialActiveQueryId={opts?.activeQueryId}
+      initialActiveDatabaseId={opts?.activeDatabaseId}
     >
       <SidebarTree />
       {opts?.children}
@@ -28,143 +28,151 @@ function renderTree(opts?: {
 }
 
 describe("SidebarTree", () => {
-  // AC-003 — behavior
+  // AC-002 — behavior
   it("should expose a tree landmark named navigator", () => {
     renderTree();
-    expect(screen.getByRole("tree", { name: /navigator/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("tree", { name: /navigator/i }),
+    ).toBeInTheDocument();
   });
 
-  // AC-003 — behavior
-  it("should render root folders and root-level query leaves as treeitems", () => {
+  // AC-002, E-6 — behavior
+  it("should render root folders and a root-level database leaf as treeitems", () => {
     renderTree();
+    expect(screen.getByRole("treeitem", { name: "prod" })).toBeInTheDocument();
     expect(
-      screen.getByRole("treeitem", { name: "local" }),
+      screen.getByRole("treeitem", { name: "staging" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("treeitem", { name: "analytics" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("treeitem", { name: "INSERT seed_users" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("treeitem", { name: "DELETE purge_sessions" }),
+      screen.getByRole("treeitem", { name: "scratch_db" }),
     ).toBeInTheDocument();
   });
 
-  // AC-003, E-5 — behavior
-  it("should reveal a query nested three folders deep when all ancestors are expanded", () => {
-    renderTree({ expanded: expandedToActiveUsers });
+  // AC-002 — behavior (database leaf name carries no kind prefix)
+  it("should name a database treeitem by the database name with no kind prefix", () => {
+    renderTree({ expanded: expandedToAppDb });
+    expect(screen.getByRole("treeitem", { name: "app_db" })).toBeInTheDocument();
     expect(
-      screen.getByRole("treeitem", { name: "SELECT active_users" }),
-    ).toBeInTheDocument();
-  });
-
-  // AC-004 — behavior
-  it("should hide a folder's children from the DOM when the folder is collapsed", () => {
-    renderTree({ expanded: [] });
-    expect(
-      screen.queryByRole("treeitem", { name: "public" }),
+      screen.queryByRole("treeitem", { name: /database app_db/i }),
     ).not.toBeInTheDocument();
   });
 
-  // AC-004 — side-effect-contract
-  it("should mark a collapsed folder as aria-expanded false and an expanded one as true", () => {
-    renderTree({ expanded: ["folder-local"] });
-    expect(screen.getByRole("treeitem", { name: "local" })).toHaveAttribute(
+  // AC-002, E-5 — behavior (database two folders deep)
+  it("should reveal a database nested two folders deep when all ancestors are expanded", () => {
+    renderTree({ expanded: expandedToAppDb });
+    expect(screen.getByRole("treeitem", { name: "app_db" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("treeitem", { name: "billing_db" }),
+    ).toBeInTheDocument();
+  });
+
+  // AC-003 — behavior
+  it("should hide a folder's children from the DOM when the folder is collapsed", () => {
+    renderTree({ expanded: [] });
+    expect(
+      screen.queryByRole("treeitem", { name: "team" }),
+    ).not.toBeInTheDocument();
+  });
+
+  // AC-003 — side-effect-contract
+  it("should mark a collapsed folder aria-expanded false and an expanded one true", () => {
+    renderTree({ expanded: ["folder-prod"] });
+    expect(screen.getByRole("treeitem", { name: "prod" })).toHaveAttribute(
       "aria-expanded",
       "true",
     );
-    expect(
-      screen.getByRole("treeitem", { name: "analytics" }),
-    ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("treeitem", { name: "staging" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
   });
 
-  // TC-002 / AC-004 — behavior
+  // TC-002, AC-003 — behavior
   it("should reveal children and flip aria-expanded when a collapsed folder is clicked", async () => {
     const user = userEvent.setup();
     renderTree({ expanded: [] });
 
-    const local = screen.getByRole("treeitem", { name: "local" });
-    expect(local).toHaveAttribute("aria-expanded", "false");
+    const prod = screen.getByRole("treeitem", { name: "prod" });
+    expect(prod).toHaveAttribute("aria-expanded", "false");
     expect(
-      screen.queryByRole("treeitem", { name: "public" }),
+      screen.queryByRole("treeitem", { name: "team" }),
     ).not.toBeInTheDocument();
 
-    await user.click(local);
+    await user.click(prod);
 
-    expect(
-      screen.getByRole("treeitem", { name: "local" }),
-    ).toHaveAttribute("aria-expanded", "true");
-    expect(
-      screen.getByRole("treeitem", { name: "public" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("treeitem", { name: "prod" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(screen.getByRole("treeitem", { name: "team" })).toBeInTheDocument();
   });
 
-  // TC-002 / AC-004 — behavior
+  // TC-002, AC-003 — behavior
   it("should hide children again when an expanded folder is clicked a second time", async () => {
     const user = userEvent.setup();
-    renderTree({ expanded: ["folder-local"] });
+    renderTree({ expanded: ["folder-prod"] });
+
+    expect(screen.getByRole("treeitem", { name: "team" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("treeitem", { name: "prod" }));
 
     expect(
-      screen.getByRole("treeitem", { name: "public" }),
-    ).toBeInTheDocument();
-
-    await user.click(screen.getByRole("treeitem", { name: "local" }));
-
-    expect(
-      screen.queryByRole("treeitem", { name: "public" }),
+      screen.queryByRole("treeitem", { name: "team" }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("treeitem", { name: "local" }),
-    ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("treeitem", { name: "prod" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
   });
 
   // AC-003 — side-effect-contract
   it("should place a folder's children inside a group element", () => {
-    renderTree({ expanded: ["folder-local"] });
+    renderTree({ expanded: ["folder-prod"] });
     const groups = screen.getAllByRole("group");
-    const hasPublic = groups.some(
+    const hasTeam = groups.some(
       (group) =>
-        within(group).queryByRole("treeitem", { name: "public" }) !== null,
+        within(group).queryByRole("treeitem", { name: "team" }) !== null,
     );
-    expect(hasPublic).toBe(true);
+    expect(hasTeam).toBe(true);
   });
 
-  // AC-005 — side-effect-contract
-  it("should mark a query treeitem aria-selected true when it is the active query", () => {
-    renderTree({ activeQueryId: "q-seed-users" });
+  // AC-004 — side-effect-contract
+  it("should mark a database treeitem aria-selected true when it is the active database", () => {
+    renderTree({ expanded: ["folder-staging"], activeDatabaseId: "db-admin" });
+    expect(screen.getByRole("treeitem", { name: "admin_db" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     expect(
-      screen.getByRole("treeitem", { name: "INSERT seed_users" }),
-    ).toHaveAttribute("aria-selected", "true");
-    expect(
-      screen.getByRole("treeitem", { name: "DELETE purge_sessions" }),
+      screen.getByRole("treeitem", { name: "scratch_db" }),
     ).toHaveAttribute("aria-selected", "false");
   });
 
-  // AC-005, TC-003, E-3 — behavior
-  it("should select a query leaf and mark it aria-selected when clicked", async () => {
+  // AC-004, TC-003 — behavior
+  it("should select a database leaf and mark it aria-selected when clicked", async () => {
     const user = userEvent.setup();
-    renderTree({ expanded: expandedToActiveUsers });
+    renderTree({ expanded: expandedToAppDb });
 
-    const query = screen.getByRole("treeitem", { name: "SELECT active_users" });
-    expect(query).toHaveAttribute("aria-selected", "false");
+    const db = screen.getByRole("treeitem", { name: "app_db" });
+    expect(db).toHaveAttribute("aria-selected", "false");
 
-    await user.click(query);
+    await user.click(db);
 
-    expect(
-      screen.getByRole("treeitem", { name: "SELECT active_users" }),
-    ).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("treeitem", { name: "app_db" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
-  // AC-006, E-2 — behavior
-  it("should not select any query when a folder is clicked", async () => {
+  // AC-005, E-2 — behavior
+  it("should not change the active database when a folder is clicked", async () => {
     const user = userEvent.setup();
-    renderTree({ expanded: [], activeQueryId: "q-seed-users" });
+    renderTree({ expanded: [], activeDatabaseId: "db-scratch" });
 
-    await user.click(screen.getByRole("treeitem", { name: "analytics" }));
+    await user.click(screen.getByRole("treeitem", { name: "prod" }));
 
     expect(
-      screen.getByRole("treeitem", { name: "INSERT seed_users" }),
+      screen.getByRole("treeitem", { name: "scratch_db" }),
     ).toHaveAttribute("aria-selected", "true");
   });
 });

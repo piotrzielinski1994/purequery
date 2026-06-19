@@ -1,7 +1,3 @@
-export type StatementKind = "SELECT" | "INSERT" | "UPDATE" | "DELETE" | "DDL";
-
-export type KeyValue = { key: string; value: string };
-
 export type Connection =
   | { type: "none" }
   | { type: "password"; username: string; password: string }
@@ -18,17 +14,18 @@ export type QueryResult = {
   message: string;
 };
 
-export type QueryNode = {
-  kind: "query";
+export type TableObject = { name: string; rowCount: number; sizeBytes: number };
+
+export type ViewObject = { name: string };
+
+export type DatabaseNode = {
+  kind: "database";
   id: string;
   name: string;
-  statementKind: StatementKind;
-  target: string;
-  sql: string;
-  params: KeyValue[];
-  options: KeyValue[];
   connection: Connection;
-  scripts: { pre: string; post: string };
+  tables: TableObject[];
+  views: ViewObject[];
+  sql: string;
   result: QueryResult;
 };
 
@@ -39,25 +36,20 @@ export type FolderNode = {
   children: TreeNode[];
 };
 
-export type TreeNode = FolderNode | QueryNode;
+export type TreeNode = FolderNode | DatabaseNode;
 
-const activeUsersQuery: QueryNode = {
-  kind: "query",
-  id: "q-active-users",
-  name: "active_users",
-  statementKind: "SELECT",
-  target: "{{db}}.public.active_users",
-  sql: "SELECT id, name, email\nFROM active_users\nWHERE last_seen > now() - interval '7 days'",
-  params: [
-    { key: "limit", value: "100" },
-    { key: "since", value: "2026-01-01" },
-  ],
-  options: [
-    { key: "timeout", value: "30s" },
-    { key: "fetchSize", value: "500" },
-  ],
+const appDb: DatabaseNode = {
+  kind: "database",
+  id: "db-app",
+  name: "app_db",
   connection: { type: "token", token: "ey.mock.token" },
-  scripts: { pre: "-- pre-query hook", post: "-- post-query hook" },
+  tables: [
+    { name: "users", rowCount: 1280, sizeBytes: 524288 },
+    { name: "orders", rowCount: 8421, sizeBytes: 2097152 },
+    { name: "sessions", rowCount: 90342, sizeBytes: 10485760 },
+  ],
+  views: [{ name: "active_users" }, { name: "daily_signups" }],
+  sql: "SELECT id, name, email\nFROM users\nWHERE last_seen > now() - interval '7 days'",
   result: {
     status: "success",
     timeMs: 142,
@@ -76,160 +68,100 @@ const activeUsersQuery: QueryNode = {
   },
 };
 
-const revenueQuery: QueryNode = {
-  kind: "query",
-  id: "q-revenue",
-  name: "revenue",
-  statementKind: "SELECT",
-  target: "{{db}}.public.invoices",
-  sql: "SELECT date_trunc('month', paid_at) AS month, sum(amount) AS total\nFROM invoices\nGROUP BY 1",
-  params: [],
-  options: [],
-  connection: { type: "token", token: "ey.mock.token" },
-  scripts: { pre: "", post: "" },
+const analyticsDb: DatabaseNode = {
+  kind: "database",
+  id: "db-analytics",
+  name: "analytics_db",
+  connection: { type: "token", token: "ey.analytics.token" },
+  tables: [{ name: "events", rowCount: 1500000, sizeBytes: 734003200 }],
+  views: [{ name: "monthly_revenue" }, { name: "funnel" }],
+  sql: "SELECT date_trunc('month', occurred_at) AS month, count(*)\nFROM events\nGROUP BY 1",
   result: {
     status: "success",
-    timeMs: 88,
+    timeMs: 233,
     rowCount: 2,
     columns: [
       { name: "month", type: "date" },
-      { name: "total", type: "numeric" },
+      { name: "count", type: "int8" },
     ],
     rows: [
-      { month: "2026-05-01", total: "12400" },
-      { month: "2026-06-01", total: "15920" },
+      { month: "2026-05-01", count: "412000" },
+      { month: "2026-06-01", count: "588000" },
     ],
     message: "SELECT 2",
   },
 };
 
-const seedUsersQuery: QueryNode = {
-  kind: "query",
-  id: "q-seed-users",
-  name: "seed_users",
-  statementKind: "INSERT",
-  target: "{{db}}.public.users",
-  sql: "INSERT INTO users (name, email)\nVALUES ('Ada', 'ada@example.com')",
-  params: [{ key: "name", value: "Ada" }],
-  options: [],
-  connection: { type: "password", username: "seed_admin", password: "s3cr3t-pw" },
-  scripts: { pre: "", post: "" },
-  result: {
-    status: "success",
-    timeMs: 31,
-    rowCount: 1,
-    columns: [{ name: "affected", type: "int8" }],
-    rows: [{ affected: "1" }],
-    message: "INSERT 0 1",
-  },
-};
-
-const resetPasswordQuery: QueryNode = {
-  kind: "query",
-  id: "q-reset-password",
-  name: "reset_password",
-  statementKind: "UPDATE",
-  target: "{{db}}.admin.users",
-  sql: "UPDATE users SET password_reset = true\nWHERE id = :id",
-  params: [{ key: "id", value: "42" }],
-  options: [],
-  connection: { type: "password", username: "admin", password: "rootpw" },
-  scripts: { pre: "", post: "" },
+const adminDb: DatabaseNode = {
+  kind: "database",
+  id: "db-admin",
+  name: "admin_db",
+  connection: { type: "password", username: "admin", password: "s3cr3t-pw" },
+  tables: [
+    { name: "accounts", rowCount: 12, sizeBytes: 8192 },
+    { name: "audit_log", rowCount: 50231, sizeBytes: 4194304 },
+  ],
+  views: [{ name: "recent_admins" }],
+  sql: "SELECT id, role FROM accounts",
   result: {
     status: "success",
     timeMs: 24,
-    rowCount: 1,
-    columns: [{ name: "affected", type: "int8" }],
-    rows: [{ affected: "1" }],
-    message: "UPDATE 1",
+    rowCount: 2,
+    columns: [
+      { name: "id", type: "int4" },
+      { name: "role", type: "text" },
+    ],
+    rows: [
+      { id: "1", role: "admin" },
+      { id: "2", role: "ops" },
+    ],
+    message: "SELECT 2",
   },
 };
 
-const purgeSessionsQuery: QueryNode = {
-  kind: "query",
-  id: "q-purge-sessions",
-  name: "purge_sessions",
-  statementKind: "DELETE",
-  target: "{{db}}.admin.sessions",
-  sql: "DELETE FROM sessions WHERE expired_at < now()",
-  params: [],
-  options: [],
+const scratchDb: DatabaseNode = {
+  kind: "database",
+  id: "db-scratch",
+  name: "scratch_db",
   connection: { type: "none" },
-  scripts: { pre: "", post: "" },
+  tables: [],
+  views: [],
+  sql: "SELECT 1 WHERE false",
   result: {
     status: "success",
-    timeMs: 9,
-    rowCount: 5,
-    columns: [{ name: "affected", type: "int8" }],
-    rows: [{ affected: "5" }],
-    message: "DELETE 5",
-  },
-};
-
-const healthQuery: QueryNode = {
-  kind: "query",
-  id: "q-health",
-  name: "health",
-  statementKind: "SELECT",
-  target: "{{db}}",
-  sql: "SELECT 1",
-  params: [],
-  options: [],
-  connection: { type: "none" },
-  scripts: { pre: "", post: "" },
-  result: {
-    status: "success",
-    timeMs: 2,
-    rowCount: 1,
-    columns: [{ name: "?column?", type: "int4" }],
-    rows: [{ "?column?": "1" }],
-    message: "SELECT 1",
+    timeMs: 3,
+    rowCount: 0,
+    columns: [
+      { name: "id", type: "int4" },
+      { name: "name", type: "text" },
+    ],
+    rows: [],
+    message: "SELECT 0",
   },
 };
 
 export const mockTree: TreeNode[] = [
   {
     kind: "folder",
-    id: "f-local",
-    name: "local",
-    children: [
-      {
-        kind: "folder",
-        id: "f-public",
-        name: "public",
-        children: [
-          {
-            kind: "folder",
-            id: "f-reports",
-            name: "reports",
-            children: [activeUsersQuery, revenueQuery],
-          },
-          seedUsersQuery,
-        ],
-      },
-    ],
+    id: "f-prod",
+    name: "prod",
+    children: [appDb, analyticsDb],
   },
   {
     kind: "folder",
-    id: "f-analytics",
-    name: "analytics",
-    children: [],
+    id: "f-staging",
+    name: "staging",
+    children: [adminDb],
   },
-  {
-    kind: "folder",
-    id: "f-admin",
-    name: "admin",
-    children: [resetPasswordQuery, purgeSessionsQuery],
-  },
-  healthQuery,
+  scratchDb,
 ];
 
 export const mockConsoleLines: string[] = [
-  "[12:00:00] connected to localhost:5432/app",
-  "→ SELECT active_users  success",
+  "[12:00:00] connected to localhost:5432/app_db",
+  "→ SELECT users  success",
   "← 142ms · 3 rows",
   "[notice] statement cache warm",
 ];
 
-export const INITIAL_EXPANDED_IDS = ["f-local", "f-public", "f-reports", "f-admin"];
-export const INITIAL_ACTIVE_QUERY_ID = "q-active-users";
+export const INITIAL_EXPANDED_IDS = ["f-prod", "f-staging"];
+export const INITIAL_ACTIVE_DATABASE_ID = "db-app";
