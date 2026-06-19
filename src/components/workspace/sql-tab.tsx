@@ -7,7 +7,7 @@ import type { QueryResult } from "@/components/workspace/mock-data";
 function StatusReadout({ result }: { result: QueryResult }) {
   const isSuccess = result.status === "success";
   return (
-    <div className="flex items-center gap-3 border-b px-3 py-1.5 font-mono text-xs">
+    <div className="flex items-center gap-3 font-mono text-xs">
       <span
         className={cn(
           isSuccess
@@ -24,28 +24,45 @@ function StatusReadout({ result }: { result: QueryResult }) {
 }
 
 export function SqlTab() {
-  const { activeDatabase } = useWorkspace();
+  const { activeNode } = useWorkspace();
 
-  if (!activeDatabase) {
+  if (!activeNode || activeNode.kind !== "database") {
     return null;
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center justify-end border-b bg-muted/30 px-2 py-1">
-        <Button type="button" size="sm">
-          Run
-        </Button>
-      </div>
-      <div className="flex min-h-0 flex-1">
-        <pre className="min-w-0 flex-1 overflow-auto border-r p-3 font-mono text-xs">
-          {activeDatabase.sql || "-- no SQL"}
-        </pre>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <StatusReadout result={activeDatabase.result} />
-          <div className="min-h-0 flex-1 overflow-auto">
-            <ResultGrid result={activeDatabase.result} />
+    <div className="flex h-full min-h-0">
+      <div className="flex min-w-0 flex-1 flex-col border-r">
+        <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b bg-muted/30 px-3">
+          <div className="flex items-center gap-2 overflow-x-auto font-mono text-xs text-muted-foreground">
+            {activeNode.savedScripts.length === 0 ? (
+              <span>No saved scripts</span>
+            ) : (
+              activeNode.savedScripts.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  className="rounded-sm px-1 hover:bg-accent hover:text-foreground"
+                >
+                  {name}
+                </button>
+              ))
+            )}
           </div>
+          <Button type="button" size="sm" className="shrink-0">
+            Run
+          </Button>
+        </div>
+        <pre className="min-h-0 flex-1 overflow-auto p-3 font-mono text-xs">
+          {activeNode.sql || "-- no SQL"}
+        </pre>
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex h-9 shrink-0 items-center border-b bg-muted/30 px-3">
+          <StatusReadout result={activeNode.result} />
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto">
+          <ResultGrid result={activeNode.result} />
         </div>
       </div>
     </div>

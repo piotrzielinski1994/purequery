@@ -39,13 +39,15 @@ npm install
 
 Rust backend tests: `cd src-tauri && cargo test`.
 
-> The home route renders the MVP workspace shell: a sidebar tree of databases grouped under
-> optional folders, a content area with open-database tabs, and a per-database workbench with
-> SQL / Tables / Views / Connection tabs (the SQL tab shows the editor beside the result grid
-> with an inert Run), plus a console strip. The sidebar|content and content|console splits are
-> resizable. Everything is driven by mock data and UI-local state; there is no real SQL
-> execution, persistence, or editing yet. Real connections, schema browsing, and query
-> execution arrive in later features.
+> The home route renders the workspace shell: a sidebar tree of databases grouped under
+> optional folders, where each database expands (chevron) to list its tables. Clicking a
+> database name opens a **database card** (sub-tabs SQL / Views / Script / Connection - the
+> SQL tab shows the editor with its own header of saved-script names + an inert Run, beside
+> the result grid with its own status header). Clicking a table opens a **table card** (a
+> filter row + the table's content grid). A console strip sits below; the sidebar|content
+> and content|console splits are resizable. Everything is driven by mock data and UI-local
+> state; there is no real SQL execution, persistence, or editing yet. Real connections,
+> schema browsing, and query execution arrive in later features.
 
 ## Repo layout
 
@@ -57,8 +59,8 @@ src/
   app/providers.tsx     QueryClientProvider
   routes/               __root (layout + 404), index (workspace home), settings
   components/
-    workspace/          workspace shell: context/provider, sidebar tree, database tabs,
-                        workbench (SQL/Tables/Views/Connection), result grid, console
+    workspace/          workspace shell: context/provider, sidebar tree, content tabs,
+                        database card (SQL/Views/Script/Connection), table card, console
     ui/                 shadcn primitives
   lib/                  tauri.ts (typed invoke wrappers), utils.ts (cn)
   index.css             Tailwind v4 + theme tokens
