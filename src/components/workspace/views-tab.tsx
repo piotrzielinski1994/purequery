@@ -1,13 +1,13 @@
 import { useWorkspace } from "@/components/workspace/workspace-context";
 
 export function ViewsTab() {
-  const { activeDatabase } = useWorkspace();
+  const { activeNode } = useWorkspace();
 
-  if (!activeDatabase) {
+  if (!activeNode || activeNode.kind !== "database") {
     return null;
   }
 
-  const { views } = activeDatabase;
+  const { views } = activeNode;
 
   if (views.length === 0) {
     return <p className="p-3 text-sm text-muted-foreground">No views.</p>;

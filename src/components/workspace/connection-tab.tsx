@@ -82,13 +82,13 @@ function PasswordField({ value }: { value: string }) {
 }
 
 export function ConnectionTab() {
-  const { activeDatabase } = useWorkspace();
+  const { activeNode } = useWorkspace();
 
-  if (!activeDatabase) {
+  if (!activeNode || activeNode.kind !== "database") {
     return null;
   }
 
-  const { connection } = activeDatabase;
+  const { connection } = activeNode;
 
   return (
     <div className="flex flex-col gap-3 p-3">

@@ -9,7 +9,7 @@ import {
 } from "@/components/workspace/__tests__/fixtures";
 
 describe("Console", () => {
-  // AC-013 — behavior
+  // AC-016 — behavior
   it("should expose a console region", () => {
     render(
       <WorkspaceProvider tree={fixtureTree} consoleLines={fixtureConsoleLines}>
@@ -21,7 +21,7 @@ describe("Console", () => {
     ).toBeInTheDocument();
   });
 
-  // AC-013 — behavior
+  // AC-016 — behavior
   it("should render each mock log line as text inside the console region", () => {
     render(
       <WorkspaceProvider tree={fixtureTree} consoleLines={fixtureConsoleLines}>
