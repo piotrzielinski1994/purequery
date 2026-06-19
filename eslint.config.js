@@ -29,7 +29,7 @@ export default tseslint.config(
   {
     // Code-based TanStack routes colocate the route object with its component
     // by design, and useReactTable trips a known react-hooks v7 false positive.
-    files: ["src/routes/**/*.tsx", "src/components/demo-table.tsx"],
+    files: ["src/routes/**/*.tsx", "src/components/workspace/result-grid.tsx"],
     rules: {
       "react-refresh/only-export-components": "off",
       "react-hooks/incompatible-library": "off",
