@@ -5,8 +5,19 @@ import {
 } from "@/components/ui/resizable";
 import { Content } from "@/components/workspace/content";
 import { Console } from "@/components/workspace/console";
+import { useWorkspace } from "@/components/workspace/workspace-context";
 
 export function Main() {
+  const { isConsoleVisible } = useWorkspace();
+
+  if (!isConsoleVisible) {
+    return (
+      <div className="h-full">
+        <Content />
+      </div>
+    );
+  }
+
   return (
     <ResizablePanelGroup orientation="vertical" className="h-full">
       <ResizablePanel defaultSize="75%" minSize="30%">

@@ -21,18 +21,22 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const {
     openTabIds,
     activeTabId,
+    activeNode,
+    activeDatabaseTab,
     setActiveTab,
     closeTab,
     closeAllTabs,
     newTab,
+    toggleSplitOrientation,
+    toggleSidebar,
+    toggleConsole,
   } = useWorkspace();
 
   const cycleTab = (step: number) => {
     if (openTabIds.length === 0) {
       return;
     }
-    const current =
-      activeTabId !== null ? openTabIds.indexOf(activeTabId) : -1;
+    const current = activeTabId !== null ? openTabIds.indexOf(activeTabId) : -1;
     const length = openTabIds.length;
     const next = (((current + step) % length) + length) % length;
     setActiveTab(openTabIds[next]);
@@ -51,9 +55,14 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     "next-tab": () => cycleTab(1),
     "prev-tab": () => cycleTab(-1),
     "new-tab": newTab,
+    "toggle-split-orientation": toggleSplitOrientation,
+    "toggle-sidebar": toggleSidebar,
+    "toggle-console": toggleConsole,
   };
 
-  const state = { openTabCount: openTabIds.length };
+  const isSplitView =
+    activeNode?.kind === "database" && activeDatabaseTab === "sql";
+  const state = { openTabCount: openTabIds.length, isSplitView };
   const commands = PALETTE_COMMANDS.filter((def) => def.when(state));
 
   return (

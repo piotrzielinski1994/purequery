@@ -1,15 +1,27 @@
-import { describe, it, expect } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { SidebarTree } from "@/components/workspace/sidebar-tree";
+import { SettingsTab } from "@/components/workspace/settings-tab";
 import { ContentHeader } from "@/components/workspace/content-header";
+import { connectDatabase } from "@/lib/tauri";
 import {
   fixtureTree,
   expandedToAppDb,
 } from "@/components/workspace/__tests__/fixtures";
+
+vi.mock("@/lib/tauri", () => ({
+  connectDatabase: vi.fn(),
+}));
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
+const mockConnect = vi.mocked(connectDatabase);
 
 function renderTree(opts?: {
   expanded?: string[];
@@ -52,7 +64,9 @@ describe("SidebarTree", () => {
   // AC-002 — behavior (database name carries no kind prefix)
   it("should name a database treeitem by the database name with no kind prefix", () => {
     renderTree({ expanded: expandedToAppDb });
-    expect(screen.getByRole("treeitem", { name: "app_db" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("treeitem", { name: "app_db" }),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("treeitem", { name: /database app_db/i }),
     ).not.toBeInTheDocument();
@@ -61,7 +75,9 @@ describe("SidebarTree", () => {
   // AC-002, E-9 — behavior (database two folders deep)
   it("should reveal a database nested two folders deep when all ancestors are expanded", () => {
     renderTree({ expanded: expandedToAppDb });
-    expect(screen.getByRole("treeitem", { name: "app_db" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("treeitem", { name: "app_db" }),
+    ).toBeInTheDocument();
   });
 
   // AC-003 — behavior
@@ -201,10 +217,9 @@ describe("SidebarTree", () => {
       within(dbRow).getByRole("button", { name: /toggle .*tables/i }),
     );
 
-    expect(screen.getByRole("treeitem", { name: "scratch_db" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
+    expect(
+      screen.getByRole("treeitem", { name: "scratch_db" }),
+    ).toHaveAttribute("aria-expanded", "true");
   });
 
   // AC-005, TC-003 — behavior (clicking the database name opens its card tab + selects it)
@@ -217,7 +232,9 @@ describe("SidebarTree", () => {
 
     await user.click(dbRow);
 
-    expect(await screen.findByRole("tab", { name: "app_db" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("tab", { name: "app_db" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("treeitem", { name: "app_db" })).toHaveAttribute(
       "aria-selected",
       "true",
@@ -270,5 +287,74 @@ describe("SidebarTree", () => {
     expect(
       screen.getByRole("treeitem", { name: "scratch_db" }),
     ).toHaveAttribute("aria-selected", "true");
+  });
+});
+
+describe("SidebarTree connection status dot", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function renderWithSettings(opts: {
+    activeTabId: string;
+    expanded: string[];
+  }) {
+    return render(
+      <WorkspaceProvider
+        tree={fixtureTree}
+        initialActiveTabId={opts.activeTabId}
+        initialExpandedIds={opts.expanded}
+      >
+        <SidebarTree />
+        <SettingsTab />
+      </WorkspaceProvider>,
+    );
+  }
+
+  // AC-006 — behavior (idle: no status dot)
+  it("should show no status dot for a database that has not been connected", () => {
+    renderWithSettings({
+      activeTabId: "db-admin",
+      expanded: ["folder-staging"],
+    });
+    expect(
+      screen.queryByLabelText(/admin_db connected/i),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/admin_db error/i)).not.toBeInTheDocument();
+  });
+
+  // AC-006, TC-001 — behavior (green dot once a connect succeeds)
+  it("should show a connected status dot on the database row after a successful connect", async () => {
+    const user = userEvent.setup();
+    mockConnect.mockResolvedValueOnce(["a", "b"]);
+    renderWithSettings({
+      activeTabId: "db-admin",
+      expanded: ["folder-staging"],
+    });
+
+    await user.click(screen.getByRole("button", { name: /^connect$/i }));
+
+    expect(
+      await screen.findByLabelText(/admin_db connected/i),
+    ).toBeInTheDocument();
+  });
+
+  // AC-006, TC-002 — behavior (red dot once a connect fails)
+  it("should show an error status dot on the database row after a failed connect", async () => {
+    const user = userEvent.setup();
+    mockConnect.mockRejectedValueOnce(new Error("nope"));
+    renderWithSettings({
+      activeTabId: "db-admin",
+      expanded: ["folder-staging"],
+    });
+
+    await user.click(screen.getByRole("button", { name: /^connect$/i }));
+
+    expect(await screen.findByLabelText(/admin_db error/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.queryByLabelText(/admin_db connected/i),
+      ).not.toBeInTheDocument();
+    });
   });
 });

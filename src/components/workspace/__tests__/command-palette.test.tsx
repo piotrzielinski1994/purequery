@@ -1,8 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render as rtlRender,
+  screen,
+  within,
+  type RenderOptions,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 
+import { QueryWrapper } from "@/test/query-wrapper";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+
+function render(ui: ReactNode, options?: RenderOptions) {
+  return rtlRender(ui, { wrapper: QueryWrapper, ...options });
+}
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
 
@@ -182,12 +194,16 @@ describe("WorkspaceLayout command palette", () => {
     );
 
     await openSecondTab(user);
-    expect(screen.getAllByRole("tab")).toHaveLength(2);
+    const openTabs = () =>
+      within(
+        screen.getByRole("tablist", { name: /open tabs/i }),
+      ).queryAllByRole("tab");
+    expect(openTabs()).toHaveLength(2);
 
     openPalette();
     await user.click(screen.getByText("Close all tabs"));
 
-    expect(screen.queryAllByRole("tab")).toHaveLength(0);
+    expect(openTabs()).toHaveLength(0);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -341,5 +357,152 @@ describe("WorkspaceLayout command palette", () => {
     expect(screen.queryByText("Close all tabs")).not.toBeInTheDocument();
     expect(screen.queryByText("Next tab")).not.toBeInTheDocument();
     expect(screen.queryByText("Previous tab")).not.toBeInTheDocument();
+  });
+
+  // behavior (the split-layout toggle is offered while a database SQL view is active)
+  it("should offer the split-layout toggle when a database SQL view is active", () => {
+    render(
+      <WorkspaceProvider tree={fixtureTree} initialActiveTabId="db-admin">
+        <WorkspaceLayout />
+      </WorkspaceProvider>,
+    );
+
+    openPalette();
+
+    expect(screen.getByText(/toggle split layout/i)).toBeInTheDocument();
+  });
+
+  // behavior (the toggle is hidden when no split surface is visible, e.g. a table view)
+  it("should not offer the split-layout toggle when a table view is active", () => {
+    render(
+      <WorkspaceProvider tree={fixtureTree} initialActiveTabId="tbl-accounts">
+        <WorkspaceLayout />
+      </WorkspaceProvider>,
+    );
+
+    openPalette();
+
+    expect(screen.queryByText(/toggle split layout/i)).not.toBeInTheDocument();
+  });
+
+  // behavior (selecting the toggle flips the SQL split from columns to rows)
+  it("should flip the SQL split orientation when the toggle command is selected", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider tree={fixtureTree} initialActiveTabId="db-admin">
+        <WorkspaceLayout />
+      </WorkspaceProvider>,
+    );
+
+    const separator = () =>
+      screen.getByRole("separator", { name: /sql editor and results/i });
+    expect(separator()).toHaveAttribute("aria-orientation", "vertical");
+
+    openPalette();
+    await user.click(screen.getByText(/toggle split layout/i));
+
+    expect(separator()).toHaveAttribute("aria-orientation", "horizontal");
+  });
+
+  // behavior (Cmd/Ctrl+\ flips the SQL split without opening the palette)
+  it("should flip the SQL split orientation on Ctrl+Backslash", () => {
+    render(
+      <WorkspaceProvider tree={fixtureTree} initialActiveTabId="db-admin">
+        <WorkspaceLayout />
+      </WorkspaceProvider>,
+    );
+
+    const separator = () =>
+      screen.getByRole("separator", { name: /sql editor and results/i });
+    expect(separator()).toHaveAttribute("aria-orientation", "vertical");
+
+    fireEvent.keyDown(window, { key: "\\", ctrlKey: true });
+
+    expect(separator()).toHaveAttribute("aria-orientation", "horizontal");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  // behavior (the sidebar toggle hides the navigator tree and the command brings it back)
+  it("should hide and restore the sidebar via the Toggle sidebar command", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider tree={fixtureTree} initialActiveTabId="db-admin">
+        <WorkspaceLayout />
+      </WorkspaceProvider>,
+    );
+
+    expect(
+      screen.getByRole("tree", { name: /navigator/i }),
+    ).toBeInTheDocument();
+
+    openPalette();
+    await user.click(screen.getByText("Toggle sidebar"));
+    expect(screen.queryByRole("tree", { name: /navigator/i })).toBeNull();
+
+    openPalette();
+    await user.click(screen.getByText("Toggle sidebar"));
+    expect(
+      screen.getByRole("tree", { name: /navigator/i }),
+    ).toBeInTheDocument();
+  });
+
+  // behavior (Cmd/Ctrl+B toggles the sidebar without opening the palette)
+  it("should toggle the sidebar on Ctrl+B", () => {
+    render(
+      <WorkspaceProvider tree={fixtureTree} initialActiveTabId="db-admin">
+        <WorkspaceLayout />
+      </WorkspaceProvider>,
+    );
+
+    expect(
+      screen.getByRole("tree", { name: /navigator/i }),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "b", ctrlKey: true });
+
+    expect(screen.queryByRole("tree", { name: /navigator/i })).toBeNull();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  // behavior (the console toggle hides the console panel and the command brings it back)
+  it("should hide and restore the console via the Toggle console panel command", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider tree={fixtureTree} initialActiveTabId="db-admin">
+        <WorkspaceLayout />
+      </WorkspaceProvider>,
+    );
+
+    expect(
+      screen.getByRole("region", { name: /console/i }),
+    ).toBeInTheDocument();
+
+    openPalette();
+    await user.click(screen.getByText("Toggle console panel"));
+    expect(screen.queryByRole("region", { name: /console/i })).toBeNull();
+
+    openPalette();
+    await user.click(screen.getByText("Toggle console panel"));
+    expect(
+      screen.getByRole("region", { name: /console/i }),
+    ).toBeInTheDocument();
+  });
+
+  // behavior (Cmd/Ctrl+J toggles the console without opening the palette)
+  it("should toggle the console on Ctrl+J", () => {
+    render(
+      <WorkspaceProvider tree={fixtureTree} initialActiveTabId="db-admin">
+        <WorkspaceLayout />
+      </WorkspaceProvider>,
+    );
+
+    expect(
+      screen.getByRole("region", { name: /console/i }),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "j", ctrlKey: true });
+
+    expect(screen.queryByRole("region", { name: /console/i })).toBeNull();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

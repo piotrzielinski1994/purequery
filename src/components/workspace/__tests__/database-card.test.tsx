@@ -1,16 +1,38 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { QueryWrapper } from "@/test/query-wrapper";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { DatabaseCard } from "@/components/workspace/database-card";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { connectDatabase } from "@/lib/tauri";
+
+vi.mock("@/lib/tauri", () => ({
+  connectDatabase: vi.fn(),
+  fetchTable: vi.fn(),
+  updateTable: vi.fn(),
+  executeSql: vi.fn(),
+}));
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
+const mockConnect = vi.mocked(connectDatabase);
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockConnect.mockResolvedValue([]);
+});
 
 function renderCard(activeTabId?: string) {
   return render(
-    <WorkspaceProvider tree={fixtureTree} initialActiveTabId={activeTabId}>
-      <DatabaseCard />
-    </WorkspaceProvider>,
+    <QueryWrapper>
+      <WorkspaceProvider tree={fixtureTree} initialActiveTabId={activeTabId}>
+        <DatabaseCard />
+      </WorkspaceProvider>
+    </QueryWrapper>,
   );
 }
 
@@ -29,13 +51,16 @@ describe("DatabaseCard", () => {
   // AC-008, TC-006 — behavior (the removed Tables sub-tab is gone)
   it("should not expose a Tables sub-tab", () => {
     renderCard("db-app");
-    expect(screen.queryByRole("tab", { name: "Tables" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: "Tables" }),
+    ).not.toBeInTheDocument();
   });
 
-  // AC-008 — behavior (SQL is the default active sub-tab)
+  // AC-008 — behavior (SQL is the default active sub-tab; editor seeded from the sql)
   it("should render the SQL panel by default with the database sql text", () => {
     renderCard("db-app");
-    expect(screen.getByText(/FROM users/)).toBeInTheDocument();
+    const editor = screen.getByRole("textbox", { name: /sql editor/i });
+    expect((editor as HTMLTextAreaElement).value).toContain("FROM users");
   });
 
   // AC-008, AC-012, TC-006 — behavior (switching to Views)
@@ -73,5 +98,43 @@ describe("DatabaseCard", () => {
     expect(
       screen.queryByRole("tablist", { name: /database sections|workbench/i }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("DatabaseCard auto-connect", () => {
+  // behavior (opening a database view connects it automatically, no manual Connect)
+  it("should auto-connect the database when its view is opened", async () => {
+    mockConnect.mockResolvedValue(["product"]);
+    renderCard("db-app");
+
+    await waitFor(() => {
+      expect(mockConnect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          host: "localhost",
+          database: "app",
+          user: "app_user",
+        }),
+      );
+    });
+  });
+
+  // behavior (auto-connect fires once, not on every render)
+  it("should auto-connect only once for the same database", async () => {
+    mockConnect.mockResolvedValue(["product"]);
+    renderCard("db-app");
+
+    await waitFor(() => {
+      expect(mockConnect).toHaveBeenCalledTimes(1);
+    });
+    // give any stray re-render effects a chance to (wrongly) re-fire
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(mockConnect).toHaveBeenCalledTimes(1);
+  });
+
+  // behavior (no auto-connect when there is no active database)
+  it("should not auto-connect when no database tab is active", async () => {
+    renderCard(undefined);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(mockConnect).not.toHaveBeenCalled();
   });
 });

@@ -43,13 +43,23 @@ The dev server runs on port 1431 (set in both `vite.config.ts` and `src-tauri/ta
 
 > The home route renders the workspace shell: a sidebar tree of databases grouped under
 > optional folders, where each database expands (chevron) to list its tables. Clicking a
-> database name opens a **database card** (sub-tabs SQL / Views / Script / Connection - the
-> SQL tab shows the editor with its own header of saved-script names + an inert Run, beside
-> the result grid with its own status header). Clicking a table opens a **table card** (a
+> database name opens a **database card** (sub-tabs SQL / Views / Script / Settings - the
+> SQL tab is an editable editor with a Run button, beside the result grid with its own status
+> header). Clicking a table opens a **table card** (a
 > filter row + the table's content grid). A console strip sits below; the sidebar|content
-> and content|console splits are resizable. Everything is driven by mock data and UI-local
-> state; there is no real SQL execution, persistence, or editing yet. Real connections,
-> schema browsing, and query execution arrive in later features.
+> and content|console splits are resizable. The sidebar toggles with `Cmd/Ctrl+B` and the
+> console panel with `Cmd/Ctrl+J` (also via palette commands).
+>
+> The **Settings** sub-tab is live: pick an engine (Postgres / MySQL), edit the connection
+> fields, and press **Connect** to open a real `sqlx` connection (Rust backend) and replace
+> that database's sidebar tables with the live catalog. Status shows as a toast + a coloured
+> dot on the database row. Opening a table of a connected database fetches its real content
+> (first 200 rows, NULL shown as `[NULL]`); tables of the mock databases still show mock
+> rows. Settings are session-only (not persisted). The SQL tab is live: edit SQL and Run it
+> (or Cmd/Ctrl+Enter) against the connected database - row-returning queries show a result
+> grid, other statements report rows-affected. The editor|results split flips between
+> side-by-side and stacked via `Cmd/Ctrl+\` (or the "Toggle split layout" palette command).
+> Views/Script tabs remain mock; persistence is out of scope.
 
 ## Repo layout
 
@@ -70,5 +80,8 @@ src/
   test/setup.ts         Vitest + Testing Library setup
 src-tauri/              Rust desktop shell (greet command, tauri.conf.json)
 tests/e2e/              Behavior smoke tests
-docs/                   spec/plan per feature, ADR, learnings
+docs/                   spec/plan per feature, ADR, learnings, design.md
 ```
+
+UI conventions (no rounded corners, 1px dividers, density, etc.) live in
+[docs/design.md](docs/design.md).

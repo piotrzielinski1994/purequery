@@ -7,11 +7,18 @@ Briefing for Claude Code. Read [README.md](README.md) first - setup, commands, r
 - Keep replies short and to the point. No filler, no pleasantries, no recap of what the user just said.
 - Status updates fit in one or two sentences.
 
+## UI rules (non-negotiable)
+
+- **All visual/interaction rules live in [docs/design.md](docs/design.md)** - read it before any UI change. Highlights, all enforced: NO rounded corners anywhere (`--radius` pinned to `0rem` in [src/index.css](src/index.css)); dividers are 1px and NEVER thicken/colour on hover or drag (use an invisible `::after` hit area); compact IDE density; theme tokens not hard-coded colors. The user has flagged rounded corners and thick borders repeatedly - treat either as a defect.
+- **ONE data grid, always identical.** The table card and the SQL result pane MUST render rows/cells/headers with the exact same component - [src/components/workspace/data-grid.tsx](src/components/workspace/data-grid.tsx) (`DataGrid`). Never fork a second grid or diverge their styling. Read-only callers (SQL results) pass `editable={false}` + no-op edit handlers; the editable table card passes the real ones. If a grid change is needed, change `DataGrid` so both update together. (Grid visual rules are in design.md.)
+
 ## Learning from conversation
 
 If during a session you learn something project-specific that future-you would otherwise have to re-derive - a non-obvious convention the user prefers, a constraint that bit us, a gotcha worth recording - append it to [docs/learnings.md](docs/learnings.md). Examples: formatting rules the user repeated, gotchas that broke a hook/CI, naming conventions enforced via review.
 
 For architectural trade-offs (significant, costly-to-reverse, or contested choices) use [docs/adr.md](docs/adr.md) instead - that's a separate log.
+
+For UI visual/interaction conventions (corners, borders, density, grids, color, a11y) use [docs/design.md](docs/design.md). A UI rule the user wants enforced goes there, NOT in learnings.md or inline in CLAUDE.md.
 
 Don't add: one-off task context, debugging notes, things obvious from the code itself, or anything that would fit better in [README.md](README.md). Don't ask permission for small additions - just keep the file tight and the diff visible in the next commit.
 

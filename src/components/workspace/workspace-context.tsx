@@ -8,12 +8,36 @@ import {
 import {
   mockConsoleLines,
   mockTree,
+  type ConnectionConfig,
+  type ConnectionStatus,
   type DatabaseNode,
   type TableNode,
   type TreeNode,
 } from "@/components/workspace/mock-data";
 
 export type DatabaseTab = "sql" | "views" | "script" | "settings";
+
+export type SplitOrientation = "horizontal" | "vertical";
+
+export type PendingEdit = {
+  id: string;
+  tableId: string;
+  tableName: string;
+  column: string;
+  rowIndex: number;
+  pkValue: string | null;
+  oldValue: string | null;
+  newValue: string;
+  sql: string;
+};
+
+export type HistoryEntry = {
+  id: string;
+  sql: string;
+  status: "success" | "error";
+  message: string;
+  at: string;
+};
 
 type OpenNode = DatabaseNode | TableNode;
 
@@ -25,7 +49,18 @@ type WorkspaceContextValue = {
   activeTabId: string | null;
   activeDatabaseTab: DatabaseTab;
   nodesById: Map<string, OpenNode>;
+  databaseIdByTableId: Map<string, string>;
   activeNode: OpenNode | null;
+  connectionStatus: Map<string, ConnectionStatus>;
+  connections: Map<string, ConnectionConfig>;
+  pendingEdits: PendingEdit[];
+  history: HistoryEntry[];
+  splitOrientation: SplitOrientation;
+  toggleSplitOrientation: () => void;
+  isSidebarVisible: boolean;
+  toggleSidebar: () => void;
+  isConsoleVisible: boolean;
+  toggleConsole: () => void;
   toggleExpand: (id: string) => void;
   openNode: (id: string) => void;
   setActiveTab: (id: string) => void;
@@ -33,6 +68,14 @@ type WorkspaceContextValue = {
   closeAllTabs: () => void;
   setDatabaseTab: (tab: DatabaseTab) => void;
   newTab: () => void;
+  setConnectionStatus: (id: string, status: ConnectionStatus) => void;
+  setConnection: (id: string, config: ConnectionConfig) => void;
+  removeConnection: (id: string) => void;
+  setDatabaseTables: (id: string, tableNames: string[]) => void;
+  upsertPendingEdit: (edit: PendingEdit) => void;
+  discardPendingEdit: (id: string) => void;
+  discardPendingEditsForTable: (tableId: string) => void;
+  addHistoryEntry: (entry: HistoryEntry) => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -48,6 +91,48 @@ function indexNodes(nodes: TreeNode[]): Map<string, OpenNode> {
     return [node];
   };
   return new Map(nodes.flatMap(flatten).map((node) => [node.id, node]));
+}
+
+function indexTableParents(nodes: TreeNode[]): Map<string, string> {
+  const walk = (node: TreeNode): [string, string][] => {
+    if (node.kind === "folder") {
+      return node.children.flatMap(walk);
+    }
+    if (node.kind === "database") {
+      return node.tables.map((table) => [table.id, node.id]);
+    }
+    return [];
+  };
+  return new Map(nodes.flatMap(walk));
+}
+
+function tablesFromNames(databaseId: string, names: string[]): TableNode[] {
+  return names.map((name) => ({
+    kind: "table",
+    id: `${databaseId}::${name}`,
+    name,
+    columns: [],
+    rows: [],
+  }));
+}
+
+function replaceDatabaseTables(
+  nodes: TreeNode[],
+  databaseId: string,
+  tables: TableNode[],
+): TreeNode[] {
+  return nodes.map((node) => {
+    if (node.kind === "folder") {
+      return {
+        ...node,
+        children: replaceDatabaseTables(node.children, databaseId, tables),
+      };
+    }
+    if (node.kind === "database" && node.id === databaseId) {
+      return { ...node, tables };
+    }
+    return node;
+  });
 }
 
 function toggleInSet(set: Set<string>, id: string): Set<string> {
@@ -66,16 +151,27 @@ type WorkspaceProviderProps = {
   consoleLines?: string[];
   initialExpandedIds?: string[];
   initialActiveTabId?: string;
+  initialConnections?: [string, ConnectionConfig][];
 };
 
 export function WorkspaceProvider({
   children,
-  tree = mockTree,
+  tree: initialTree = mockTree,
   consoleLines = mockConsoleLines,
   initialExpandedIds = [],
   initialActiveTabId,
+  initialConnections = [],
 }: WorkspaceProviderProps) {
+  const [tree, setTree] = useState(initialTree);
   const nodesById = useMemo(() => indexNodes(tree), [tree]);
+  const databaseIdByTableId = useMemo(() => indexTableParents(tree), [tree]);
+
+  const [connectionStatus, setConnectionStatusMap] = useState<
+    Map<string, ConnectionStatus>
+  >(() => new Map());
+  const [connections, setConnectionsMap] = useState<
+    Map<string, ConnectionConfig>
+  >(() => new Map(initialConnections));
 
   const [expandedIds, setExpandedIds] = useState(
     () => new Set(initialExpandedIds),
@@ -88,6 +184,12 @@ export function WorkspaceProvider({
   );
   const [activeDatabaseTab, setActiveDatabaseTab] =
     useState<DatabaseTab>("sql");
+  const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [splitOrientation, setSplitOrientation] =
+    useState<SplitOrientation>("horizontal");
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+  const [isConsoleVisible, setIsConsoleVisible] = useState(true);
 
   const value = useMemo<WorkspaceContextValue>(() => {
     const openNode = (id: string) => {
@@ -125,9 +227,11 @@ export function WorkspaceProvider({
       activeTabId,
       activeDatabaseTab,
       nodesById,
+      databaseIdByTableId,
       activeNode:
         activeTabId !== null ? (nodesById.get(activeTabId) ?? null) : null,
-      toggleExpand: (id) => setExpandedIds((current) => toggleInSet(current, id)),
+      toggleExpand: (id) =>
+        setExpandedIds((current) => toggleInSet(current, id)),
       openNode,
       setActiveTab: setActiveTabId,
       closeTab,
@@ -137,6 +241,46 @@ export function WorkspaceProvider({
       },
       setDatabaseTab: setActiveDatabaseTab,
       newTab: () => {},
+      connectionStatus,
+      connections,
+      setConnectionStatus: (id, status) =>
+        setConnectionStatusMap((current) => new Map(current).set(id, status)),
+      setConnection: (id, config) =>
+        setConnectionsMap((current) => new Map(current).set(id, config)),
+      removeConnection: (id) =>
+        setConnectionsMap((current) => {
+          const next = new Map(current);
+          next.delete(id);
+          return next;
+        }),
+      setDatabaseTables: (id, tableNames) =>
+        setTree((current) =>
+          replaceDatabaseTables(current, id, tablesFromNames(id, tableNames)),
+        ),
+      pendingEdits,
+      upsertPendingEdit: (edit) =>
+        setPendingEdits((current) => [
+          ...current.filter((existing) => existing.id !== edit.id),
+          edit,
+        ]),
+      discardPendingEdit: (id) =>
+        setPendingEdits((current) => current.filter((edit) => edit.id !== id)),
+      discardPendingEditsForTable: (tableId) =>
+        setPendingEdits((current) =>
+          current.filter((edit) => edit.tableId !== tableId),
+        ),
+      history,
+      addHistoryEntry: (entry) =>
+        setHistory((current) => [entry, ...current].slice(0, 100)),
+      splitOrientation,
+      toggleSplitOrientation: () =>
+        setSplitOrientation((current) =>
+          current === "horizontal" ? "vertical" : "horizontal",
+        ),
+      isSidebarVisible,
+      toggleSidebar: () => setIsSidebarVisible((current) => !current),
+      isConsoleVisible,
+      toggleConsole: () => setIsConsoleVisible((current) => !current),
     };
   }, [
     tree,
@@ -146,6 +290,14 @@ export function WorkspaceProvider({
     activeTabId,
     activeDatabaseTab,
     nodesById,
+    databaseIdByTableId,
+    connectionStatus,
+    connections,
+    pendingEdits,
+    history,
+    splitOrientation,
+    isSidebarVisible,
+    isConsoleVisible,
   ]);
 
   return (

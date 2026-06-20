@@ -10,7 +10,10 @@ import {
   expandedToAppDb,
 } from "@/components/workspace/__tests__/fixtures";
 
-async function expandDbTables(user: ReturnType<typeof userEvent.setup>, dbName: string) {
+async function expandDbTables(
+  user: ReturnType<typeof userEvent.setup>,
+  dbName: string,
+) {
   await user.click(
     within(screen.getByRole("treeitem", { name: dbName })).getByRole("button", {
       name: /toggle .*tables/i,
@@ -77,7 +80,10 @@ describe("ContentHeader", () => {
   it("should open and focus a tab for a database name clicked in the tree", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider tree={fixtureTree} initialExpandedIds={expandedToAppDb}>
+      <WorkspaceProvider
+        tree={fixtureTree}
+        initialExpandedIds={expandedToAppDb}
+      >
         <SidebarTree />
         <ContentHeader />
       </WorkspaceProvider>,
@@ -97,7 +103,10 @@ describe("ContentHeader", () => {
   it("should open both a database tab and a table tab when each is selected", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider tree={fixtureTree} initialExpandedIds={["folder-staging"]}>
+      <WorkspaceProvider
+        tree={fixtureTree}
+        initialExpandedIds={["folder-staging"]}
+      >
         <SidebarTree />
         <ContentHeader />
       </WorkspaceProvider>,
@@ -115,7 +124,10 @@ describe("ContentHeader", () => {
   it("should not duplicate a tab when an already-open database is re-selected", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider tree={fixtureTree} initialExpandedIds={expandedToAppDb}>
+      <WorkspaceProvider
+        tree={fixtureTree}
+        initialExpandedIds={expandedToAppDb}
+      >
         <SidebarTree />
         <ContentHeader />
       </WorkspaceProvider>,
@@ -132,7 +144,10 @@ describe("ContentHeader", () => {
   it("should remove only the closed tab and keep the other open", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider tree={fixtureTree} initialExpandedIds={["folder-staging"]}>
+      <WorkspaceProvider
+        tree={fixtureTree}
+        initialExpandedIds={["folder-staging"]}
+      >
         <SidebarTree />
         <ContentHeader />
       </WorkspaceProvider>,
@@ -157,7 +172,10 @@ describe("ContentHeader", () => {
   it("should move the active tab to a remaining tab when the active tab is closed", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider tree={fixtureTree} initialExpandedIds={["folder-staging"]}>
+      <WorkspaceProvider
+        tree={fixtureTree}
+        initialExpandedIds={["folder-staging"]}
+      >
         <SidebarTree />
         <ContentHeader />
       </WorkspaceProvider>,

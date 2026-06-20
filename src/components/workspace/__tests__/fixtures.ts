@@ -118,13 +118,17 @@ export const auditLogTable: TableNode = {
   rows: [{ id: "1", action: "login" }],
 };
 
-const appViews: ViewObject[] = [{ name: "active_users" }, { name: "daily_signups" }];
+const appViews: ViewObject[] = [
+  { name: "active_users" },
+  { name: "daily_signups" },
+];
 
 // folder "prod" > folder "team" > database "app_db" (token, 2 folders deep -> AC-002/E-9)
 export const appDb: DatabaseNode = {
   kind: "database",
   id: "db-app",
   name: "app_db",
+  engine: "postgres",
   host: "localhost",
   port: 5432,
   database: "app",
@@ -143,6 +147,7 @@ export const adminDb: DatabaseNode = {
   kind: "database",
   id: "db-admin",
   name: "admin_db",
+  engine: "postgres",
   host: "db.internal",
   port: 5433,
   database: "admin",
@@ -161,6 +166,7 @@ export const scratchDb: DatabaseNode = {
   kind: "database",
   id: "db-scratch",
   name: "scratch_db",
+  engine: "postgres",
   host: "localhost",
   port: 5432,
   database: "scratch",

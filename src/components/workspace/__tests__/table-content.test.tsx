@@ -1,0 +1,476 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { TableCard } from "@/components/workspace/table-card";
+import { Console } from "@/components/workspace/console";
+import { fetchTable, updateTable } from "@/lib/tauri";
+import type {
+  ConnectionConfig,
+  TableRows,
+  TreeNode,
+} from "@/components/workspace/mock-data";
+
+vi.mock("@/lib/tauri", () => ({
+  fetchTable: vi.fn(),
+  updateTable: vi.fn(),
+}));
+
+const mockFetch = vi.mocked(fetchTable);
+const mockUpdate = vi.mocked(updateTable);
+
+const config: ConnectionConfig = {
+  engine: "postgres",
+  host: "localhost",
+  port: 5432,
+  database: "ppp",
+  user: "postgres",
+  password: "postgres",
+};
+
+const connectedTree: TreeNode[] = [
+  {
+    kind: "database",
+    id: "db-ppp",
+    name: "ppp",
+    engine: "postgres",
+    host: "localhost",
+    port: 5432,
+    database: "ppp",
+    user: "postgres",
+    password: "postgres",
+    tables: [
+      {
+        kind: "table",
+        id: "db-ppp::product",
+        name: "product",
+        columns: [],
+        rows: [],
+      },
+    ],
+    views: [],
+    sql: "",
+    savedScripts: [],
+    script: "",
+    result: {
+      status: "success",
+      timeMs: 0,
+      rowCount: 0,
+      columns: [],
+      rows: [],
+      message: "",
+    },
+  },
+];
+
+function renderLive() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <WorkspaceProvider
+        tree={connectedTree}
+        initialActiveTabId="db-ppp::product"
+        initialConnections={[["db-ppp", config]]}
+      >
+        <TableCard />
+        <Console />
+      </WorkspaceProvider>
+    </QueryClientProvider>,
+  );
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+function rowsResult(
+  columns: string[],
+  rows: (string | null)[][],
+  primaryKey: string | null = "id",
+): TableRows {
+  return { columns, rows, primaryKey };
+}
+
+describe("TableCard live content", () => {
+  // behavior (loading while rows fetch)
+  it("should show a loading state while the rows are being fetched", () => {
+    mockFetch.mockReturnValueOnce(new Promise(() => {}));
+    renderLive();
+    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+  });
+
+  // behavior (fetched columns + rows render)
+  it("should render the fetched columns and row values", async () => {
+    mockFetch.mockResolvedValueOnce(
+      rowsResult(
+        ["id", "price"],
+        [
+          ["1", "999"],
+          ["2", "2499"],
+        ],
+      ),
+    );
+    renderLive();
+
+    expect(
+      await screen.findByRole("columnheader", { name: "id" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "price" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("999")).toBeInTheDocument();
+    expect(screen.getByText("2499")).toBeInTheDocument();
+  });
+
+  // behavior (NULL rendered distinctly, not as empty)
+  it("should render a NULL cell as [NULL]", async () => {
+    mockFetch.mockResolvedValueOnce(
+      rowsResult(["id", "deleted_at"], [["1", null]]),
+    );
+    renderLive();
+
+    expect(await screen.findByText("[NULL]")).toBeInTheDocument();
+  });
+
+  // behavior (fetch failure surfaces an error state)
+  it("should show an error state when the fetch rejects", async () => {
+    mockFetch.mockRejectedValueOnce(new Error("relation does not exist"));
+    renderLive();
+
+    expect(
+      await screen.findByText(/relation does not exist/i),
+    ).toBeInTheDocument();
+  });
+
+  // behavior (calls the backend with the stored config, table name, and no filter)
+  it("should fetch with the stored connection config and the table name", async () => {
+    mockFetch.mockResolvedValueOnce(rowsResult(["id"], [["1"]]));
+    renderLive();
+
+    await screen.findByText("1");
+    expect(mockFetch).toHaveBeenCalledWith(config, "product", undefined);
+  });
+
+  // behavior (the filter runs only on Enter, not on idle keystrokes)
+  it("should re-fetch with the raw filter expression when Enter is pressed", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(rowsResult(["id"], [["1"]]));
+    renderLive();
+
+    await screen.findByText("1");
+    await user.type(
+      screen.getByRole("textbox", { name: /filter/i }),
+      "price > 10",
+    );
+
+    // not applied yet - no Enter
+    expect(mockFetch).not.toHaveBeenCalledWith(config, "product", "price > 10");
+
+    await user.keyboard("{Enter}");
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenLastCalledWith(
+        config,
+        "product",
+        "price > 10",
+      );
+    });
+  });
+
+  // behavior (the run-filter button applies the filter too)
+  it("should re-fetch when the run-filter button is clicked", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(rowsResult(["id"], [["1"]]));
+    renderLive();
+
+    await screen.findByText("1");
+    await user.type(
+      screen.getByRole("textbox", { name: /filter/i }),
+      "price > 10",
+    );
+    await user.click(screen.getByRole("button", { name: /run filter/i }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenLastCalledWith(
+        config,
+        "product",
+        "price > 10",
+      );
+    });
+  });
+
+  // behavior (opening a table logs its SELECT to the History tab - it hit the DB)
+  it("should log the table fetch to the History tab", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(rowsResult(["id"], [["1"]]));
+    renderLive();
+
+    await screen.findByText("1");
+    await user.click(screen.getByRole("tab", { name: /history/i }));
+
+    const history = screen.getByRole("list", { name: /query history/i });
+    expect(history).toHaveTextContent(`SELECT * FROM "product" LIMIT 200`);
+  });
+
+  // behavior (applying a filter logs the WHERE'd SELECT to History)
+  it("should log a filtered fetch to History with its WHERE clause", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(rowsResult(["id"], [["1"]]));
+    renderLive();
+
+    await screen.findByText("1");
+    await user.type(
+      screen.getByRole("textbox", { name: /filter/i }),
+      "price > 10",
+    );
+    await user.keyboard("{Enter}");
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenLastCalledWith(
+        config,
+        "product",
+        "price > 10",
+      );
+    });
+    await user.click(screen.getByRole("tab", { name: /history/i }));
+
+    const history = screen.getByRole("list", { name: /query history/i });
+    expect(history).toHaveTextContent(
+      `SELECT * FROM "product" WHERE price > 10 LIMIT 200`,
+    );
+  });
+
+  // behavior (a failed fetch is logged to History as an error)
+  it("should log a failed table fetch to History as an error", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockRejectedValue("relation \"nope\" does not exist");
+    renderLive();
+
+    await screen.findByText(/relation "nope" does not exist/i);
+    await user.click(screen.getByRole("tab", { name: /history/i }));
+
+    const history = screen.getByRole("list", { name: /query history/i });
+    expect(history).toHaveTextContent("ERR");
+    expect(history).toHaveTextContent(`relation "nope" does not exist`);
+  });
+});
+
+describe("TableCard cell editing", () => {
+  // behavior (double-click turns a cell into an input)
+  it("should turn a cell into an editable input on double click", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(rowsResult(["id", "price"], [["1", "999"]]));
+    renderLive();
+
+    const cell = await screen.findByText("999");
+    await user.dblClick(cell);
+
+    expect(screen.getByDisplayValue("999")).toBeInTheDocument();
+  });
+
+  // behavior (no Save button until a cell is actually changed)
+  it("should not show a Save button when nothing has been edited", async () => {
+    mockFetch.mockResolvedValue(rowsResult(["id", "price"], [["1", "999"]]));
+    renderLive();
+
+    await screen.findByText("999");
+    expect(screen.queryByRole("button", { name: /save/i })).toBeNull();
+  });
+
+  // behavior (editing a cell reveals Save with the pending-change count)
+  it("should reveal a Save button after a cell value is changed", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(rowsResult(["id", "price"], [["1", "999"]]));
+    renderLive();
+
+    await user.dblClick(await screen.findByText("999"));
+    const input = screen.getByDisplayValue("999");
+    await user.clear(input);
+    await user.type(input, "1500");
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByRole("button", { name: /save/i })).toBeInTheDocument();
+  });
+
+  // behavior (Save sends the edit to the backend with the pk value of that row)
+  it("should send the edit with the row's primary-key value when Save is clicked", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(
+      rowsResult(["id", "price"], [["1", "999"]], "id"),
+    );
+    mockUpdate.mockResolvedValue(1);
+    renderLive();
+
+    await user.dblClick(await screen.findByText("999"));
+    const input = screen.getByDisplayValue("999");
+    await user.clear(input);
+    await user.type(input, "1500");
+    await user.keyboard("{Enter}");
+    await user.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith(config, "product", [
+        { column: "price", pkValue: "1", value: "1500" },
+      ]);
+    });
+  });
+
+  // behavior (the edit input opts out of browser autofill/autocomplete)
+  it("should disable browser autofill on the cell editor", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(rowsResult(["id", "price"], [["1", "999"]]));
+    renderLive();
+
+    await user.dblClick(await screen.findByText("999"));
+    const input = screen.getByDisplayValue("999");
+    expect(input).toHaveAttribute("autocomplete", "off");
+    expect(input).toHaveAttribute("data-1p-ignore");
+  });
+
+  // behavior (Discard-all clears every pending edit and restores originals)
+  it("should discard all pending edits and restore the original values", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(rowsResult(["id", "price"], [["1", "999"]]));
+    renderLive();
+
+    await user.dblClick(await screen.findByText("999"));
+    const input = screen.getByDisplayValue("999");
+    await user.clear(input);
+    await user.type(input, "1500");
+    await user.keyboard("{Enter}");
+
+    const grid = screen.getByRole("table");
+    expect(within(grid).getByText("1500")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^discard$/i }));
+
+    expect(within(grid).getByText("999")).toBeInTheDocument();
+    expect(within(grid).queryByText("1500")).toBeNull();
+    expect(screen.queryByRole("button", { name: /save/i })).toBeNull();
+  });
+
+  // behavior (the generated SQL appears in the Console "Changes" tab, DBeaver-style)
+  it("should show the generated SQL update statement in the Changes tab", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(
+      rowsResult(["id", "price"], [["1", "999"]], "id"),
+    );
+    renderLive();
+
+    await user.dblClick(await screen.findByText("999"));
+    const input = screen.getByDisplayValue("999");
+    await user.clear(input);
+    await user.type(input, "1500");
+    await user.keyboard("{Enter}");
+
+    const changes = screen.getByRole("list", { name: /pending changes/i });
+    expect(changes).toHaveTextContent(
+      `UPDATE "product" SET "price" = '1500' WHERE "id" = '1'`,
+    );
+  });
+
+  // behavior (auto-switch fires only on the first edit; later edits don't yank the tab)
+  it("should not re-switch to Changes on a later edit once the user picked Console", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(
+      rowsResult(
+        ["id", "price"],
+        [
+          ["1", "999"],
+          ["2", "888"],
+        ],
+        "id",
+      ),
+    );
+    renderLive();
+
+    await user.dblClick(await screen.findByText("999"));
+    const first = screen.getByDisplayValue("999");
+    await user.clear(first);
+    await user.type(first, "1500");
+    await user.keyboard("{Enter}");
+
+    // user switches to the log on purpose
+    await user.click(screen.getByRole("tab", { name: /^console$/i }));
+    expect(screen.queryByRole("list", { name: /pending changes/i })).toBeNull();
+
+    // a second edit must NOT pull focus back to Changes
+    await user.dblClick(screen.getByText("888"));
+    const second = screen.getByDisplayValue("888");
+    await user.clear(second);
+    await user.type(second, "777");
+    await user.keyboard("{Enter}");
+
+    expect(screen.queryByRole("list", { name: /pending changes/i })).toBeNull();
+  });
+
+  // behavior (the Changes tab auto-activates and badges the pending count)
+  it("should label the Changes tab with the pending count", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(
+      rowsResult(["id", "price"], [["1", "999"]], "id"),
+    );
+    renderLive();
+
+    await user.dblClick(await screen.findByText("999"));
+    const input = screen.getByDisplayValue("999");
+    await user.clear(input);
+    await user.type(input, "1500");
+    await user.keyboard("{Enter}");
+
+    expect(
+      screen.getByRole("tab", { name: /changes \(1\)/i }),
+    ).toBeInTheDocument();
+  });
+
+  // behavior (each pending edit has its own discard control)
+  it("should discard a single pending edit from the Changes tab", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(
+      rowsResult(["id", "price"], [["1", "999"]], "id"),
+    );
+    renderLive();
+
+    await user.dblClick(await screen.findByText("999"));
+    const input = screen.getByDisplayValue("999");
+    await user.clear(input);
+    await user.type(input, "1500");
+    await user.keyboard("{Enter}");
+
+    await user.click(
+      screen.getByRole("button", { name: /discard change to price/i }),
+    );
+
+    const grid = screen.getByRole("table");
+    expect(within(grid).getByText("999")).toBeInTheDocument();
+    expect(within(grid).queryByText("1500")).toBeNull();
+    expect(screen.queryByRole("button", { name: /save/i })).toBeNull();
+    expect(screen.queryByRole("tab", { name: /changes \(\d+\)/i })).toBeNull();
+  });
+
+  // behavior (an edited cell stays highlighted in the single-record view)
+  it("should highlight the edited cell in the record view too", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(
+      rowsResult(["id", "price"], [["1", "999"]], "id"),
+    );
+    renderLive();
+
+    await user.dblClick(await screen.findByText("999"));
+    const input = screen.getByDisplayValue("999");
+    await user.clear(input);
+    await user.type(input, "1500");
+    await user.keyboard("{Enter}");
+
+    // switch to single-record view
+    await user.keyboard("{Tab}");
+
+    const record = screen.getByRole("list", { name: /record/i });
+    const editedCell = within(record).getByText("1500");
+    expect(editedCell).toHaveClass("bg-amber-500/15");
+  });
+});

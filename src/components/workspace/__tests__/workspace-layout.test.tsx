@@ -1,8 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import {
+  render as rtlRender,
+  screen,
+  within,
+  type RenderOptions,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 
+import { QueryWrapper } from "@/test/query-wrapper";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+
+function render(ui: ReactNode, options?: RenderOptions) {
+  return rtlRender(ui, { wrapper: QueryWrapper, ...options });
+}
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import {
   fixtureTree,
@@ -84,7 +95,9 @@ describe("WorkspaceLayout", () => {
     );
     await user.click(screen.getByRole("treeitem", { name: "accounts" }));
 
-    expect(screen.getByRole("textbox", { name: /filter/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: /filter/i }),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("tablist", { name: /database sections|workbench/i }),
     ).not.toBeInTheDocument();

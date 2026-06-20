@@ -2,6 +2,7 @@ import { ChevronDown, ChevronRight, Database, Table } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import type {
+  ConnectionStatus,
   DatabaseNode,
   FolderNode,
   TableNode,
@@ -37,11 +38,19 @@ function FolderRow({ node, depth }: { node: FolderNode; depth: number }) {
   );
 }
 
+const STATUS_DOT_COLOR: Partial<Record<ConnectionStatus, string>> = {
+  connected: "bg-green-500",
+  error: "bg-red-500",
+};
+
 function DatabaseRow({ node, depth }: { node: DatabaseNode; depth: number }) {
-  const { expandedIds, activeTabId, toggleExpand, openNode } = useWorkspace();
+  const { expandedIds, activeTabId, toggleExpand, openNode, connectionStatus } =
+    useWorkspace();
   const isExpanded = expandedIds.has(node.id);
   const isSelected = activeTabId === node.id;
   const Chevron = isExpanded ? ChevronDown : ChevronRight;
+  const status = connectionStatus.get(node.id) ?? "idle";
+  const dotColor = STATUS_DOT_COLOR[status];
 
   return (
     <li>
@@ -49,6 +58,7 @@ function DatabaseRow({ node, depth }: { node: DatabaseNode; depth: number }) {
         role="treeitem"
         aria-expanded={isExpanded}
         aria-selected={isSelected}
+        aria-label={node.name}
         tabIndex={0}
         onClick={() => openNode(node.id)}
         style={{ paddingLeft: `${depth * 14 + 6}px` }}
@@ -70,6 +80,13 @@ function DatabaseRow({ node, depth }: { node: DatabaseNode; depth: number }) {
         </button>
         <Database className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="truncate">{node.name}</span>
+        {dotColor ? (
+          <span
+            role="img"
+            aria-label={`${node.name} ${status}`}
+            className={cn("ml-auto size-2 shrink-0 rounded-full", dotColor)}
+          />
+        ) : null}
       </div>
       {isExpanded ? (
         <ul role="group">

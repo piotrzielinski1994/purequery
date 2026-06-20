@@ -1,0 +1,45 @@
+# Design
+
+UI design rules for this app. Entries are about *visual language and interaction*, not domain logic. Read this before any UI change.
+
+## Corners
+
+- **No rounded corners. Anywhere.** Sharp edges only. The radius token is pinned to zero (`--radius: 0rem` and every `--radius-{sm,md,lg,xl}: 0rem`) - never raise it.
+- Do not use `rounded-*` utilities (`rounded`, `rounded-sm/md/lg/full/xs`, ...). If a UI primitive (e.g. shadcn) ships with a `rounded-*` class, strip it.
+- Treat any rounded corner as a defect.
+
+## Borders & dividers
+
+- **Dividers are 1px. Never thicken, brighten, or colour on hover or drag.** A resize handle (sidebar split, console split, editor/results split) is a `w-px`/`h-px` line in `bg-border`.
+- Give a thin divider a larger **invisible** hit area instead of a visible thick bar: an `::after` overlay (`after:absolute after:inset-y-0 after:left-1/2 after:w-2 after:-translate-x-1/2` for a vertical handle) catches the pointer while the visible line stays 1px.
+- Cursor signals affordance (`cursor-col-resize` / `cursor-row-resize`), not thickness.
+- Borders use the `border`/`border-border` token, 1px. Don't introduce heavier borders for emphasis - use background/spacing instead.
+
+## Tables / grids
+
+- One grid component, reused everywhere a result set is shown. All grids look identical: same row height, padding, header treatment, single-line cells (`overflow-hidden text-ellipsis whitespace-nowrap`), resizable columns.
+- Headers always render, even for an empty result, so the column structure stays visible; show an empty-state message ("No rows.") beneath the header row, not instead of it.
+- NULL renders as a dim `[NULL]`, visually distinct from an empty string.
+- Edited/dirty cells get a subtle highlight (`bg-amber-500/15`), applied identically in every view (list and single-record).
+
+## Density & typography
+
+- Compact, keyboard-first, IDE-like. Rows and controls are single-line and tight (`py-1`/`py-1.5`, `text-xs`/`text-sm`).
+- Monospace (`font-mono`) for data, SQL, identifiers, and anything tabular. UI chrome (labels, buttons, tabs) uses the default sans stack.
+- Muted foreground (`text-muted-foreground`) for secondary text (column headers, hints, timestamps); full foreground for primary content.
+
+## Color & status
+
+- Theme via CSS tokens (`bg-background`, `bg-muted/30`, `text-foreground`, `border-border`), not hard-coded colors, so light/dark both work.
+- Status colors: success green (`text-green-600 dark:text-green-400`), error/destructive red (`text-red-600 dark:text-red-400`). A destructive action button (e.g. Disconnect) is filled red.
+- Status dots are a small `size-2` filled circle, right-aligned, never with a text label leaking into an accessible name (give the row an explicit `aria-label`).
+
+## Layout
+
+- Resizable splits at the shell level (sidebar|content, content|console). Inside a tab panel, a split must be hand-rolled (the `react-resizable-panels` group breaks tab-switching) but still obey the 1px-divider rule.
+- Tabs are flat, square, separated by 1px borders; the active tab reads via `bg-background` + full foreground, inactive via muted foreground.
+
+## Accessibility
+
+- Interactive affordances that are purely visual (resize handles, status dots) are `aria-hidden` or carry an explicit non-leaking label so they don't pollute the accessible name of their container (treeitem, columnheader).
+- Inputs opt out of browser autofill noise: `autoComplete="off"`, `autoCorrect="off"`, `autoCapitalize="off"`, `spellCheck={false}`, plus `data-1p-ignore` / `data-lpignore` for password managers.

@@ -1,3 +1,22 @@
+export type DbEngine = "postgres" | "mysql";
+
+export type ConnectionConfig = {
+  engine: DbEngine;
+  host: string;
+  port: number;
+  database: string;
+  user: string;
+  password: string;
+};
+
+export type ConnectionStatus = "idle" | "connecting" | "connected" | "error";
+
+export type TableRows = {
+  columns: string[];
+  rows: (string | null)[][];
+  primaryKey: string | null;
+};
+
 export type ResultColumn = { name: string; type: string };
 
 export type QueryResult = {
@@ -23,6 +42,7 @@ export type DatabaseNode = {
   kind: "database";
   id: string;
   name: string;
+  engine: DbEngine;
   host: string;
   port: number;
   database: string;
@@ -114,15 +134,16 @@ const auditLogTable: TableNode = {
 const appDb: DatabaseNode = {
   kind: "database",
   id: "db-app",
-  name: "app_db",
+  name: "ppp",
+  engine: "postgres",
   host: "localhost",
   port: 5432,
-  database: "app",
-  user: "app_user",
-  password: "app-secret",
+  database: "ppp",
+  user: "postgres",
+  password: "postgres",
   tables: [usersTable, ordersTable, eventsTable],
   views: [{ name: "active_users" }, { name: "daily_signups" }],
-  sql: "SELECT id, name, email\nFROM users\nWHERE last_seen > now() - interval '7 days'",
+  sql: "select * from product;",
   savedScripts: ["active_users", "revenue", "signups"],
   script: "-- nightly maintenance\nVACUUM ANALYZE users;",
   result: {
@@ -147,6 +168,7 @@ const adminDb: DatabaseNode = {
   kind: "database",
   id: "db-admin",
   name: "admin_db",
+  engine: "postgres",
   host: "db.internal",
   port: 5433,
   database: "admin",
@@ -177,6 +199,7 @@ const scratchDb: DatabaseNode = {
   kind: "database",
   id: "db-scratch",
   name: "scratch_db",
+  engine: "postgres",
   host: "localhost",
   port: 5432,
   database: "scratch",
@@ -217,7 +240,7 @@ export const mockTree: TreeNode[] = [
 ];
 
 export const mockConsoleLines: string[] = [
-  "[12:00:00] connected to localhost:5432/app_db",
+  "[12:00:00] connected to localhost:5432/ppp",
   "→ SELECT users  success",
   "← 142ms · 3 rows",
   "[notice] statement cache warm",

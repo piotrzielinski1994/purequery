@@ -1,101 +1,185 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ResultGrid } from "@/components/workspace/result-grid";
+import { DataGrid } from "@/components/workspace/data-grid";
+import { HorizontalSplit } from "@/components/workspace/horizontal-split";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import { cn } from "@/lib/utils";
-import type { QueryResult } from "@/components/workspace/mock-data";
+import { executeSql, type QueryOutcome } from "@/lib/tauri";
+import type { ConnectionConfig } from "@/components/workspace/mock-data";
 
-function StatusReadout({ result }: { result: QueryResult }) {
-  const isSuccess = result.status === "success";
+const noop = () => {};
+
+function OutcomeGrid({ outcome }: { outcome: QueryOutcome }) {
+  return (
+    <DataGrid
+      columns={outcome.columns}
+      rows={outcome.rows}
+      selectedRow={-1}
+      onSelectRow={noop}
+      editable={false}
+      editValueAt={(rowIndex, column) =>
+        outcome.rows[rowIndex]?.[outcome.columns.indexOf(column)] ?? null
+      }
+      isDirtyAt={() => false}
+      onCommitEdit={noop}
+    />
+  );
+}
+
+function LiveStatus({
+  outcome,
+  error,
+  isPending,
+}: {
+  outcome: QueryOutcome | undefined;
+  error: unknown;
+  isPending: boolean;
+}) {
+  if (isPending) {
+    return (
+      <span className="font-mono text-xs text-muted-foreground">
+        Running...
+      </span>
+    );
+  }
+  if (error) {
+    return (
+      <span className="font-mono text-xs text-red-600 dark:text-red-400">
+        {errorMessage(error)}
+      </span>
+    );
+  }
+  if (!outcome) {
+    return (
+      <span className="font-mono text-xs text-muted-foreground">Ready</span>
+    );
+  }
   return (
     <div className="flex items-center gap-3 font-mono text-xs">
-      <span
-        className={cn(
-          isSuccess
-            ? "text-green-600 dark:text-green-400"
-            : "text-red-600 dark:text-red-400",
-        )}
-      >
-        {isSuccess ? "Success" : "Error"}
-      </span>
-      <span className="text-muted-foreground">{result.timeMs}ms</span>
-      <span className="text-muted-foreground">{result.rowCount} rows</span>
+      <span className="text-green-600 dark:text-green-400">Success</span>
+      <span className="text-muted-foreground">{outcome.message}</span>
     </div>
   );
 }
 
 export function SqlTab() {
-  const { activeNode } = useWorkspace();
-  const [activeScript, setActiveScript] = useState(0);
+  const { activeNode, connections } = useWorkspace();
 
   if (!activeNode || activeNode.kind !== "database") {
     return null;
   }
 
+  const config = connections.get(activeNode.id);
+  return <SqlEditor node={activeNode} config={config} key={activeNode.id} />;
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return typeof error === "string" ? error : JSON.stringify(error);
+}
+
+function SqlEditor({
+  node,
+  config,
+}: {
+  node: { id: string; sql: string };
+  config: ConnectionConfig | undefined;
+}) {
+  const { addHistoryEntry, splitOrientation } = useWorkspace();
+  const [sql, setSql] = useState(node.sql);
+  const run = useMutation<QueryOutcome, unknown, string>({
+    mutationFn: (query: string) =>
+      executeSql(config as ConnectionConfig, query),
+    onSuccess: (outcome, query) =>
+      addHistoryEntry({
+        id: `ok-${query}-${outcome.message}`,
+        sql: query,
+        status: "success",
+        message: outcome.message,
+        at: new Date().toLocaleTimeString(),
+      }),
+    onError: (error, query) =>
+      addHistoryEntry({
+        id: `err-${query}`,
+        sql: query,
+        status: "error",
+        message: errorMessage(error),
+        at: new Date().toLocaleTimeString(),
+      }),
+  });
+
+  const canRun = Boolean(config) && sql.trim().length > 0 && !run.isPending;
+  const submit = () => {
+    if (canRun) {
+      run.mutate(sql);
+    }
+  };
+
   return (
-    <div className="flex h-full min-h-0">
-      <div className="flex min-w-0 flex-1 flex-col border-r">
-        <div className="flex h-9 shrink-0 items-stretch border-b bg-muted/30">
-          <div
-            role="tablist"
-            aria-label="Saved scripts"
-            className="flex h-full flex-1 items-stretch overflow-x-auto"
-          >
-            {activeNode.savedScripts.map((name, index) => {
-              const isActive = index === activeScript;
-              return (
-                <div
-                  key={name}
-                  className={cn(
-                    "flex h-full items-center gap-1 border-r px-3 text-sm hover:bg-accent",
-                    isActive
-                      ? "-mb-px h-[calc(100%+1px)] bg-accent shadow-[inset_0_-2px_0_0_var(--primary)]"
-                      : "bg-transparent",
-                  )}
-                >
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={isActive}
-                    onClick={() => setActiveScript(index)}
-                    className={cn(
-                      "truncate font-mono text-xs",
-                      isActive ? "text-foreground" : "text-muted-foreground",
-                    )}
-                  >
-                    {name}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Close ${name}`}
-                    className="rounded-sm p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                  >
-                    <X className="size-3" />
-                  </button>
-                </div>
-              );
-            })}
+    <HorizontalSplit
+      className="h-full"
+      orientation={splitOrientation}
+      ariaLabel="SQL editor and results"
+      left={
+        <div className="flex h-full min-w-0 flex-col">
+          <div className="flex h-9 shrink-0 items-stretch justify-end border-b bg-muted/30">
+            {!config ? (
+              <span className="flex items-center px-3 font-mono text-xs text-muted-foreground">
+                Connect first (Settings tab)
+              </span>
+            ) : null}
+            <Button
+              type="button"
+              onClick={submit}
+              disabled={!canRun}
+              className="h-full shrink-0 rounded-none border-0 border-l border-l-border"
+            >
+              {run.isPending ? "Running..." : "Run"}
+            </Button>
           </div>
-          <Button
-            type="button"
-            className="h-full shrink-0 rounded-none border-0 border-l border-l-border"
-          >
-            Run
-          </Button>
+          <textarea
+            aria-label="SQL editor"
+            value={sql}
+            spellCheck={false}
+            onChange={(event) => setSql(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                submit();
+              }
+            }}
+            className="min-h-0 flex-1 resize-none bg-transparent p-3 font-mono text-xs outline-none"
+          />
         </div>
-        <pre className="min-h-0 flex-1 overflow-auto p-3 font-mono text-xs">
-          {activeNode.sql || "-- no SQL"}
-        </pre>
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-9 shrink-0 items-center border-b bg-muted/30 px-3">
-          <StatusReadout result={activeNode.result} />
+      }
+      right={
+        <div className="flex h-full min-w-0 flex-col">
+          <div className="flex h-9 shrink-0 items-center border-b bg-muted/30 px-3">
+            <LiveStatus
+              outcome={run.data}
+              error={run.error}
+              isPending={run.isPending}
+            />
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto">
+            {run.data ? (
+              run.data.returnsRows ? (
+                <OutcomeGrid outcome={run.data} />
+              ) : (
+                <p className="p-3 font-mono text-sm text-muted-foreground">
+                  {run.data.message}
+                </p>
+              )
+            ) : run.error ? (
+              <p className="p-3 font-mono text-sm text-red-600 dark:text-red-400">
+                {errorMessage(run.error)}
+              </p>
+            ) : null}
+          </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-auto">
-          <ResultGrid result={activeNode.result} />
-        </div>
-      </div>
-    </div>
+      }
+    />
   );
 }

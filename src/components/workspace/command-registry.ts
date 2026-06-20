@@ -3,10 +3,14 @@ export type PaletteCommandId =
   | "close-all-tabs"
   | "next-tab"
   | "prev-tab"
-  | "new-tab";
+  | "new-tab"
+  | "toggle-split-orientation"
+  | "toggle-sidebar"
+  | "toggle-console";
 
 export type PaletteState = {
   openTabCount: number;
+  isSplitView: boolean;
 };
 
 export type PaletteCommandDef = {
@@ -30,4 +34,22 @@ export const PALETTE_COMMANDS: readonly PaletteCommandDef[] = [
     when: hasMultipleTabs,
   },
   { id: "new-tab", name: "New tab", when: () => true },
+  {
+    id: "toggle-split-orientation",
+    name: "Toggle split layout (rows / columns)",
+    hint: "Cmd/Ctrl+\\",
+    when: (state) => state.isSplitView,
+  },
+  {
+    id: "toggle-sidebar",
+    name: "Toggle sidebar",
+    hint: "Cmd/Ctrl+B",
+    when: () => true,
+  },
+  {
+    id: "toggle-console",
+    name: "Toggle console panel",
+    hint: "Cmd/Ctrl+J",
+    when: () => true,
+  },
 ];
