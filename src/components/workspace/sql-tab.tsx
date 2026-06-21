@@ -5,7 +5,7 @@ import { DataGrid } from "@/components/workspace/data-grid";
 import { HorizontalSplit } from "@/components/workspace/horizontal-split";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { executeSql, type QueryOutcome } from "@/lib/tauri";
-import type { ConnectionConfig } from "@/components/workspace/mock-data";
+import type { ConnectionConfig } from "@/lib/workspace/model";
 
 const noop = () => {};
 

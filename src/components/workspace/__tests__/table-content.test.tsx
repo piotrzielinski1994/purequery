@@ -6,20 +6,29 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { TableCard } from "@/components/workspace/table-card";
 import { Console } from "@/components/workspace/console";
+import { toast } from "sonner";
 import { fetchTable, updateTable } from "@/lib/tauri";
 import type {
   ConnectionConfig,
   TableRows,
   TreeNode,
-} from "@/components/workspace/mock-data";
+} from "@/lib/workspace/model";
 
 vi.mock("@/lib/tauri", () => ({
   fetchTable: vi.fn(),
   updateTable: vi.fn(),
 }));
 
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
 const mockFetch = vi.mocked(fetchTable);
 const mockUpdate = vi.mocked(updateTable);
+const mockToast = vi.mocked(toast);
 
 const config: ConnectionConfig = {
   engine: "postgres",
@@ -317,6 +326,54 @@ describe("TableCard cell editing", () => {
         { column: "price", pkValue: "1", value: "1500" },
       ]);
     });
+  });
+
+  // behavior (a successful Save clears the pending edit and reports success)
+  it("should clear the pending edit and fire a success toast when Save resolves", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(
+      rowsResult(["id", "price"], [["1", "999"]], "id"),
+    );
+    mockUpdate.mockResolvedValue(1);
+    renderLive();
+
+    await user.dblClick(await screen.findByText("999"));
+    const input = screen.getByDisplayValue("999");
+    await user.clear(input);
+    await user.type(input, "1500");
+    await user.keyboard("{Enter}");
+    await user.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => {
+      expect(mockToast.success).toHaveBeenCalledWith("Saved 1 change(s)");
+    });
+    expect(screen.queryByRole("button", { name: /save/i })).toBeNull();
+    expect(screen.queryByRole("tab", { name: /changes \(\d+\)/i })).toBeNull();
+  });
+
+  // behavior (a failed Save keeps the edit and reports the backend error)
+  it("should keep the pending edit and fire an error toast when Save rejects", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(
+      rowsResult(["id", "price"], [["1", "999"]], "id"),
+    );
+    mockUpdate.mockRejectedValue(new Error("permission denied for table"));
+    renderLive();
+
+    await user.dblClick(await screen.findByText("999"));
+    const input = screen.getByDisplayValue("999");
+    await user.clear(input);
+    await user.type(input, "1500");
+    await user.keyboard("{Enter}");
+    await user.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => {
+      expect(mockToast.error).toHaveBeenCalledWith(
+        "permission denied for table",
+      );
+    });
+    expect(mockToast.success).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /save/i })).toBeInTheDocument();
   });
 
   // behavior (the edit input opts out of browser autofill/autocomplete)

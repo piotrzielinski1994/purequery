@@ -15,7 +15,7 @@ import type {
   ConnectionConfig,
   DatabaseNode,
   DbEngine,
-} from "@/components/workspace/mock-data";
+} from "@/lib/workspace/model";
 
 const ENGINE_LABELS: Record<DbEngine, string> = {
   postgres: "Postgres",

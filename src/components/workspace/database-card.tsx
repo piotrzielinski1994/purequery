@@ -10,7 +10,7 @@ import { ScriptTab } from "@/components/workspace/script-tab";
 import { SettingsTab } from "@/components/workspace/settings-tab";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useConnectionActions } from "@/components/workspace/use-connection";
-import { connectionOf } from "@/components/workspace/mock-data";
+import { connectionOf } from "@/lib/workspace/model";
 
 export function DatabaseCard() {
   const { activeNode, activeDatabaseTab, setDatabaseTab } = useWorkspace();

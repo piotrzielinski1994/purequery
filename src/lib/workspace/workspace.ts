@@ -3,7 +3,7 @@ import type {
   NetworkEngine,
   QueryResult,
   TreeNode,
-} from "@/components/workspace/mock-data";
+} from "@/lib/workspace/model";
 
 export type PersistedNetworkDatabase = {
   kind: "database";

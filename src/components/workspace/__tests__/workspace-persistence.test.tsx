@@ -7,7 +7,7 @@ import {
   useWorkspace,
 } from "@/components/workspace/workspace-context";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
-import type { ConnectionConfig } from "@/components/workspace/mock-data";
+import type { ConnectionConfig } from "@/lib/workspace/model";
 import type { Settings } from "@/lib/settings/settings";
 
 const adminConnection: ConnectionConfig = {

@@ -13,7 +13,7 @@ import type {
   DatabaseNode,
   FolderNode,
   NetworkDatabaseNode,
-} from "@/components/workspace/mock-data";
+} from "@/lib/workspace/model";
 
 const validDatabase: PersistedDatabase = {
   kind: "database",

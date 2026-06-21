@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { TreeNode } from "@/components/workspace/mock-data";
+import type { TreeNode } from "@/lib/workspace/model";
 import {
   dehydrate,
   hydrate,

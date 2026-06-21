@@ -1,14 +1,8 @@
 import { toast } from "sonner";
 import { connectDatabase } from "@/lib/tauri";
+import { toResult } from "@/lib/result";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import type { ConnectionConfig } from "@/components/workspace/mock-data";
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return typeof error === "string" ? error : String(error);
-}
+import type { ConnectionConfig } from "@/lib/workspace/model";
 
 export function useConnectionActions() {
   const {
@@ -25,17 +19,18 @@ export function useConnectionActions() {
       return;
     }
     setConnectionStatus(id, "connecting");
-    try {
-      const tables = await connectDatabase(config);
-      setConnection(id, config);
-      updateDatabaseConfig(id, config);
-      setDatabaseTables(id, tables);
-      setConnectionStatus(id, "connected");
-      toast.success(`Connected - ${tables.length} tables`);
-    } catch (error) {
+    const result = await toResult(connectDatabase(config));
+    if (!result.ok) {
       setConnectionStatus(id, "error");
-      toast.error(errorMessage(error));
+      toast.error(result.error);
+      return;
     }
+    const tables = result.value;
+    setConnection(id, config);
+    updateDatabaseConfig(id, config);
+    setDatabaseTables(id, tables);
+    setConnectionStatus(id, "connected");
+    toast.success(`Connected - ${tables.length} tables`);
   };
 
   const disconnect = (id: string) => {

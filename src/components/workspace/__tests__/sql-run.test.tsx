@@ -10,7 +10,7 @@ import { executeSql } from "@/lib/tauri";
 import type {
   ConnectionConfig,
   TreeNode,
-} from "@/components/workspace/mock-data";
+} from "@/lib/workspace/model";
 
 vi.mock("@/lib/tauri", () => ({
   executeSql: vi.fn(),

@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   ConnectionConfig,
   TableRows,
-} from "@/components/workspace/mock-data";
+} from "@/lib/workspace/model";
 
 export function greet(name: string): Promise<string> {
   return invoke<string>("greet", { name });

@@ -11,7 +11,7 @@ import type {
   DatabaseNode,
   QueryResult,
   TreeNode,
-} from "@/components/workspace/mock-data";
+} from "@/lib/workspace/model";
 import { connectDatabase } from "@/lib/tauri";
 import { toast } from "sonner";
 

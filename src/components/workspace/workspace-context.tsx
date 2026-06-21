@@ -11,16 +11,14 @@ import type {
   PanelLayout,
   Settings,
 } from "@/lib/settings/settings";
-import {
-  mockConsoleLines,
-  mockTree,
-  type ConnectionConfig,
-  type ConnectionStatus,
-  type DatabaseNode,
-  type FolderNode,
-  type TableNode,
-  type TreeNode,
-} from "@/components/workspace/mock-data";
+import type {
+  ConnectionConfig,
+  ConnectionStatus,
+  DatabaseNode,
+  FolderNode,
+  TableNode,
+  TreeNode,
+} from "@/lib/workspace/model";
 
 export type DatabaseTab = "sql" | "views" | "script" | "settings";
 
@@ -292,8 +290,8 @@ type WorkspaceProviderProps = {
 
 export function WorkspaceProvider({
   children,
-  tree: initialTree = mockTree,
-  consoleLines = mockConsoleLines,
+  tree: initialTree = [],
+  consoleLines = [],
   initialExpandedIds = [],
   initialActiveTabId,
   initialOpenTabIds,

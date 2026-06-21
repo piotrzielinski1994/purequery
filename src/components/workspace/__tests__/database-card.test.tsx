@@ -6,7 +6,7 @@ import { QueryWrapper } from "@/test/query-wrapper";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { DatabaseCard } from "@/components/workspace/database-card";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
-import type { ConnectionConfig } from "@/components/workspace/mock-data";
+import type { ConnectionConfig } from "@/lib/workspace/model";
 import { connectDatabase } from "@/lib/tauri";
 
 vi.mock("@/lib/tauri", () => ({

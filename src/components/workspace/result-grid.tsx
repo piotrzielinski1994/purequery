@@ -4,7 +4,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import type { QueryResult } from "@/components/workspace/mock-data";
+import type { QueryResult } from "@/lib/workspace/model";
 
 type Row = Record<string, string>;
 

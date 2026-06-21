@@ -16,7 +16,7 @@ import {
   type FolderNode,
   type TableNode,
   type TreeNode,
-} from "@/components/workspace/mock-data";
+} from "@/lib/workspace/model";
 
 function FolderRow({ node, depth }: { node: FolderNode; depth: number }) {
   const { expandedIds, toggleExpand } = useWorkspace();

@@ -13,7 +13,7 @@ import type {
   ConnectionConfig,
   TableRows,
   TreeNode,
-} from "@/components/workspace/mock-data";
+} from "@/lib/workspace/model";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(),

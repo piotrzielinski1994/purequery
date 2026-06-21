@@ -15,12 +15,13 @@ import {
 } from "@/components/ui/dialog";
 import { DataGrid, renderCell, type Cell } from "@/components/workspace/data-grid";
 import { fetchTable, updateTable, type CellEdit } from "@/lib/tauri";
+import { toResult } from "@/lib/result";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import type {
   ConnectionConfig,
   TableNode,
   TableRows,
-} from "@/components/workspace/mock-data";
+} from "@/lib/workspace/model";
 
 function quoteIdent(engine: ConnectionConfig["engine"], name: string): string {
   return engine === "mysql"
@@ -279,18 +280,15 @@ function LiveTable({
       value: edit.newValue,
     }));
     setIsSaving(true);
-    try {
-      await updateTable(config, tableName, payload);
-      discardPendingEditsForTable(tableId);
-      toast.success(`Saved ${payload.length} change(s)`);
-      queryClient.invalidateQueries({ queryKey: ["table-rows", tableId] });
-    } catch (saveError) {
-      toast.error(
-        saveError instanceof Error ? saveError.message : String(saveError),
-      );
-    } finally {
-      setIsSaving(false);
+    const result = await toResult(updateTable(config, tableName, payload));
+    setIsSaving(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
     }
+    discardPendingEditsForTable(tableId);
+    toast.success(`Saved ${payload.length} change(s)`);
+    queryClient.invalidateQueries({ queryKey: ["table-rows", tableId] });
   };
 
   return (

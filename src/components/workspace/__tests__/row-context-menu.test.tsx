@@ -10,7 +10,7 @@ import { connectDatabase } from "@/lib/tauri";
 import type {
   ConnectionConfig,
   TreeNode,
-} from "@/components/workspace/mock-data";
+} from "@/lib/workspace/model";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
 
 vi.mock("@/lib/tauri", () => ({

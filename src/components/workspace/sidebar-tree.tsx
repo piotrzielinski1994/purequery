@@ -4,7 +4,7 @@ import { useWorkspace } from "@/components/workspace/workspace-context";
 import { TreeRow } from "@/components/workspace/tree-row";
 import { DeleteRequestProvider } from "@/components/workspace/delete-request-context";
 import { DeleteNodeDialog } from "@/components/workspace/delete-node-dialog";
-import type { TreeNode } from "@/components/workspace/mock-data";
+import type { TreeNode } from "@/lib/workspace/model";
 
 export function SidebarTree() {
   const { tree, removeNode } = useWorkspace();

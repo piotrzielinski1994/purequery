@@ -4,7 +4,7 @@ import type {
   TableNode,
   TreeNode,
   ViewObject,
-} from "@/components/workspace/mock-data";
+} from "@/lib/workspace/model";
 
 const appUsersResult: QueryResult = {
   status: "success",

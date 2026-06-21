@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import type { TreeNode } from "@/components/workspace/mock-data";
+import type { TreeNode } from "@/lib/workspace/model";
 
 type DeleteNodeDialogProps = {
   node: TreeNode | null;

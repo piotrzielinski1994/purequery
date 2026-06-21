@@ -12,7 +12,7 @@ import {
   type PersistedWorkspace,
   type WorkspaceStore,
 } from "@/lib/workspace/workspace";
-import type { DatabaseNode, TreeNode } from "@/components/workspace/mock-data";
+import type { DatabaseNode, TreeNode } from "@/lib/workspace/model";
 
 const seededWorkspace: PersistedWorkspace = {
   version: 1,
