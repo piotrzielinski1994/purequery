@@ -307,6 +307,64 @@ pub fn build_update_query_value(
     (sql, binds)
 }
 
+// Builds an INSERT listing only the columns the user set (parallel `columns` + `values`). Each
+// non-null value is bound; Postgres casts it to the column's type ($n::type) like the update path,
+// MySQL/SQLite bind plainly with `?`. A None value goes in as a literal NULL (no bind), so DB
+// defaults/sequences still apply to columns the user left untouched (those aren't listed at all).
+pub fn build_insert_query(
+    engine: DbEngine,
+    table: &str,
+    columns: &[(&str, &str)],
+    values: &[Option<&str>],
+) -> (String, Vec<String>) {
+    let quoted_table = quote_identifier(engine, table);
+    let quoted_columns = columns
+        .iter()
+        .map(|(name, _)| quote_identifier(engine, name))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let mut binds = Vec::new();
+    let placeholders = columns
+        .iter()
+        .zip(values)
+        .map(|((_, column_type), value)| match value {
+            None => "NULL".to_string(),
+            Some(text) => {
+                binds.push(text.to_string());
+                match engine {
+                    DbEngine::Postgres => format!("${}::{column_type}", binds.len()),
+                    DbEngine::Mysql | DbEngine::Sqlite => "?".to_string(),
+                }
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let sql =
+        format!("INSERT INTO {quoted_table} ({quoted_columns}) VALUES ({placeholders})");
+    (sql, binds)
+}
+
+// Builds a DELETE matching the row whose primary key equals `pk_value`. The pk is compared as text
+// (PG `::text`, MySQL/SQLite `CAST(... AS CHAR/TEXT)`) so any pk type works, mirroring the update path.
+pub fn build_delete_query(
+    engine: DbEngine,
+    table: &str,
+    pk_column: &str,
+    pk_value: &str,
+) -> (String, Vec<String>) {
+    let quoted_table = quote_identifier(engine, table);
+    let pk_match = match engine {
+        DbEngine::Postgres => format!("{}::text = $1", quote_identifier(engine, pk_column)),
+        DbEngine::Mysql | DbEngine::Sqlite => {
+            format!("{} = ?", text_expression(engine, pk_column))
+        }
+    };
+    let sql = format!("DELETE FROM {quoted_table} WHERE {pk_match}");
+    (sql, vec![pk_value.to_string()])
+}
+
 #[cfg(test)]
 pub fn build_update_query(
     engine: DbEngine,
@@ -834,12 +892,24 @@ fn read_nullable(engine: DbEngine, row: &sqlx::any::AnyRow) -> bool {
     }
 }
 
+// A batch of row-level changes the table card stages and applies on Save. Internally tagged by
+// `kind`; the frontend `PendingMutation` carries extra UI-only fields (id, tableName, sql, ...)
+// that serde ignores here.
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CellEdit {
-    pub column: String,
-    pub pk_value: String,
-    pub value: Option<String>,
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum RowMutation {
+    Cell {
+        column: String,
+        pk_value: String,
+        #[serde(default)]
+        new_value: Option<String>,
+    },
+    Insert {
+        values: std::collections::BTreeMap<String, Option<String>>,
+    },
+    Delete {
+        pk_value: String,
+    },
 }
 
 fn column_types_query(engine: DbEngine) -> &'static str {
@@ -896,10 +966,10 @@ fn assemble_columns(
         .collect()
 }
 
-pub async fn update_cells(
+pub async fn apply_row_mutations(
     config: ConnectionConfig,
     table: String,
-    edits: Vec<CellEdit>,
+    mutations: Vec<RowMutation>,
 ) -> Result<u64, String> {
     let engine = config.engine();
     let pool = AnyPoolOptions::new()
@@ -908,17 +978,17 @@ pub async fn update_cells(
         .await
         .map_err(|error| error.to_string())?;
 
-    let result = write_cells(&pool, engine, &table, &edits).await;
+    let result = apply_mutations(&pool, engine, &table, &mutations).await;
 
     pool.close().await;
     result
 }
 
-async fn write_cells(
+async fn apply_mutations(
     pool: &sqlx::AnyPool,
     engine: DbEngine,
     table: &str,
-    edits: &[CellEdit],
+    mutations: &[RowMutation],
 ) -> Result<u64, String> {
     let pk_rows = sqlx::query(primary_key_query(engine))
         .bind(table)
@@ -951,19 +1021,8 @@ async fn write_cells(
         .collect();
 
     let mut affected = 0;
-    for edit in edits {
-        let column_type = column_types
-            .get(&edit.column)
-            .ok_or_else(|| format!("unknown column '{}'", edit.column))?;
-        let (sql, binds) = build_update_query_value(
-            engine,
-            table,
-            &edit.column,
-            column_type,
-            pk_column,
-            edit.value.as_deref(),
-            &edit.pk_value,
-        );
+    for mutation in mutations {
+        let (sql, binds) = build_mutation(engine, table, pk_column, &column_types, mutation)?;
         let mut query = sqlx::query(&sql);
         for bind in &binds {
             query = query.bind(bind);
@@ -977,14 +1036,63 @@ async fn write_cells(
     Ok(affected)
 }
 
+// Translates one staged mutation into (sql, binds). Cell + Insert resolve each column's type from
+// the introspected map (degrading to "" like the update path when a type is unknown); Delete needs
+// only the pk.
+fn build_mutation(
+    engine: DbEngine,
+    table: &str,
+    pk_column: &str,
+    column_types: &std::collections::HashMap<String, String>,
+    mutation: &RowMutation,
+) -> Result<(String, Vec<String>), String> {
+    match mutation {
+        RowMutation::Cell {
+            column,
+            pk_value,
+            new_value,
+        } => {
+            let column_type = column_types
+                .get(column)
+                .ok_or_else(|| format!("unknown column '{column}'"))?;
+            Ok(build_update_query_value(
+                engine,
+                table,
+                column,
+                column_type,
+                pk_column,
+                new_value.as_deref(),
+                pk_value,
+            ))
+        }
+        RowMutation::Insert { values } => {
+            let columns = values
+                .keys()
+                .map(|name| {
+                    let column_type = column_types.get(name).map(String::as_str).unwrap_or("");
+                    (name.as_str(), column_type)
+                })
+                .collect::<Vec<_>>();
+            let cells = values
+                .values()
+                .map(Option::as_deref)
+                .collect::<Vec<_>>();
+            Ok(build_insert_query(engine, table, &columns, &cells))
+        }
+        RowMutation::Delete { pk_value } => {
+            Ok(build_delete_query(engine, table, pk_column, pk_value))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        assemble_columns, build_count_query, build_rows_query, build_update_query,
-        build_update_query_value, build_url, catalog_query, column_types_query, columns_query,
-        is_row_returning, is_subquery_wrappable, nullable_query, parse_json_rows, primary_key_query,
-        quote_identifier, wrap_columns_probe, wrap_select_as_json, wrap_select_as_text,
-        ConnectionConfig, DbEngine, Sort,
+        assemble_columns, build_count_query, build_delete_query, build_insert_query,
+        build_rows_query, build_update_query, build_update_query_value, build_url, catalog_query,
+        column_types_query, columns_query, is_row_returning, is_subquery_wrappable, nullable_query,
+        parse_json_rows, primary_key_query, quote_identifier, wrap_columns_probe,
+        wrap_select_as_json, wrap_select_as_text, ConnectionConfig, DbEngine, Sort,
     };
     use std::collections::HashMap;
 
@@ -1826,5 +1934,102 @@ mod tests {
             sql,
             "SELECT CAST(\"id\" AS TEXT), CAST(\"price\" AS TEXT) FROM (SELECT id, price FROM product) AS dbui_q LIMIT 200"
         );
+    }
+
+    // F3 row-mutation builders. `build_insert_query` takes the ordered set columns as
+    // (column_name, column_type) and their parallel values; only the columns the user set are
+    // listed. `build_delete_query` takes (engine, table, pk_column, pk_value). Both return
+    // (sql, ordered binds), mirroring `build_update_query_value`'s engine matrix (PG `$n::type`
+    // + `pk::text`; MySQL/SQLite `?` + `CAST(... AS CHAR/TEXT)`).
+
+    // AC-006, TC-007 - behavior (Postgres INSERT lists only set columns and casts each value)
+    #[test]
+    fn should_build_a_typed_insert_for_postgres_when_some_columns_are_set() {
+        let (sql, binds) = build_insert_query(
+            DbEngine::Postgres,
+            "users",
+            &[("name", "text"), ("email", "text")],
+            &[Some("Dee"), Some("dee@example.com")],
+        );
+        assert_eq!(
+            sql,
+            "INSERT INTO \"users\" (\"name\", \"email\") VALUES ($1::text, $2::text)"
+        );
+        assert_eq!(
+            binds,
+            vec!["Dee".to_string(), "dee@example.com".to_string()]
+        );
+    }
+
+    // AC-006, TC-007 - behavior (MySQL INSERT binds positionally with ?, no casts)
+    #[test]
+    fn should_build_an_insert_binding_positionally_for_mysql() {
+        let (sql, binds) = build_insert_query(
+            DbEngine::Mysql,
+            "users",
+            &[("name", "varchar"), ("email", "varchar")],
+            &[Some("Dee"), Some("dee@example.com")],
+        );
+        assert_eq!(
+            sql,
+            "INSERT INTO `users` (`name`, `email`) VALUES (?, ?)"
+        );
+        assert_eq!(
+            binds,
+            vec!["Dee".to_string(), "dee@example.com".to_string()]
+        );
+    }
+
+    // AC-006, TC-007 - behavior (SQLite INSERT binds plainly with ?)
+    #[test]
+    fn should_build_an_insert_binding_positionally_for_sqlite() {
+        let (sql, binds) = build_insert_query(
+            DbEngine::Sqlite,
+            "users",
+            &[("name", "TEXT")],
+            &[Some("Dee")],
+        );
+        assert_eq!(sql, "INSERT INTO \"users\" (\"name\") VALUES (?)");
+        assert_eq!(binds, vec!["Dee".to_string()]);
+    }
+
+    // AC-006 - behavior (a NULL value goes in as a literal NULL, not a bind, like the update path)
+    #[test]
+    fn should_emit_a_null_literal_for_an_unset_value_in_an_insert() {
+        let (sql, binds) = build_insert_query(
+            DbEngine::Postgres,
+            "users",
+            &[("name", "text"), ("note", "text")],
+            &[Some("Dee"), None],
+        );
+        assert_eq!(
+            sql,
+            "INSERT INTO \"users\" (\"name\", \"note\") VALUES ($1::text, NULL)"
+        );
+        assert_eq!(binds, vec!["Dee".to_string()]);
+    }
+
+    // AC-007, TC-009 - behavior (Postgres DELETE matches the pk as text)
+    #[test]
+    fn should_build_a_delete_matching_the_pk_as_text_for_postgres() {
+        let (sql, binds) = build_delete_query(DbEngine::Postgres, "users", "id", "2");
+        assert_eq!(sql, "DELETE FROM \"users\" WHERE \"id\"::text = $1");
+        assert_eq!(binds, vec!["2".to_string()]);
+    }
+
+    // AC-007, TC-009 - behavior (MySQL DELETE casts the pk to CHAR)
+    #[test]
+    fn should_build_a_delete_casting_the_pk_to_char_for_mysql() {
+        let (sql, binds) = build_delete_query(DbEngine::Mysql, "users", "id", "2");
+        assert_eq!(sql, "DELETE FROM `users` WHERE CAST(`id` AS CHAR) = ?");
+        assert_eq!(binds, vec!["2".to_string()]);
+    }
+
+    // AC-007, TC-009 - behavior (SQLite DELETE casts the pk to TEXT)
+    #[test]
+    fn should_build_a_delete_casting_the_pk_to_text_for_sqlite() {
+        let (sql, binds) = build_delete_query(DbEngine::Sqlite, "users", "id", "2");
+        assert_eq!(sql, "DELETE FROM \"users\" WHERE CAST(\"id\" AS TEXT) = ?");
+        assert_eq!(binds, vec!["2".to_string()]);
     }
 }

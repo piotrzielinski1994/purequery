@@ -26,13 +26,16 @@ import {
   type ColumnMeta,
 } from "@/components/workspace/data-grid";
 import {
+  applyRowMutations,
   countTable,
   fetchTable,
-  updateTable,
-  type CellEdit,
+  type RowMutation,
 } from "@/lib/tauri";
 import { toResult } from "@/lib/result";
-import { useWorkspace } from "@/components/workspace/workspace-context";
+import {
+  useWorkspace,
+  type PendingMutation,
+} from "@/components/workspace/workspace-context";
 import type {
   ConnectionConfig,
   Sort,
@@ -59,6 +62,30 @@ function previewSql(
   pkValue: Cell,
 ): string {
   return `UPDATE ${quoteIdent(engine, table)} SET ${quoteIdent(engine, column)} = ${quoteLiteral(newValue)} WHERE ${quoteIdent(engine, pkColumn)} = ${quoteLiteral(pkValue)}`;
+}
+
+function previewInsertSql(
+  engine: ConnectionConfig["engine"],
+  table: string,
+  values: Record<string, Cell>,
+): string {
+  const entries = Object.entries(values);
+  const columns = entries
+    .map(([column]) => quoteIdent(engine, column))
+    .join(", ");
+  const cells = entries
+    .map(([, value]) => quoteLiteral(value))
+    .join(", ");
+  return `INSERT INTO ${quoteIdent(engine, table)} (${columns}) VALUES (${cells})`;
+}
+
+function previewDeleteSql(
+  engine: ConnectionConfig["engine"],
+  table: string,
+  pkColumn: string,
+  pkValue: Cell,
+): string {
+  return `DELETE FROM ${quoteIdent(engine, table)} WHERE ${quoteIdent(engine, pkColumn)} = ${quoteLiteral(pkValue)}`;
 }
 
 const ROW_LIMIT = 200;
@@ -123,6 +150,11 @@ function TableView({
   columnMeta,
   sort,
   onSortColumn,
+  isDraftRow,
+  isDeletedRow,
+  onDeleteRow,
+  onUndeleteRow,
+  onCloneRow,
 }: {
   columns: string[];
   rows: Cell[][];
@@ -132,6 +164,11 @@ function TableView({
   columnMeta?: Record<string, ColumnMeta>;
   sort?: Sort | null;
   onSortColumn?: (column: string) => void;
+  isDraftRow?: (rowIndex: number) => boolean;
+  isDeletedRow?: (rowIndex: number) => boolean;
+  onDeleteRow?: (rowIndex: number) => void;
+  onUndeleteRow?: (rowIndex: number) => void;
+  onCloneRow?: (rowIndex: number) => void;
 }) {
   const [isRecordView, setIsRecordView] = useState(false);
   const [selectedRow, setSelectedRow] = useState(0);
@@ -197,6 +234,11 @@ function TableView({
       columnMeta={columnMeta}
       sort={sort}
       onSortColumn={onSortColumn}
+      isDraftRow={isDraftRow}
+      isDeletedRow={isDeletedRow}
+      onDeleteRow={onDeleteRow}
+      onUndeleteRow={onUndeleteRow}
+      onCloneRow={onCloneRow}
     />
   );
 }
@@ -315,13 +357,35 @@ function LiveTable({
     () => pendingEdits.filter((edit) => edit.tableId === tableId),
     [pendingEdits, tableId],
   );
+  const inserts = useMemo(
+    () =>
+      tableEdits.filter(
+        (edit): edit is Extract<PendingMutation, { kind: "insert" }> =>
+          edit.kind === "insert",
+      ),
+    [tableEdits],
+  );
+  const deletedPks = useMemo(
+    () =>
+      new Set(
+        tableEdits
+          .filter(
+            (edit): edit is Extract<PendingMutation, { kind: "delete" }> =>
+              edit.kind === "delete",
+          )
+          .map((edit) => edit.pkValue),
+      ),
+    [tableEdits],
+  );
   const edits = useMemo(
     () =>
       Object.fromEntries(
-        tableEdits.map((edit) => [
-          `${edit.rowIndex}:${edit.column}`,
-          edit.newValue,
-        ]),
+        tableEdits
+          .filter(
+            (edit): edit is Extract<PendingMutation, { kind: "cell" }> =>
+              edit.kind === "cell",
+          )
+          .map((edit) => [`${edit.rowIndex}:${edit.column}`, edit.newValue]),
       ),
     [tableEdits],
   );
@@ -358,8 +422,53 @@ function LiveTable({
   const editable = primaryKey !== null;
   const pkIndex = primaryKey ? columnNames.indexOf(primaryKey) : -1;
 
+  // Draft rows (staged inserts) are appended after the saved rows; their grid index is
+  // savedRowCount + position-in-inserts, so an index past the saved rows addresses a draft.
+  const savedRowCount = rows.length;
+  const draftRows = useMemo(
+    () =>
+      inserts.map((insert) =>
+        columnNames.map((name) => insert.values[name] ?? null),
+      ),
+    [inserts, columnNames],
+  );
+  const gridRows = useMemo(
+    () => [...rows, ...draftRows],
+    [rows, draftRows],
+  );
+
+  const isDraftRow = useCallback(
+    (rowIndex: number) => rowIndex >= savedRowCount,
+    [savedRowCount],
+  );
+  const isDeletedRow = useCallback(
+    (rowIndex: number) => {
+      const pkValue = pkIndex >= 0 ? rows[rowIndex]?.[pkIndex] : null;
+      return pkValue !== null && pkValue !== undefined && deletedPks.has(pkValue);
+    },
+    [deletedPks, rows, pkIndex],
+  );
+
   const commitEdit = useCallback(
     (rowIndex: number, column: string, value: string) => {
+      if (rowIndex >= savedRowCount) {
+        const insert = inserts[rowIndex - savedRowCount];
+        if (!insert) {
+          return;
+        }
+        const values = { ...insert.values };
+        if (value === "") {
+          delete values[column];
+        } else {
+          values[column] = value;
+        }
+        upsertPendingEdit({
+          ...insert,
+          values,
+          sql: previewInsertSql(config.engine, tableName, values),
+        });
+        return;
+      }
       const columnIndex = columnNames.indexOf(column);
       const original = rows[rowIndex]?.[columnIndex] ?? null;
       const id = `${tableId}:${rowIndex}:${column}`;
@@ -369,6 +478,7 @@ function LiveTable({
       }
       const pkValue = pkIndex >= 0 ? (rows[rowIndex]?.[pkIndex] ?? null) : null;
       upsertPendingEdit({
+        kind: "cell",
         id,
         tableId,
         tableName,
@@ -388,6 +498,8 @@ function LiveTable({
       });
     },
     [
+      savedRowCount,
+      inserts,
       columnNames,
       rows,
       tableId,
@@ -400,6 +512,96 @@ function LiveTable({
     ],
   );
 
+  const addRow = useCallback(() => {
+    const draftId = crypto.randomUUID();
+    upsertPendingEdit({
+      kind: "insert",
+      id: `${tableId}:insert:${draftId}`,
+      draftId,
+      tableId,
+      tableName,
+      values: {},
+      sql: previewInsertSql(config.engine, tableName, {}),
+    });
+  }, [tableId, tableName, config.engine, upsertPendingEdit]);
+
+  const cloneRow = useCallback(
+    (rowIndex: number) => {
+      const source = rows[rowIndex];
+      if (!source) {
+        return;
+      }
+      const values: Record<string, string | null> = {};
+      columnNames.forEach((name, index) => {
+        const cell = source[index] ?? null;
+        if (name !== primaryKey && cell !== null) {
+          values[name] = cell;
+        }
+      });
+      const draftId = crypto.randomUUID();
+      upsertPendingEdit({
+        kind: "insert",
+        id: `${tableId}:insert:${draftId}`,
+        draftId,
+        tableId,
+        tableName,
+        values,
+        sql: previewInsertSql(config.engine, tableName, values),
+      });
+    },
+    [rows, columnNames, primaryKey, tableId, tableName, config.engine, upsertPendingEdit],
+  );
+
+  const deleteRow = useCallback(
+    (rowIndex: number) => {
+      if (!primaryKey || pkIndex < 0) {
+        return;
+      }
+      const pkValue = rows[rowIndex]?.[pkIndex] ?? null;
+      if (pkValue === null) {
+        return;
+      }
+      // Deleting a row supersedes any pending cell edits to it.
+      tableEdits
+        .filter((edit) => edit.kind === "cell" && edit.rowIndex === rowIndex)
+        .forEach((edit) => discardPendingEdit(edit.id));
+      upsertPendingEdit({
+        kind: "delete",
+        id: `${tableId}:delete:${pkValue}`,
+        tableId,
+        tableName,
+        pkColumn: primaryKey,
+        pkValue,
+        sql: previewDeleteSql(config.engine, tableName, primaryKey, pkValue),
+      });
+    },
+    [
+      primaryKey,
+      pkIndex,
+      rows,
+      tableEdits,
+      tableId,
+      tableName,
+      config.engine,
+      discardPendingEdit,
+      upsertPendingEdit,
+    ],
+  );
+
+  const undeleteRow = useCallback(
+    (rowIndex: number) => {
+      if (pkIndex < 0) {
+        return;
+      }
+      const pkValue = rows[rowIndex]?.[pkIndex] ?? null;
+      if (pkValue === null) {
+        return;
+      }
+      discardPendingEdit(`${tableId}:delete:${pkValue}`);
+    },
+    [pkIndex, rows, tableId, discardPendingEdit],
+  );
+
   if (isPending) {
     return <p className="p-3 text-sm text-muted-foreground">Loading...</p>;
   }
@@ -408,21 +610,62 @@ function LiveTable({
   }
 
   const save = async () => {
-    const payload: CellEdit[] = tableEdits.map((edit) => ({
-      column: edit.column,
-      pkValue: edit.pkValue ?? "",
-      value: edit.newValue,
-    }));
+    const payload: RowMutation[] = tableEdits.flatMap(
+      (edit): RowMutation[] => {
+        if (edit.kind === "cell") {
+          return [
+            {
+              kind: "cell",
+              column: edit.column,
+              pkValue: edit.pkValue ?? "",
+              newValue: edit.newValue,
+            },
+          ];
+        }
+        if (edit.kind === "delete") {
+          return [{ kind: "delete", pkValue: edit.pkValue }];
+        }
+        return Object.keys(edit.values).length > 0
+          ? [{ kind: "insert", values: edit.values }]
+          : [];
+      },
+    );
+    const savedSqls = tableEdits
+      .filter(
+        (edit) => edit.kind !== "insert" || Object.keys(edit.values).length > 0,
+      )
+      .map((edit) => ({ id: edit.id, sql: edit.sql }));
     setIsSaving(true);
-    const result = await toResult(updateTable(config, tableName, payload));
+    const result = await toResult(
+      applyRowMutations(config, tableName, payload),
+    );
     setIsSaving(false);
     if (!result.ok) {
+      addHistoryEntry({
+        id: `save-err-${tableId}-${Date.now()}`,
+        sql: savedSqls.map((entry) => entry.sql).join(";\n"),
+        status: "error",
+        message: result.error,
+        at: new Date().toLocaleTimeString(),
+      });
       toast.error(result.error);
       return;
     }
     discardPendingEditsForTable(tableId);
-    toast.success(`Saved ${payload.length} change(s)`);
+    const at = new Date().toLocaleTimeString();
+    const savedAt = Date.now();
+    savedSqls.forEach((entry) =>
+      addHistoryEntry({
+        id: `save-${entry.id}-${savedAt}`,
+        sql: entry.sql,
+        status: "success",
+        message: "OK",
+        at,
+      }),
+    );
+    toast.success(`Saved ${result.value} change(s)`);
     queryClient.invalidateQueries({ queryKey: ["table-rows", tableId] });
+    queryClient.invalidateQueries({ queryKey: ["table-count", tableId] });
   };
 
   return (
@@ -430,13 +673,18 @@ function LiveTable({
       <div className="min-h-0 flex-1 overflow-auto">
         <TableView
           columns={columnNames}
-          rows={rows}
+          rows={gridRows}
           editable={editable}
           edits={edits}
           onCommitEdit={commitEdit}
           columnMeta={columnMeta}
           sort={sort}
           onSortColumn={cycleSort}
+          isDraftRow={editable ? isDraftRow : undefined}
+          isDeletedRow={editable ? isDeletedRow : undefined}
+          onDeleteRow={editable ? deleteRow : undefined}
+          onUndeleteRow={editable ? undeleteRow : undefined}
+          onCloneRow={editable ? cloneRow : undefined}
         />
       </div>
       <div className="flex h-9 shrink-0 items-stretch border-t bg-muted/30">
@@ -476,6 +724,16 @@ function LiveTable({
             className="h-full rounded-none border-0 border-l border-l-border px-3"
           >
             {isFetchingNextPage ? "Loading..." : "Load more"}
+          </Button>
+        ) : null}
+        {editable ? (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={addRow}
+            className="h-full rounded-none border-0 border-l border-l-border px-3"
+          >
+            + Add row
           </Button>
         ) : null}
         <CopyButtons

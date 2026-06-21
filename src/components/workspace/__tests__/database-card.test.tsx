@@ -12,7 +12,8 @@ import { connectDatabase } from "@/lib/tauri";
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(),
   fetchTable: vi.fn(),
-  updateTable: vi.fn(),
+  countTable: vi.fn(),
+  applyRowMutations: vi.fn(),
   executeSql: vi.fn(),
 }));
 

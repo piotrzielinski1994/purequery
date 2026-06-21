@@ -39,10 +39,10 @@ export function Console() {
         className="flex shrink-0 items-stretch border-b"
       >
         <ConsoleTabButton
-          isActive={tab === "log"}
-          onClick={() => setTab("log")}
+          isActive={tab === "history"}
+          onClick={() => setTab("history")}
         >
-          Console
+          History{history.length > 0 ? ` (${history.length})` : ""}
         </ConsoleTabButton>
         <ConsoleTabButton
           isActive={tab === "changes"}
@@ -51,10 +51,10 @@ export function Console() {
           Changes{pendingCount > 0 ? ` (${pendingCount})` : ""}
         </ConsoleTabButton>
         <ConsoleTabButton
-          isActive={tab === "history"}
-          onClick={() => setTab("history")}
+          isActive={tab === "log"}
+          onClick={() => setTab("log")}
         >
-          History{history.length > 0 ? ` (${history.length})` : ""}
+          Console
         </ConsoleTabButton>
       </div>
       {tab === "log" ? (
@@ -83,7 +83,11 @@ export function Console() {
                   </code>
                   <button
                     type="button"
-                    aria-label={`Discard change to ${edit.column}`}
+                    aria-label={
+                      edit.kind === "cell"
+                        ? `Discard change to ${edit.column}`
+                        : `Discard ${edit.kind}`
+                    }
                     onClick={() => discardPendingEdit(edit.id)}
                     className="shrink-0 p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                   >

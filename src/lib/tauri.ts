@@ -40,18 +40,31 @@ export function countTable(
   });
 }
 
-export type CellEdit = {
+export type CellMutation = {
+  kind: "cell";
   column: string;
   pkValue: string;
-  value: string | null;
+  newValue: string | null;
 };
 
-export function updateTable(
+export type InsertMutation = {
+  kind: "insert";
+  values: Record<string, string | null>;
+};
+
+export type DeleteMutation = {
+  kind: "delete";
+  pkValue: string;
+};
+
+export type RowMutation = CellMutation | InsertMutation | DeleteMutation;
+
+export function applyRowMutations(
   config: ConnectionConfig,
   table: string,
-  edits: CellEdit[],
+  mutations: RowMutation[],
 ): Promise<number> {
-  return invoke<number>("update_table", { config, table, edits });
+  return invoke<number>("apply_mutations", { config, table, mutations });
 }
 
 export type QueryOutcome = {

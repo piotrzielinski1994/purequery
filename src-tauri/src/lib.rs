@@ -1,8 +1,8 @@
 mod db;
 
 use db::{
-    count_table_rows, fetch_table_rows, list_tables, run_query, update_cells, CellEdit,
-    ConnectionConfig, QueryOutcome, Sort, TableRows, DEFAULT_ROW_LIMIT,
+    apply_row_mutations, count_table_rows, fetch_table_rows, list_tables, run_query,
+    ConnectionConfig, QueryOutcome, RowMutation, Sort, TableRows, DEFAULT_ROW_LIMIT,
 };
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -46,12 +46,12 @@ async fn count_table(
 }
 
 #[tauri::command]
-async fn update_table(
+async fn apply_mutations(
     config: ConnectionConfig,
     table: String,
-    edits: Vec<CellEdit>,
+    mutations: Vec<RowMutation>,
 ) -> Result<u64, String> {
-    update_cells(config, table, edits).await
+    apply_row_mutations(config, table, mutations).await
 }
 
 #[tauri::command]
@@ -71,7 +71,7 @@ pub fn run() {
             connect_database,
             fetch_table,
             count_table,
-            update_table,
+            apply_mutations,
             execute_sql
         ])
         .run(tauri::generate_context!())

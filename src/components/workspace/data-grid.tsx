@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { Fragment, memo, useMemo, useState } from "react";
 import {
   createColumnHelper,
   flexRender,
@@ -8,6 +8,12 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { toCsv, toJson } from "@/lib/export";
 import type { Sort, TableColumn } from "@/lib/workspace/model";
 
@@ -117,6 +123,11 @@ function DataGridImpl({
   columnMeta,
   sort,
   onSortColumn,
+  isDraftRow,
+  isDeletedRow,
+  onDeleteRow,
+  onUndeleteRow,
+  onCloneRow,
 }: {
   columns: string[];
   rows: Cell[][];
@@ -129,6 +140,11 @@ function DataGridImpl({
   columnMeta?: Record<string, ColumnMeta>;
   sort?: Sort | null;
   onSortColumn?: (column: string) => void;
+  isDraftRow?: (rowIndex: number) => boolean;
+  isDeletedRow?: (rowIndex: number) => boolean;
+  onDeleteRow?: (rowIndex: number) => void;
+  onUndeleteRow?: (rowIndex: number) => void;
+  onCloneRow?: (rowIndex: number) => void;
 }) {
   const [editing, setEditing] = useState<{
     rowIndex: number;
@@ -239,75 +255,114 @@ function DataGridImpl({
           ))}
         </thead>
         <tbody>
-          {grid.getRowModel().rows.map((row) => (
-            <tr
-              key={row.id}
-              aria-selected={row.index === selectedRow}
-              onClick={() => onSelectRow(row.index)}
-              className="cursor-default border-b last:border-0 aria-selected:bg-accent"
-            >
-              {row.getVisibleCells().map((cell) => {
-                const column = cell.column.id;
-                const isEditing =
-                  editable &&
-                  editing?.rowIndex === row.index &&
-                  editing.column === column;
-                const dirtyValue = editValueAt(row.index, column);
-                const isDirty = isDirtyAt(row.index, column);
-                return (
-                  <td
-                    key={cell.id}
-                    style={{ width: cell.column.getSize() }}
-                    onDoubleClick={() => {
-                      if (editable) {
-                        setEditing({ rowIndex: row.index, column });
-                      }
-                    }}
-                    className={cn(
-                      "overflow-hidden border-r px-0 py-0 font-mono last:border-r-0",
-                      isDirty && "bg-amber-500/15",
-                    )}
-                  >
-                    {isEditing ? (
-                      <input
-                        aria-label={`Edit ${column}`}
-                        autoFocus
-                        autoComplete="off"
-                        autoCorrect="off"
-                        autoCapitalize="off"
-                        spellCheck={false}
-                        data-1p-ignore
-                        data-lpignore="true"
-                        defaultValue={dirtyValue ?? ""}
-                        onBlur={(event) => {
-                          onCommitEdit(row.index, column, event.target.value);
-                          setEditing(null);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            onCommitEdit(
-                              row.index,
-                              column,
-                              event.currentTarget.value,
-                            );
+          {grid.getRowModel().rows.map((row) => {
+            const isDraft = isDraftRow?.(row.index) ?? false;
+            const isDeleted = isDeletedRow?.(row.index) ?? false;
+            // Row context menu only when mutations are wired (onDeleteRow) and the row is a saved
+            // one - draft rows are discarded via the Changes tab, not a delete.
+            const hasRowMenu = Boolean(onDeleteRow) && !isDraft;
+            const rowElement = (
+              <tr
+                aria-selected={row.index === selectedRow}
+                onClick={() => onSelectRow(row.index)}
+                className={cn(
+                  "cursor-default border-b last:border-0 aria-selected:bg-accent",
+                  isDraft && "bg-emerald-500/10",
+                  isDeleted && "line-through opacity-50",
+                )}
+              >
+                {row.getVisibleCells().map((cell) => {
+                  const column = cell.column.id;
+                  const isEditing =
+                    editable &&
+                    editing?.rowIndex === row.index &&
+                    editing.column === column;
+                  const dirtyValue = editValueAt(row.index, column);
+                  const isDirty = isDirtyAt(row.index, column);
+                  return (
+                    <td
+                      key={cell.id}
+                      style={{ width: cell.column.getSize() }}
+                      onDoubleClick={() => {
+                        if (editable && !isDeleted) {
+                          setEditing({ rowIndex: row.index, column });
+                        }
+                      }}
+                      className={cn(
+                        "overflow-hidden border-r px-0 py-0 font-mono last:border-r-0",
+                        isDirty && "bg-amber-500/15",
+                      )}
+                    >
+                      {isEditing ? (
+                        <input
+                          aria-label={`Edit ${column}`}
+                          autoFocus
+                          autoComplete="off"
+                          autoCorrect="off"
+                          autoCapitalize="off"
+                          spellCheck={false}
+                          data-1p-ignore
+                          data-lpignore="true"
+                          defaultValue={dirtyValue ?? ""}
+                          onBlur={(event) => {
+                            onCommitEdit(row.index, column, event.target.value);
                             setEditing(null);
-                          }
-                          if (event.key === "Escape") {
-                            setEditing(null);
-                          }
-                        }}
-                        className="w-full bg-background px-3 py-1.5 font-mono outline-none"
-                      />
-                    ) : (
-                      <div className="overflow-hidden px-3 py-1.5 text-ellipsis whitespace-nowrap">
-                        {renderCell(dirtyValue)}
-                      </div>
-                    )}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              onCommitEdit(
+                                row.index,
+                                column,
+                                event.currentTarget.value,
+                              );
+                              setEditing(null);
+                            }
+                            if (event.key === "Escape") {
+                              setEditing(null);
+                            }
+                          }}
+                          className="w-full bg-background px-3 py-1.5 font-mono outline-none"
+                        />
+                      ) : (
+                        <div className="overflow-hidden px-3 py-1.5 text-ellipsis whitespace-nowrap">
+                          {renderCell(dirtyValue)}
+                        </div>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+
+            if (!hasRowMenu) {
+              return <Fragment key={row.id}>{rowElement}</Fragment>;
+            }
+
+            return (
+              <ContextMenu key={row.id}>
+                <ContextMenuTrigger asChild>{rowElement}</ContextMenuTrigger>
+                <ContextMenuContent>
+                  {isDeleted ? (
+                    <ContextMenuItem onSelect={() => onUndeleteRow?.(row.index)}>
+                      Undo delete
+                    </ContextMenuItem>
+                  ) : (
+                    <>
+                      <ContextMenuItem onSelect={() => onCloneRow?.(row.index)}>
+                        Clone
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        variant="destructive"
+                        onSelect={() => onDeleteRow?.(row.index)}
+                      >
+                        Delete
+                      </ContextMenuItem>
+                    </>
+                  )}
+                </ContextMenuContent>
+              </ContextMenu>
+            );
+          })}
         </tbody>
       </table>
       {rows.length === 0 ? (
