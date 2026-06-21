@@ -1,8 +1,9 @@
 mod db;
 
 use db::{
-    apply_row_mutations, count_table_rows, fetch_table_rows, list_tables, run_query,
-    ConnectionConfig, QueryOutcome, RowMutation, Sort, TableRows, DEFAULT_ROW_LIMIT,
+    apply_row_mutations, count_table_rows, fetch_schema as fetch_schema_db, fetch_table_rows,
+    list_tables, run_query, ConnectionConfig, QueryOutcome, RowMutation, Sort, TableRows,
+    TableSchema, DEFAULT_ROW_LIMIT,
 };
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -59,6 +60,11 @@ async fn execute_sql(config: ConnectionConfig, sql: String) -> Result<QueryOutco
     run_query(config, sql, DEFAULT_ROW_LIMIT).await
 }
 
+#[tauri::command]
+async fn fetch_schema(config: ConnectionConfig) -> Result<Vec<TableSchema>, String> {
+    fetch_schema_db(config).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     sqlx::any::install_default_drivers();
@@ -72,7 +78,8 @@ pub fn run() {
             fetch_table,
             count_table,
             apply_mutations,
-            execute_sql
+            execute_sql,
+            fetch_schema
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

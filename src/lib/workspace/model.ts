@@ -38,6 +38,10 @@ export type Sort = {
   descending: boolean;
 };
 
+export type SchemaColumn = { name: string; dataType: string };
+
+export type TableSchema = { name: string; columns: SchemaColumn[] };
+
 export type ResultColumn = { name: string; type: string };
 
 export type QueryResult = {

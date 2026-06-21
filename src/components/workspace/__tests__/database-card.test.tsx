@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { EditorView } from "@codemirror/view";
 
 import { QueryWrapper } from "@/test/query-wrapper";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
@@ -11,6 +12,7 @@ import { connectDatabase } from "@/lib/tauri";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(),
+  fetchSchema: vi.fn(() => Promise.resolve([])),
   fetchTable: vi.fn(),
   countTable: vi.fn(),
   applyRowMutations: vi.fn(),
@@ -67,9 +69,13 @@ describe("DatabaseCard", () => {
 
   // AC-008 — behavior (SQL is the default active sub-tab; editor seeded from the sql)
   it("should render the SQL panel by default with the database sql text", () => {
-    renderCard("db-app");
-    const editor = screen.getByRole("textbox", { name: /sql editor/i });
-    expect((editor as HTMLTextAreaElement).value).toContain("FROM users");
+    const { container } = renderCard("db-app");
+    expect(
+      screen.getByRole("textbox", { name: /sql editor/i }),
+    ).toBeInTheDocument();
+    const editorEl = container.querySelector<HTMLElement>(".cm-editor");
+    const view = editorEl ? EditorView.findFromDOM(editorEl) : null;
+    expect(view?.state.doc.toString()).toContain("FROM users");
   });
 
   // AC-008, AC-012, TC-006 — behavior (switching to Views)

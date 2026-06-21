@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { EditorView } from "@codemirror/view";
 
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { TableCard } from "@/components/workspace/table-card";
@@ -93,6 +94,20 @@ function renderLive() {
       </WorkspaceProvider>
     </QueryClientProvider>,
   );
+}
+
+// The filter is a single-line CodeMirror editor; jsdom can't type into it, so set its text by
+// dispatching on the live EditorView found by its "Filter rows" accessible name.
+function typeFilter(text: string) {
+  const filterEl = screen.getByRole("textbox", { name: /filter/i });
+  const editorEl = filterEl.closest<HTMLElement>(".cm-editor");
+  const view = editorEl ? EditorView.findFromDOM(editorEl) : null;
+  if (!view) {
+    throw new Error("filter EditorView not found");
+  }
+  view.dispatch({
+    changes: { from: 0, to: view.state.doc.length, insert: text },
+  });
 }
 
 beforeEach(() => {
@@ -248,10 +263,7 @@ describe("TableCard live content", () => {
     renderLive();
 
     await screen.findByText("1");
-    await user.type(
-      screen.getByRole("textbox", { name: /filter/i }),
-      "price > 10",
-    );
+    typeFilter("price > 10");
 
     // not applied yet - no Enter
     expect(mockFetch).not.toHaveBeenCalledWith(
@@ -260,6 +272,7 @@ describe("TableCard live content", () => {
       expect.objectContaining({ filter: "price > 10" }),
     );
 
+    await user.click(screen.getByRole("textbox", { name: /filter/i }));
     await user.keyboard("{Enter}");
 
     await waitFor(() => {
@@ -278,10 +291,7 @@ describe("TableCard live content", () => {
     renderLive();
 
     await screen.findByText("1");
-    await user.type(
-      screen.getByRole("textbox", { name: /filter/i }),
-      "price > 10",
-    );
+    typeFilter("price > 10");
     await user.click(screen.getByRole("button", { name: /run filter/i }));
 
     await waitFor(() => {
@@ -313,11 +323,8 @@ describe("TableCard live content", () => {
     renderLive();
 
     await screen.findByText("1");
-    await user.type(
-      screen.getByRole("textbox", { name: /filter/i }),
-      "price > 10",
-    );
-    await user.keyboard("{Enter}");
+    typeFilter("price > 10");
+    await user.click(screen.getByRole("button", { name: /run filter/i }));
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenLastCalledWith(
@@ -598,11 +605,8 @@ describe("TableCard pagination", () => {
     await user.click(await screen.findByRole("button", { name: /load more/i }));
     await screen.findByText("201");
 
-    await user.type(
-      screen.getByRole("textbox", { name: /filter/i }),
-      "id = 5",
-    );
-    await user.keyboard("{Enter}");
+    typeFilter("id = 5");
+    await user.click(screen.getByRole("button", { name: /run filter/i }));
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenLastCalledWith(
@@ -900,7 +904,7 @@ describe("TableCard filter with unsaved edits", () => {
     user: ReturnType<typeof userEvent.setup>,
     expr: string,
   ) {
-    await user.type(screen.getByRole("textbox", { name: /filter/i }), expr);
+    typeFilter(expr);
     await user.click(screen.getByRole("button", { name: /run filter/i }));
   }
 
@@ -1011,11 +1015,8 @@ describe("TableCard filter statement guard", () => {
 
     await screen.findByText("1");
     mockFetch.mockClear();
-    await user.type(
-      screen.getByRole("textbox", { name: /filter/i }),
-      "1=1); DROP TABLE x; --",
-    );
-    await user.keyboard("{Enter}");
+    typeFilter("1=1); DROP TABLE x; --");
+    await user.click(screen.getByRole("button", { name: /run filter/i }));
 
     expect(mockFetch).not.toHaveBeenCalled();
     expect(mockToast.error).toHaveBeenCalledWith(

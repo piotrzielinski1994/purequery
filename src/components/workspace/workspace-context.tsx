@@ -18,6 +18,7 @@ import type {
   DatabaseNode,
   FolderNode,
   TableNode,
+  TableSchema,
   TreeNode,
 } from "@/lib/workspace/model";
 
@@ -80,6 +81,7 @@ type WorkspaceContextValue = {
   activeNode: OpenNode | null;
   connectionStatus: Map<string, ConnectionStatus>;
   connections: Map<string, ConnectionConfig>;
+  databaseSchemas: Map<string, TableSchema[]>;
   pendingEdits: PendingMutation[];
   history: HistoryEntry[];
   splitOrientation: SplitOrientation;
@@ -104,6 +106,7 @@ type WorkspaceContextValue = {
   setConnectionStatus: (id: string, status: ConnectionStatus) => void;
   setConnection: (id: string, config: ConnectionConfig) => void;
   removeConnection: (id: string) => void;
+  setDatabaseSchema: (id: string, schema: TableSchema[]) => void;
   updateDatabaseConfig: (id: string, config: ConnectionConfig) => void;
   setDatabaseTables: (id: string, tableNames: string[]) => void;
   upsertPendingEdit: (edit: PendingMutation) => void;
@@ -336,6 +339,9 @@ export function WorkspaceProvider({
   const [connections, setConnectionsMap] = useState<
     Map<string, ConnectionConfig>
   >(() => new Map(initialConnections));
+  const [databaseSchemas, setDatabaseSchemasMap] = useState<
+    Map<string, TableSchema[]>
+  >(() => new Map());
 
   const [expandedIds, setExpandedIds] = useState(
     () => new Set(initialExpandedIds),
@@ -481,16 +487,25 @@ export function WorkspaceProvider({
       },
       connectionStatus,
       connections,
+      databaseSchemas,
       setConnectionStatus: (id, status) =>
         setConnectionStatusMap((current) => new Map(current).set(id, status)),
       setConnection: (id, config) =>
         setConnectionsMap((current) => new Map(current).set(id, config)),
-      removeConnection: (id) =>
+      removeConnection: (id) => {
         setConnectionsMap((current) => {
           const next = new Map(current);
           next.delete(id);
           return next;
-        }),
+        });
+        setDatabaseSchemasMap((current) => {
+          const next = new Map(current);
+          next.delete(id);
+          return next;
+        });
+      },
+      setDatabaseSchema: (id, schema) =>
+        setDatabaseSchemasMap((current) => new Map(current).set(id, schema)),
       updateDatabaseConfig: (id, config) =>
         setTree((current) => applyDatabaseConfig(current, id, config)),
       setDatabaseTables: (id, tableNames) =>
@@ -527,6 +542,7 @@ export function WorkspaceProvider({
     databaseIdByTableId,
     connectionStatus,
     connections,
+    databaseSchemas,
     pendingEdits,
     history,
     splitOrientation,

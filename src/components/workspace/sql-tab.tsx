@@ -1,11 +1,21 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import type { EditorView } from "@codemirror/view";
 import { Button } from "@/components/ui/button";
 import { CopyButtons, DataGrid } from "@/components/workspace/data-grid";
 import { HorizontalSplit } from "@/components/workspace/horizontal-split";
+import {
+  SqlEditor,
+  selectedOrAllSql,
+} from "@/components/workspace/sql-editor";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { executeSql, type QueryOutcome } from "@/lib/tauri";
-import type { ConnectionConfig, Sort } from "@/lib/workspace/model";
+import type {
+  ConnectionConfig,
+  DbEngine,
+  Sort,
+  TableSchema,
+} from "@/lib/workspace/model";
 
 const noop = () => {};
 const alwaysFalse = () => false;
@@ -136,15 +146,25 @@ function LiveStatus({
 }
 
 export function SqlTab() {
-  const { activeNode, connections } = useWorkspace();
+  const { activeNode, connections, databaseSchemas } = useWorkspace();
 
   if (!activeNode || activeNode.kind !== "database") {
     return null;
   }
 
   const config = connections.get(activeNode.id);
-  return <SqlEditor node={activeNode} config={config} key={activeNode.id} />;
+  return (
+    <SqlPane
+      node={activeNode}
+      config={config}
+      engine={activeNode.engine}
+      schema={databaseSchemas.get(activeNode.id) ?? EMPTY_SCHEMA}
+      key={activeNode.id}
+    />
+  );
 }
+
+const EMPTY_SCHEMA: TableSchema[] = [];
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -153,16 +173,21 @@ function errorMessage(error: unknown): string {
   return typeof error === "string" ? error : JSON.stringify(error);
 }
 
-function SqlEditor({
+function SqlPane({
   node,
   config,
+  engine,
+  schema,
 }: {
   node: { id: string; sql: string };
   config: ConnectionConfig | undefined;
+  engine: DbEngine;
+  schema: TableSchema[];
 }) {
   const { addHistoryEntry, splitOrientation, layouts, saveLayout } =
     useWorkspace();
   const [sql, setSql] = useState(node.sql);
+  const editorRef = useRef<EditorView | null>(null);
   const run = useMutation<QueryOutcome, unknown, string>({
     mutationFn: (query: string) =>
       executeSql(config as ConnectionConfig, query),
@@ -186,9 +211,11 @@ function SqlEditor({
 
   const canRun = Boolean(config) && sql.trim().length > 0 && !run.isPending;
   const submit = () => {
-    if (canRun) {
-      run.mutate(sql);
+    if (!canRun) {
+      return;
     }
+    const query = selectedOrAllSql(editorRef.current);
+    run.mutate(query.trim().length > 0 ? query : sql);
   };
 
   return (
@@ -215,19 +242,18 @@ function SqlEditor({
               {run.isPending ? "Running..." : "Run"}
             </Button>
           </div>
-          <textarea
-            aria-label="SQL editor"
-            value={sql}
-            spellCheck={false}
-            onChange={(event) => setSql(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                event.preventDefault();
-                submit();
-              }
-            }}
-            className="min-h-0 flex-1 resize-none bg-transparent p-3 font-mono text-xs outline-none"
-          />
+          <div className="min-h-0 flex-1 overflow-auto">
+            <SqlEditor
+              value={sql}
+              onChange={setSql}
+              engine={engine}
+              schema={schema}
+              onSubmit={submit}
+              onCreateEditor={(view) => {
+                editorRef.current = view;
+              }}
+            />
+          </div>
         </div>
       }
       right={

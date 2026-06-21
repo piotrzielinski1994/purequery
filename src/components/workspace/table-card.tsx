@@ -5,11 +5,11 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { SqlEditor } from "@/components/workspace/sql-editor";
 import {
   Dialog,
   DialogContent,
@@ -41,7 +41,10 @@ import type {
   Sort,
   TableNode,
   TableRows,
+  TableSchema,
 } from "@/lib/workspace/model";
+
+const EMPTY_SCHEMA: TableSchema[] = [];
 
 function quoteIdent(engine: ConnectionConfig["engine"], name: string): string {
   return engine === "mysql"
@@ -730,10 +733,11 @@ function LiveTable({
           <Button
             type="button"
             variant="ghost"
+            aria-label="Add row"
             onClick={addRow}
             className="h-full rounded-none border-0 border-l border-l-border px-3"
           >
-            + Add row
+            <Plus className="size-4" />
           </Button>
         ) : null}
         <CopyButtons
@@ -785,6 +789,7 @@ export function TableCard() {
   const {
     activeNode,
     connections,
+    databaseSchemas,
     databaseIdByTableId,
     pendingEdits,
     discardPendingEditsForTable,
@@ -798,6 +803,8 @@ export function TableCard() {
     ? databaseIdByTableId.get(activeNode.id)
     : undefined;
   const config = databaseId ? connections.get(databaseId) : undefined;
+  const schema =
+    (databaseId ? databaseSchemas.get(databaseId) : undefined) ?? EMPTY_SCHEMA;
   const tableId = isTable ? activeNode.id : undefined;
   const hasPendingEdits = pendingEdits.some(
     (edit) => edit.tableId === tableId,
@@ -837,21 +844,21 @@ export function TableCard() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-10.25 shrink-0 items-stretch border-b bg-muted/30">
-        <Input
-          aria-label="Filter rows"
-          placeholder={
-            isLive ? "WHERE ... (raw SQL) - Enter to run" : "Filter..."
-          }
-          value={filterText}
-          onChange={(event) => setFilterText(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              applyFilter();
+        <div className="flex min-w-0 flex-1 items-center px-3">
+          <SqlEditor
+            value={filterText}
+            onChange={setFilterText}
+            engine={config?.engine ?? "postgres"}
+            schema={schema}
+            onSubmit={applyFilter}
+            singleLine
+            ariaLabel="Filter rows"
+            placeholder={
+              isLive ? "WHERE ... (raw SQL) - Enter to run" : "Filter..."
             }
-          }}
-          className="h-full flex-1 rounded-none border-0 bg-transparent px-3 font-mono text-xs shadow-none focus-visible:ring-0 dark:bg-transparent"
-        />
+            defaultTable={activeNode.name}
+          />
+        </div>
         <Button
           type="button"
           aria-label="Run filter"

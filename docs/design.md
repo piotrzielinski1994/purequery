@@ -34,6 +34,7 @@ UI design rules for this app. Entries are about *visual language and interaction
 - Status colors: success green (`text-green-600 dark:text-green-400`), error/destructive red (`text-red-600 dark:text-red-400`). A destructive action button (e.g. Disconnect) is filled red.
 - **A primary action button is the filled `default` Button variant** (`bg-primary text-primary-foreground`, same look as requi's `Send`/`Save`) - the one solid, high-contrast control that runs the panel's main action (run filter, send, save). Use it for the single primary action per surface; everything else stays `ghost`/`outline`. Don't restyle a primary action as a faint icon button.
 - Status dots are a small `size-2` filled circle, right-aligned, never with a text label leaking into an accessible name (give the row an explicit `aria-label`).
+- **Syntax highlighting is the one exception to "no hard-coded colors".** The SQL editor (CodeMirror) colors tokens (keyword/string/number/type) with a fixed Darcula `HighlightStyle`, isolated in [src/components/workspace/sql-editor-theme.ts](../src/components/workspace/sql-editor-theme.ts) (mirrors requi's JSON editor). Token coloring genuinely needs hue; the editor *chrome* (background, gutter, active line) stays transparent so it inherits the themed pane behind it. Don't extend this exception to UI chrome.
 
 ## Layout
 

@@ -2,15 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { EditorView } from "@codemirror/view";
 
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { SqlTab } from "@/components/workspace/sql-tab";
 import { Console } from "@/components/workspace/console";
 import { executeSql } from "@/lib/tauri";
-import type {
-  ConnectionConfig,
-  TreeNode,
-} from "@/lib/workspace/model";
+import type { ConnectionConfig, TreeNode } from "@/lib/workspace/model";
 
 vi.mock("@/lib/tauri", () => ({
   executeSql: vi.fn(),
@@ -76,21 +74,39 @@ function renderSql(opts?: { connected?: boolean }) {
   );
 }
 
+// jsdom cannot reliably simulate CodeMirror keystroke typing, so reach the live
+// EditorView and dispatch document/selection transactions directly.
+function liveView(container: HTMLElement): EditorView {
+  const editorEl = container.querySelector<HTMLElement>(".cm-editor");
+  if (!editorEl) {
+    throw new Error(".cm-editor not found");
+  }
+  const view = EditorView.findFromDOM(editorEl);
+  if (!view) {
+    throw new Error("live EditorView not found");
+  }
+  return view;
+}
+
+function replaceDoc(view: EditorView, text: string) {
+  view.dispatch({
+    changes: { from: 0, to: view.state.doc.length, insert: text },
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe("SqlTab run", () => {
-  // behavior (the editor is editable, not a read-only pre)
-  it("should let the user edit the SQL text", async () => {
-    const user = userEvent.setup();
-    renderSql({ connected: true });
+  // TC-002 — behavior (the editor is editable: dispatched edits flow into the buffer)
+  it("should let the user edit the SQL text", () => {
+    const { container } = renderSql({ connected: true });
 
-    const editor = screen.getByRole("textbox", { name: /sql editor/i });
-    await user.clear(editor);
-    await user.type(editor, "SELECT 42");
+    const view = liveView(container);
+    replaceDoc(view, "SELECT 42");
 
-    expect(editor).toHaveValue("SELECT 42");
+    expect(view.state.doc.toString()).toBe("SELECT 42");
   });
 
   // behavior (Run is disabled until the database has a live connection)
@@ -104,7 +120,7 @@ describe("SqlTab run", () => {
     expect(screen.getByRole("button", { name: /run/i })).toBeEnabled();
   });
 
-  // behavior (Run executes the editor SQL against the stored connection)
+  // TC-004 — behavior (Run executes the editor SQL against the stored connection)
   it("should execute the editor SQL with the stored connection config when Run is clicked", async () => {
     const user = userEvent.setup();
     mockExecute.mockResolvedValue({
@@ -114,15 +130,88 @@ describe("SqlTab run", () => {
       returnsRows: true,
       message: "SELECT 1",
     });
-    renderSql({ connected: true });
+    const { container } = renderSql({ connected: true });
 
-    const editor = screen.getByRole("textbox", { name: /sql editor/i });
-    await user.clear(editor);
-    await user.type(editor, "SELECT 42 AS n");
+    replaceDoc(liveView(container), "SELECT 42 AS n");
     await user.click(screen.getByRole("button", { name: /run/i }));
 
     await waitFor(() => {
       expect(mockExecute).toHaveBeenCalledWith(config, "SELECT 42 AS n");
+    });
+  });
+
+  // TC-006 / AC-004 — behavior (a non-empty selection runs only the selected text)
+  it("should run only the selected text when a selection is set", async () => {
+    const user = userEvent.setup();
+    mockExecute.mockResolvedValue({
+      columns: ["n"],
+      rows: [["2"]],
+      rowsAffected: 1,
+      returnsRows: true,
+      message: "SELECT 1",
+    });
+    const { container } = renderSql({ connected: true });
+
+    const view = liveView(container);
+    const buffer = "SELECT 1;\nSELECT 2";
+    replaceDoc(view, buffer);
+    const anchor = buffer.indexOf("SELECT 2");
+    view.dispatch({ selection: { anchor, head: buffer.length } });
+
+    await user.click(screen.getByRole("button", { name: /run/i }));
+
+    await waitFor(() => {
+      expect(mockExecute).toHaveBeenCalledWith(config, "SELECT 2");
+    });
+  });
+
+  // TC-007 / AC-004 — behavior (cursor only, empty range, runs the whole buffer)
+  it("should run the whole buffer when there is no selection", async () => {
+    const user = userEvent.setup();
+    mockExecute.mockResolvedValue({
+      columns: ["n"],
+      rows: [["1"]],
+      rowsAffected: 1,
+      returnsRows: true,
+      message: "SELECT 1",
+    });
+    const { container } = renderSql({ connected: true });
+
+    const view = liveView(container);
+    const buffer = "SELECT 1;\nSELECT 2";
+    replaceDoc(view, buffer);
+    view.dispatch({ selection: { anchor: 0, head: 0 } });
+
+    await user.click(screen.getByRole("button", { name: /run/i }));
+
+    await waitFor(() => {
+      expect(mockExecute).toHaveBeenCalledWith(config, buffer);
+    });
+  });
+
+  // TC-008 / AC-004 — behavior (a whitespace-only selection is treated as no selection)
+  it("should run the whole buffer when the selection is whitespace only", async () => {
+    const user = userEvent.setup();
+    mockExecute.mockResolvedValue({
+      columns: ["n"],
+      rows: [["1"]],
+      rowsAffected: 1,
+      returnsRows: true,
+      message: "SELECT 1",
+    });
+    const { container } = renderSql({ connected: true });
+
+    const view = liveView(container);
+    const buffer = "SELECT 1;\n   \nSELECT 2";
+    replaceDoc(view, buffer);
+    const wsStart = buffer.indexOf(";") + 1;
+    const wsEnd = buffer.indexOf("SELECT 2");
+    view.dispatch({ selection: { anchor: wsStart, head: wsEnd } });
+
+    await user.click(screen.getByRole("button", { name: /run/i }));
+
+    await waitFor(() => {
+      expect(mockExecute).toHaveBeenCalledWith(config, buffer);
     });
   });
 
@@ -184,7 +273,7 @@ describe("SqlTab run", () => {
     });
   });
 
-  // behavior (Cmd/Ctrl+Enter in the editor runs the query)
+  // TC-005 — behavior (Cmd/Ctrl+Enter in the editor runs the query)
   it("should run the query on Ctrl+Enter in the editor", async () => {
     const user = userEvent.setup();
     mockExecute.mockResolvedValue({
@@ -194,9 +283,12 @@ describe("SqlTab run", () => {
       returnsRows: true,
       message: "SELECT 1",
     });
-    renderSql({ connected: true });
+    const { container } = renderSql({ connected: true });
 
-    const editor = screen.getByRole("textbox", { name: /sql editor/i });
+    const editor = container.querySelector<HTMLElement>(".cm-content");
+    if (!editor) {
+      throw new Error(".cm-content not found");
+    }
     await user.click(editor);
     await user.keyboard("{Control>}{Enter}{/Control}");
 
@@ -231,11 +323,9 @@ describe("SqlTab run", () => {
       returnsRows: true,
       message: "SELECT 1",
     });
-    renderSql({ connected: true });
+    const { container } = renderSql({ connected: true });
 
-    const editor = screen.getByRole("textbox", { name: /sql editor/i });
-    await user.clear(editor);
-    await user.type(editor, "SELECT 1 AS n");
+    replaceDoc(liveView(container), "SELECT 1 AS n");
     await user.click(screen.getByRole("button", { name: /run/i }));
 
     const historyList = await screen.findByRole("list", {
@@ -260,7 +350,7 @@ describe("SqlTab run", () => {
     expect(historyList).toHaveTextContent("boom");
   });
 
-  // behavior (AC-006: clicking a result header sorts the rows in memory, no re-run)
+  // behavior (AC-008: clicking a result header sorts the rows in memory, no re-run)
   it("should sort the result rows client-side when a header is clicked", async () => {
     const user = userEvent.setup();
     mockExecute.mockResolvedValue({
@@ -290,7 +380,7 @@ describe("SqlTab run", () => {
     expect(mockExecute).not.toHaveBeenCalled();
   });
 
-  // behavior (AC-008, TC-010: copy the result rows to the clipboard as CSV)
+  // behavior (AC-008: copy the result rows to the clipboard as CSV)
   it("should copy the result rows to the clipboard as CSV", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);

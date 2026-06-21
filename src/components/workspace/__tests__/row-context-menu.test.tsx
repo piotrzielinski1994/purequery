@@ -15,6 +15,7 @@ import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(),
+  fetchSchema: vi.fn(() => Promise.resolve([])),
 }));
 
 vi.mock("sonner", () => ({

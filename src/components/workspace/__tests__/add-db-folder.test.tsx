@@ -24,6 +24,7 @@ import { toast } from "sonner";
 // settings-tab.test.tsx so a freshly-created database never hits the network.
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(),
+  fetchSchema: vi.fn(() => Promise.resolve([])),
 }));
 
 vi.mock("sonner", () => ({

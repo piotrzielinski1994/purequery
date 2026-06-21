@@ -15,6 +15,7 @@ import {
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(),
+  fetchSchema: vi.fn(() => Promise.resolve([])),
 }));
 
 vi.mock("sonner", () => ({

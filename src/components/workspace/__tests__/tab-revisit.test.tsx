@@ -17,6 +17,7 @@ import type {
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(),
+  fetchSchema: vi.fn(() => Promise.resolve([])),
   fetchTable: vi.fn(),
   countTable: vi.fn(),
   applyRowMutations: vi.fn(),

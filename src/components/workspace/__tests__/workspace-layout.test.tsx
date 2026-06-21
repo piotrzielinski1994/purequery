@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
+import { EditorView } from "@codemirror/view";
 
 import { QueryWrapper } from "@/test/query-wrapper";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
@@ -79,7 +80,10 @@ describe("WorkspaceLayout", () => {
   // AC-005, AC-018, TC-003 — behavior (shared state: tree drives the database card)
   it("should reflect a database selected in the tree across the content tabs and card", async () => {
     const user = userEvent.setup();
-    renderLayout({ expanded: ["folder-staging"], activeTabId: undefined });
+    const { container } = renderLayout({
+      expanded: ["folder-staging"],
+      activeTabId: undefined,
+    });
 
     await user.click(screen.getByRole("treeitem", { name: "admin_db" }));
 
@@ -87,7 +91,9 @@ describe("WorkspaceLayout", () => {
     expect(
       screen.getByRole("tablist", { name: /database sections|workbench/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/FROM accounts/)).toBeInTheDocument();
+    const editorEl = container.querySelector<HTMLElement>(".cm-editor");
+    const view = editorEl ? EditorView.findFromDOM(editorEl) : null;
+    expect(view?.state.doc.toString()).toContain("FROM accounts");
   });
 
   // AC-006, AC-008, AC-015, AC-018, E-8 — behavior (a table tab renders a table card, not a database card)

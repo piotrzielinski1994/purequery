@@ -141,6 +141,20 @@ pub struct TableRows {
     pub primary_key: Option<String>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SchemaColumn {
+    pub name: String,
+    pub data_type: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TableSchema {
+    pub name: String,
+    pub columns: Vec<SchemaColumn>,
+}
+
 pub fn quote_identifier(engine: DbEngine, name: &str) -> String {
     match engine {
         DbEngine::Postgres | DbEngine::Sqlite => format!("\"{}\"", name.replace('"', "\"\"")),
@@ -162,6 +176,33 @@ pub fn columns_query(engine: DbEngine) -> &'static str {
              ORDER BY ordinal_position"
         }
         DbEngine::Sqlite => "SELECT name FROM pragma_table_info(?) ORDER BY cid",
+    }
+}
+
+// Reads every base table and its columns in one statement, ordered by table then column position,
+// so `fetch_schema` can fold the flat (table, column, type) rows into per-table groups for the SQL
+// editor's autocomplete. No bind params - it covers the whole database, not one named table.
+pub fn schema_query(engine: DbEngine) -> &'static str {
+    match engine {
+        DbEngine::Postgres => {
+            "SELECT table_name::text, column_name::text, data_type::text \
+             FROM information_schema.columns \
+             WHERE table_schema NOT IN ('pg_catalog', 'information_schema') \
+             ORDER BY table_name, ordinal_position"
+        }
+        DbEngine::Mysql => {
+            "SELECT table_name, column_name, data_type \
+             FROM information_schema.columns \
+             WHERE table_schema = DATABASE() \
+             ORDER BY table_name, ordinal_position"
+        }
+        DbEngine::Sqlite => {
+            "SELECT m.name, c.name, c.type \
+             FROM sqlite_master m \
+             JOIN pragma_table_info(m.name) c \
+             WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%' \
+             ORDER BY m.name, c.cid"
+        }
     }
 }
 
@@ -341,8 +382,7 @@ pub fn build_insert_query(
         .collect::<Vec<_>>()
         .join(", ");
 
-    let sql =
-        format!("INSERT INTO {quoted_table} ({quoted_columns}) VALUES ({placeholders})");
+    let sql = format!("INSERT INTO {quoted_table} ({quoted_columns}) VALUES ({placeholders})");
     (sql, binds)
 }
 
@@ -730,6 +770,61 @@ pub async fn list_tables(config: ConnectionConfig) -> Result<Vec<String>, String
         .collect()
 }
 
+pub async fn fetch_schema(config: ConnectionConfig) -> Result<Vec<TableSchema>, String> {
+    let engine = config.engine();
+    let pool = AnyPoolOptions::new()
+        .max_connections(1)
+        .connect(&build_url(&config))
+        .await
+        .map_err(|error| error.to_string())?;
+
+    let rows = sqlx::query(schema_query(engine))
+        .fetch_all(&pool)
+        .await
+        .map_err(|error| error.to_string());
+
+    pool.close().await;
+
+    let triples = rows?
+        .iter()
+        .map(|row| {
+            Ok((
+                row.try_get::<String, _>(0).map_err(|e| e.to_string())?,
+                row.try_get::<String, _>(1).map_err(|e| e.to_string())?,
+                row.try_get::<String, _>(2).map_err(|e| e.to_string())?,
+            ))
+        })
+        .collect::<Result<Vec<(String, String, String)>, String>>()?;
+
+    Ok(group_schema(triples))
+}
+
+// Folds flat (table, column, type) rows - already ordered by table then column position - into
+// one `TableSchema` per table, preserving column order. Relies on the query's ORDER BY so equal
+// table names arrive contiguously.
+fn group_schema(triples: Vec<(String, String, String)>) -> Vec<TableSchema> {
+    triples.into_iter().fold(
+        Vec::<TableSchema>::new(),
+        |mut tables, (table, column, data_type)| {
+            let entry = match tables.last_mut() {
+                Some(last) if last.name == table => last,
+                _ => {
+                    tables.push(TableSchema {
+                        name: table,
+                        columns: Vec::new(),
+                    });
+                    tables.last_mut().expect("just pushed")
+                }
+            };
+            entry.columns.push(SchemaColumn {
+                name: column,
+                data_type,
+            });
+            tables
+        },
+    )
+}
+
 pub async fn count_table_rows(
     config: ConnectionConfig,
     table: String,
@@ -1073,10 +1168,7 @@ fn build_mutation(
                     (name.as_str(), column_type)
                 })
                 .collect::<Vec<_>>();
-            let cells = values
-                .values()
-                .map(Option::as_deref)
-                .collect::<Vec<_>>();
+            let cells = values.values().map(Option::as_deref).collect::<Vec<_>>();
             Ok(build_insert_query(engine, table, &columns, &cells))
         }
         RowMutation::Delete { pk_value } => {
@@ -1091,8 +1183,9 @@ mod tests {
         assemble_columns, build_count_query, build_delete_query, build_insert_query,
         build_rows_query, build_update_query, build_update_query_value, build_url, catalog_query,
         column_types_query, columns_query, is_row_returning, is_subquery_wrappable, nullable_query,
-        parse_json_rows, primary_key_query, quote_identifier, wrap_columns_probe,
-        wrap_select_as_json, wrap_select_as_text, ConnectionConfig, DbEngine, Sort,
+        group_schema, parse_json_rows, primary_key_query, quote_identifier, schema_query,
+        wrap_columns_probe, wrap_select_as_json, wrap_select_as_text, ConnectionConfig, DbEngine,
+        Sort,
     };
     use std::collections::HashMap;
 
@@ -1970,10 +2063,7 @@ mod tests {
             &[("name", "varchar"), ("email", "varchar")],
             &[Some("Dee"), Some("dee@example.com")],
         );
-        assert_eq!(
-            sql,
-            "INSERT INTO `users` (`name`, `email`) VALUES (?, ?)"
-        );
+        assert_eq!(sql, "INSERT INTO `users` (`name`, `email`) VALUES (?, ?)");
         assert_eq!(
             binds,
             vec!["Dee".to_string(), "dee@example.com".to_string()]
@@ -2031,5 +2121,97 @@ mod tests {
         let (sql, binds) = build_delete_query(DbEngine::Sqlite, "users", "id", "2");
         assert_eq!(sql, "DELETE FROM \"users\" WHERE CAST(\"id\" AS TEXT) = ?");
         assert_eq!(binds, vec!["2".to_string()]);
+    }
+
+    // AC-006, TC-010 - behavior (one schema query yields table/column/type per engine,
+    // PG/MySQL via information_schema filtering system schemas, SQLite via sqlite_master
+    // joined with pragma_table_info; ordered so grouping keeps columns in declaration order)
+    #[test]
+    fn should_build_a_schema_query_per_engine_yielding_table_column_type() {
+        let postgres = schema_query(DbEngine::Postgres);
+        assert!(
+            postgres.contains("information_schema.columns"),
+            "Postgres schema query must read information_schema.columns: {postgres}"
+        );
+        assert!(
+            postgres.contains("NOT IN ('pg_catalog', 'information_schema')"),
+            "Postgres schema query must exclude system schemas: {postgres}"
+        );
+        assert!(
+            postgres.contains("::text"),
+            "Postgres schema query must cast name columns to text for the Any driver: {postgres}"
+        );
+        assert!(
+            postgres.contains("ordinal_position"),
+            "Postgres schema query must order columns by ordinal_position: {postgres}"
+        );
+
+        let mysql = schema_query(DbEngine::Mysql);
+        assert!(
+            mysql.contains("information_schema.columns"),
+            "MySQL schema query must read information_schema.columns: {mysql}"
+        );
+        assert!(
+            mysql.contains("DATABASE()"),
+            "MySQL schema query must scope to the current DATABASE(): {mysql}"
+        );
+        assert!(
+            mysql.contains("ordinal_position"),
+            "MySQL schema query must order columns by ordinal_position: {mysql}"
+        );
+
+        let sqlite = schema_query(DbEngine::Sqlite);
+        assert!(
+            sqlite.contains("sqlite_master"),
+            "SQLite schema query must read sqlite_master for tables: {sqlite}"
+        );
+        assert!(
+            sqlite.contains("pragma_table_info"),
+            "SQLite schema query must read pragma_table_info for columns: {sqlite}"
+        );
+        assert!(
+            sqlite.contains("'table'"),
+            "SQLite schema query must restrict sqlite_master to tables: {sqlite}"
+        );
+    }
+
+    // AC-006, TC-010 - behavior (each engine gets a distinct schema query)
+    #[test]
+    fn should_return_a_distinct_schema_query_per_engine() {
+        assert_ne!(
+            schema_query(DbEngine::Postgres),
+            schema_query(DbEngine::Mysql)
+        );
+        assert_ne!(
+            schema_query(DbEngine::Postgres),
+            schema_query(DbEngine::Sqlite)
+        );
+    }
+
+    // AC-006, TC-010 - behavior (flat ordered triples fold into one entry per table,
+    // columns kept in arrival order)
+    #[test]
+    fn should_group_schema_triples_into_one_entry_per_table_preserving_column_order() {
+        let triples = vec![
+            ("users".into(), "id".into(), "int4".into()),
+            ("users".into(), "email".into(), "text".into()),
+            ("orders".into(), "id".into(), "int8".into()),
+        ];
+
+        let grouped = group_schema(triples);
+
+        assert_eq!(grouped.len(), 2);
+        assert_eq!(grouped[0].name, "users");
+        let user_columns: Vec<&str> = grouped[0].columns.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(user_columns, vec!["id", "email"]);
+        assert_eq!(grouped[0].columns[0].data_type, "int4");
+        assert_eq!(grouped[1].name, "orders");
+        assert_eq!(grouped[1].columns.len(), 1);
+    }
+
+    // AC-006 - behavior (empty input yields no tables, no panic)
+    #[test]
+    fn should_group_an_empty_schema_into_no_tables() {
+        assert!(group_schema(Vec::new()).is_empty());
     }
 }

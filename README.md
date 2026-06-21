@@ -54,7 +54,8 @@ The dev server runs on port 1431 (set in both `vite.config.ts` and `src-tauri/ta
 > database name opens a **database card** (sub-tabs SQL / Views / Script / Settings - the
 > SQL tab is an editable editor with a Run button, beside the result grid with its own status
 > header). Clicking a table opens a **table card** (a
-> filter row + the table's content grid). A console strip sits below; the sidebar|content
+> filter row - the same CodeMirror SQL editor as the SQL tab, single-line, with highlighting +
+> table/column autocomplete - + the table's content grid). A console strip sits below; the sidebar|content
 > and content|console splits are resizable. The sidebar toggles with `Cmd/Ctrl+B` and the
 > console panel with `Cmd/Ctrl+J` (also via palette commands).
 >
@@ -69,9 +70,11 @@ The dev server runs on port 1431 (set in both `vite.config.ts` and `src-tauri/ta
 > server-side (asc/desc/none), and a **Load more** footer pages in the next rows. The status bar
 > shows `<loaded> of <total>` rows (unbounded count) with an editable page-size field. Both grids
 > have **Copy CSV**/**Copy JSON** footer buttons; the SQL result sorts client-side. The
-> SQL tab is live: edit SQL and Run it
+> SQL tab is a live CodeMirror editor (SQL syntax highlighting; autocomplete of keywords, the
+> connected database's tables, and their columns from the live schema): edit SQL and Run it
 > (or Cmd/Ctrl+Enter) against the connected database - row-returning queries show a result
-> grid, other statements report rows-affected. The editor|results split flips between
+> grid, other statements report rows-affected. With a non-empty selection, Run executes only
+> the selected text; otherwise the whole buffer. The editor|results split flips between
 > side-by-side and stacked via `Cmd/Ctrl+\` (or the "Toggle split layout" palette command).
 > Views/Script tabs remain mock. The sidebar tree + its connection configs persist in
 > `workspace.json`; UI/layout state (panel toggles, split orientation, expanded nodes, open

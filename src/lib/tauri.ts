@@ -3,6 +3,7 @@ import type {
   ConnectionConfig,
   Sort,
   TableRows,
+  TableSchema,
 } from "@/lib/workspace/model";
 
 export function greet(name: string): Promise<string> {
@@ -11,6 +12,10 @@ export function greet(name: string): Promise<string> {
 
 export function connectDatabase(config: ConnectionConfig): Promise<string[]> {
   return invoke<string[]>("connect_database", { config });
+}
+
+export function fetchSchema(config: ConnectionConfig): Promise<TableSchema[]> {
+  return invoke<TableSchema[]>("fetch_schema", { config });
 }
 
 export function fetchTable(

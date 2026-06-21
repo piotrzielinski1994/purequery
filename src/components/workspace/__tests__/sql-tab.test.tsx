@@ -1,10 +1,23 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { EditorView } from "@codemirror/view";
 
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { SqlTab } from "@/components/workspace/sql-tab";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+
+function liveView(container: HTMLElement): EditorView {
+  const editorEl = container.querySelector<HTMLElement>(".cm-editor");
+  if (!editorEl) {
+    throw new Error(".cm-editor not found");
+  }
+  const view = EditorView.findFromDOM(editorEl);
+  if (!view) {
+    throw new Error("live EditorView not found");
+  }
+  return view;
+}
 
 function renderSql(activeTabId?: string) {
   const queryClient = new QueryClient({
@@ -20,11 +33,14 @@ function renderSql(activeTabId?: string) {
 }
 
 describe("SqlTab", () => {
-  // behavior (left: an editable SQL editor seeded from the node's sql)
+  // behavior (left: an editable CodeMirror SQL editor seeded from the node's sql)
   it("should render an editable SQL editor seeded from the database's sql", () => {
-    renderSql("db-app");
+    const { container } = renderSql("db-app");
     const editor = screen.getByRole("textbox", { name: /sql editor/i });
-    expect(editor).toHaveValue(
+    expect(editor).toHaveAttribute("contenteditable", "true");
+    // CodeMirror renders the document across .cm-line divs (no textarea value), so
+    // read the seeded text from the live EditorView's document instead of toHaveValue.
+    expect(liveView(container).state.doc.toString()).toBe(
       "SELECT id, name, email\nFROM users\nWHERE last_seen > now() - interval '7 days'",
     );
   });
