@@ -1,13 +1,22 @@
-export type DbEngine = "postgres" | "mysql";
+export type DbEngine = "postgres" | "mysql" | "sqlite";
 
-export type ConnectionConfig = {
-  engine: DbEngine;
+export type NetworkEngine = "postgres" | "mysql";
+
+export type NetworkConnection = {
+  engine: NetworkEngine;
   host: string;
   port: number;
   database: string;
   user: string;
   password: string;
 };
+
+export type SqliteConnection = {
+  engine: "sqlite";
+  file: string;
+};
+
+export type ConnectionConfig = NetworkConnection | SqliteConnection;
 
 export type ConnectionStatus = "idle" | "connecting" | "connected" | "error";
 
@@ -38,16 +47,10 @@ export type TableNode = {
   rows: Record<string, string>[];
 };
 
-export type DatabaseNode = {
+type DatabaseNodeBase = {
   kind: "database";
   id: string;
   name: string;
-  engine: DbEngine;
-  host: string;
-  port: number;
-  database: string;
-  user: string;
-  password: string;
   tables: TableNode[];
   views: ViewObject[];
   sql: string;
@@ -55,6 +58,26 @@ export type DatabaseNode = {
   script: string;
   result: QueryResult;
 };
+
+export type NetworkDatabaseNode = DatabaseNodeBase & NetworkConnection;
+
+export type SqliteDatabaseNode = DatabaseNodeBase & SqliteConnection;
+
+export type DatabaseNode = NetworkDatabaseNode | SqliteDatabaseNode;
+
+export function connectionOf(node: DatabaseNode): ConnectionConfig {
+  if (node.engine === "sqlite") {
+    return { engine: "sqlite", file: node.file };
+  }
+  return {
+    engine: node.engine,
+    host: node.host,
+    port: node.port,
+    database: node.database,
+    user: node.user,
+    password: node.password,
+  };
+}
 
 export type FolderNode = {
   kind: "folder";

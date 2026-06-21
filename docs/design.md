@@ -39,6 +39,7 @@ UI design rules for this app. Entries are about *visual language and interaction
 
 - Resizable splits at the shell level (sidebar|content, content|console). Inside a tab panel, a split must be hand-rolled (the `react-resizable-panels` group breaks tab-switching) but still obey the 1px-divider rule.
 - Tabs are flat, square, separated by 1px borders; the active tab reads via `bg-background` + full foreground, inactive via muted foreground.
+- **Every `Select` must set `position="popper"` on its `SelectContent`.** The radix default (`item-aligned`) positions the popup by aligning the selected item over the trigger via measurement; inside a scrollable/flex panel (e.g. the Settings tab) it mispositions and the dropdown renders with no visible options. `popper` anchors the list under the trigger like a normal dropdown. requi sets `popper` on all its Selects; mirror that. (jsdom can't open a radix Select, so this is not unit-testable - it's a standing rule.)
 
 ## Accessibility
 

@@ -1,20 +1,33 @@
 import type {
   DbEngine,
+  NetworkEngine,
   QueryResult,
   TreeNode,
 } from "@/components/workspace/mock-data";
 
-export type PersistedDatabase = {
+export type PersistedNetworkDatabase = {
   kind: "database";
   id: string;
   name: string;
-  engine: DbEngine;
+  engine: NetworkEngine;
   host: string;
   port: number;
   database: string;
   user: string;
   password: string;
 };
+
+export type PersistedSqliteDatabase = {
+  kind: "database";
+  id: string;
+  name: string;
+  engine: "sqlite";
+  file: string;
+};
+
+export type PersistedDatabase =
+  | PersistedNetworkDatabase
+  | PersistedSqliteDatabase;
 
 export type PersistedFolder = {
   kind: "folder";
@@ -40,7 +53,7 @@ export const DEFAULT_WORKSPACE: PersistedWorkspace = {
   tree: [],
 };
 
-const ENGINES = new Set<DbEngine>(["postgres", "mysql"]);
+const NETWORK_ENGINES = new Set<DbEngine>(["postgres", "mysql"]);
 
 const EMPTY_RESULT: QueryResult = {
   status: "success",
@@ -56,12 +69,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function mergeDatabase(value: Record<string, unknown>): PersistedDatabase | null {
-  const { id, name, engine, host, port, database, user, password } = value;
+  const { id, name, engine } = value;
+  if (typeof id !== "string" || typeof name !== "string") {
+    return null;
+  }
+  if (engine === "sqlite") {
+    return typeof value.file === "string"
+      ? { kind: "database", id, name, engine: "sqlite", file: value.file }
+      : null;
+  }
+  const { host, port, database, user, password } = value;
   if (
-    typeof id !== "string" ||
-    typeof name !== "string" ||
     typeof engine !== "string" ||
-    !ENGINES.has(engine as DbEngine) ||
+    !NETWORK_ENGINES.has(engine as DbEngine) ||
     typeof host !== "string" ||
     typeof port !== "number" ||
     typeof database !== "string" ||
@@ -74,7 +94,7 @@ function mergeDatabase(value: Record<string, unknown>): PersistedDatabase | null
     kind: "database",
     id,
     name,
-    engine: engine as DbEngine,
+    engine: engine as NetworkEngine,
     host,
     port,
     database,
@@ -135,22 +155,28 @@ function hydrateNode(node: PersistedNode): TreeNode {
       children: node.children.map(hydrateNode),
     };
   }
-  return {
-    kind: "database",
+  const runtime = {
+    kind: "database" as const,
     id: node.id,
     name: node.name,
-    engine: node.engine,
-    host: node.host,
-    port: node.port,
-    database: node.database,
-    user: node.user,
-    password: node.password,
     tables: [],
     views: [],
     sql: "",
     savedScripts: [],
     script: "",
     result: { ...EMPTY_RESULT },
+  };
+  if (node.engine === "sqlite") {
+    return { ...runtime, engine: "sqlite", file: node.file };
+  }
+  return {
+    ...runtime,
+    engine: node.engine,
+    host: node.host,
+    port: node.port,
+    database: node.database,
+    user: node.user,
+    password: node.password,
   };
 }
 
@@ -169,6 +195,17 @@ function dehydrateNode(node: TreeNode): PersistedNode[] {
         id: node.id,
         name: node.name,
         children: node.children.flatMap(dehydrateNode),
+      },
+    ];
+  }
+  if (node.engine === "sqlite") {
+    return [
+      {
+        kind: "database",
+        id: node.id,
+        name: node.name,
+        engine: "sqlite",
+        file: node.file,
       },
     ];
   }

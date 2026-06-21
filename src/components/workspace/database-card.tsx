@@ -10,6 +10,7 @@ import { ScriptTab } from "@/components/workspace/script-tab";
 import { SettingsTab } from "@/components/workspace/settings-tab";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useConnectionActions } from "@/components/workspace/use-connection";
+import { connectionOf } from "@/components/workspace/mock-data";
 
 export function DatabaseCard() {
   const { activeNode, activeDatabaseTab, setDatabaseTab } = useWorkspace();
@@ -88,17 +89,7 @@ function useAutoConnect() {
     attemptedIds.current.add(id);
     // Prefer the restored/edited config over the node's seed defaults.
     const saved = connections.get(id);
-    connect(
-      id,
-      saved ?? {
-        engine: activeNode.engine,
-        host: activeNode.host,
-        port: activeNode.port,
-        database: activeNode.database,
-        user: activeNode.user,
-        password: activeNode.password,
-      },
-    );
+    connect(id, saved ?? connectionOf(activeNode));
     // connect/connections identities change each render; gate on node id + status only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, status]);

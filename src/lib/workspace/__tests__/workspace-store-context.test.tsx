@@ -83,7 +83,9 @@ function WorkspaceStoreProbe({
   return (
     <div>
       <span data-testid="node-ids">{tree.map((node) => node.id).join(",")}</span>
-      <span data-testid="first-db-host">{firstDb?.host ?? "none"}</span>
+      <span data-testid="first-db-host">
+        {firstDb && firstDb.engine !== "sqlite" ? firstDb.host : "none"}
+      </span>
       <button
         type="button"
         onClick={() => persistTree(persistTarget ?? editedDatabaseTree)}

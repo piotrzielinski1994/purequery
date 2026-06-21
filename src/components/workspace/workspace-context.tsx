@@ -162,7 +162,20 @@ function applyDatabaseConfig(
       };
     }
     if (node.kind === "database" && node.id === databaseId) {
-      return { ...node, ...config };
+      const { kind, id, name, tables, views, sql, savedScripts, script, result } =
+        node;
+      return {
+        kind,
+        id,
+        name,
+        tables,
+        views,
+        sql,
+        savedScripts,
+        script,
+        result,
+        ...config,
+      };
     }
     return node;
   });
