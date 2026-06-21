@@ -28,6 +28,7 @@ function SeededConsole() {
             at: "19:55:46",
           });
           upsertPendingEdit({
+            kind: "cell",
             id: "e1",
             tableId: "tbl-product",
             tableName: "product",
@@ -73,6 +74,7 @@ function SeededHistoryThenEdit() {
         type="button"
         onClick={() =>
           upsertPendingEdit({
+            kind: "cell",
             id: "e1",
             tableId: "tbl-product",
             tableName: "product",

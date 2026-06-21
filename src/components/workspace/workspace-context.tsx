@@ -25,17 +25,38 @@ export type DatabaseTab = "sql" | "views" | "script" | "settings";
 
 export type SplitOrientation = "horizontal" | "vertical";
 
-export type PendingEdit = {
+type MutationBase = {
   id: string;
   tableId: string;
   tableName: string;
+  sql: string;
+};
+
+export type CellMutation = MutationBase & {
+  kind: "cell";
   column: string;
   rowIndex: number;
   pkValue: string | null;
   oldValue: string | null;
   newValue: string;
-  sql: string;
 };
+
+export type InsertMutation = MutationBase & {
+  kind: "insert";
+  draftId: string;
+  values: Record<string, string | null>;
+};
+
+export type DeleteMutation = MutationBase & {
+  kind: "delete";
+  pkColumn: string;
+  pkValue: string;
+};
+
+export type PendingMutation =
+  | CellMutation
+  | InsertMutation
+  | DeleteMutation;
 
 export type HistoryEntry = {
   id: string;
@@ -59,7 +80,7 @@ type WorkspaceContextValue = {
   activeNode: OpenNode | null;
   connectionStatus: Map<string, ConnectionStatus>;
   connections: Map<string, ConnectionConfig>;
-  pendingEdits: PendingEdit[];
+  pendingEdits: PendingMutation[];
   history: HistoryEntry[];
   splitOrientation: SplitOrientation;
   toggleSplitOrientation: () => void;
@@ -85,7 +106,7 @@ type WorkspaceContextValue = {
   removeConnection: (id: string) => void;
   updateDatabaseConfig: (id: string, config: ConnectionConfig) => void;
   setDatabaseTables: (id: string, tableNames: string[]) => void;
-  upsertPendingEdit: (edit: PendingEdit) => void;
+  upsertPendingEdit: (edit: PendingMutation) => void;
   discardPendingEdit: (id: string) => void;
   discardPendingEditsForTable: (tableId: string) => void;
   addHistoryEntry: (entry: HistoryEntry) => void;
@@ -327,7 +348,7 @@ export function WorkspaceProvider({
   );
   const [activeDatabaseTab, setActiveDatabaseTab] =
     useState<DatabaseTab>("sql");
-  const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
+  const [pendingEdits, setPendingEdits] = useState<PendingMutation[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [splitOrientation, setSplitOrientation] = useState<SplitOrientation>(
     initialSplitOrientation,
@@ -343,11 +364,12 @@ export function WorkspaceProvider({
   // useCallback([]) keeps commitEdit (and thus the grid's props) stable across unrelated context
   // rebuilds (e.g. a sidebar/console toggle), so the 200-row grid render is skipped, not repeated.
   const upsertPendingEdit = useCallback(
-    (edit: PendingEdit) =>
-      setPendingEdits((current) => [
-        ...current.filter((existing) => existing.id !== edit.id),
-        edit,
-      ]),
+    (edit: PendingMutation) =>
+      setPendingEdits((current) =>
+        current.some((existing) => existing.id === edit.id)
+          ? current.map((existing) => (existing.id === edit.id ? edit : existing))
+          : [...current, edit],
+      ),
     [],
   );
   const discardPendingEdit = useCallback(

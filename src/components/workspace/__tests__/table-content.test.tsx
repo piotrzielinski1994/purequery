@@ -7,7 +7,7 @@ import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { TableCard } from "@/components/workspace/table-card";
 import { Console } from "@/components/workspace/console";
 import { toast } from "sonner";
-import { fetchTable, countTable, updateTable } from "@/lib/tauri";
+import { fetchTable, countTable, applyRowMutations } from "@/lib/tauri";
 import type {
   ConnectionConfig,
   TableColumn,
@@ -18,7 +18,7 @@ import type {
 vi.mock("@/lib/tauri", () => ({
   fetchTable: vi.fn(),
   countTable: vi.fn(),
-  updateTable: vi.fn(),
+  applyRowMutations: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -30,7 +30,7 @@ vi.mock("sonner", () => ({
 
 const mockFetch = vi.mocked(fetchTable);
 const mockCount = vi.mocked(countTable);
-const mockUpdate = vi.mocked(updateTable);
+const mockUpdate = vi.mocked(applyRowMutations);
 const mockToast = vi.mocked(toast);
 
 const config: ConnectionConfig = {
@@ -671,7 +671,12 @@ describe("TableCard cell editing", () => {
 
     await waitFor(() => {
       expect(mockUpdate).toHaveBeenCalledWith(config, "product", [
-        { column: "price", pkValue: "1", value: "1500" },
+        expect.objectContaining({
+          kind: "cell",
+          column: "price",
+          pkValue: "1",
+          newValue: "1500",
+        }),
       ]);
     });
   });
