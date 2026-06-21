@@ -12,6 +12,7 @@ import {
 import type {
   DatabaseNode,
   FolderNode,
+  NetworkDatabaseNode,
 } from "@/components/workspace/mock-data";
 
 const validDatabase: PersistedDatabase = {
@@ -31,6 +32,15 @@ const validFolder: PersistedFolder = {
   id: "folder-prod",
   name: "prod",
   children: [validDatabase],
+};
+
+// SQLite persisted database: engine + a single file path, no network fields.
+const validSqliteDatabase: PersistedDatabase = {
+  kind: "database",
+  id: "db-local",
+  name: "my_local_db",
+  engine: "sqlite",
+  file: "/Users/me/data/app.sqlite",
 };
 
 describe("DEFAULT_WORKSPACE", () => {
@@ -278,7 +288,7 @@ describe("hydrate", () => {
   // AC-003 - behavior
   it("should turn a persisted database into a runtime DatabaseNode carrying its config fields", () => {
     const [node] = hydrate([validDatabase]);
-    const db = node as DatabaseNode;
+    const db = node as NetworkDatabaseNode;
 
     expect(db.kind).toBe("database");
     expect(db.id).toBe("db-admin");
@@ -364,5 +374,59 @@ describe("dehydrate", () => {
     };
 
     expect(dehydrate(hydrate(persisted.tree))).toEqual(persisted);
+  });
+});
+
+describe("SQLite persistence (TC-010)", () => {
+  // TC-010, AC-008 - behavior (a valid sqlite database is kept with its file path)
+  it("should keep a valid sqlite database node carrying its file path", () => {
+    const merged = mergeWorkspace({ version: 1, tree: [validSqliteDatabase] });
+
+    expect(merged.tree).toEqual([validSqliteDatabase]);
+  });
+
+  // TC-010, AC-008, E-1 - behavior (a sqlite entry missing its file path is dropped)
+  it("should drop a sqlite database node that is missing its file path", () => {
+    const noFile = {
+      kind: "database",
+      id: "db-local",
+      name: "my_local_db",
+      engine: "sqlite",
+    };
+    const merged = mergeWorkspace({ version: 1, tree: [noFile] });
+
+    expect(merged.tree).toEqual([]);
+  });
+
+  // TC-010, AC-008 - behavior (a sqlite database round-trips keeping its file path)
+  it("should round-trip a sqlite database through hydrate/dehydrate keeping its file", () => {
+    const persisted: PersistedWorkspace = {
+      version: 1,
+      tree: [validSqliteDatabase],
+    };
+
+    expect(dehydrate(hydrate(persisted.tree))).toEqual(persisted);
+  });
+
+  // TC-010, AC-008 - behavior (a sqlite hydrated node exposes engine + file)
+  it("should hydrate a sqlite database into a runtime node carrying engine and file", () => {
+    const [node] = hydrate([validSqliteDatabase]);
+    const db = node as DatabaseNode;
+
+    expect(db.kind).toBe("database");
+    expect(db.engine).toBe("sqlite");
+    expect((db as DatabaseNode & { file: string }).file).toBe(
+      "/Users/me/data/app.sqlite",
+    );
+  });
+
+  // TC-010, AC-008 - behavior (a postgres database keeps its network fields alongside sqlite)
+  it("should keep a postgres database's network fields when mixed with a sqlite database", () => {
+    const merged = mergeWorkspace({
+      version: 1,
+      tree: [validDatabase, validSqliteDatabase],
+    });
+
+    expect(merged.tree).toEqual([validDatabase, validSqliteDatabase]);
   });
 });

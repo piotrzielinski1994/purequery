@@ -12,7 +12,7 @@ import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
 import { connectDatabase } from "@/lib/tauri";
 import type {
   ConnectionConfig,
-  DatabaseNode,
+  NetworkDatabaseNode,
   TreeNode,
 } from "@/components/workspace/mock-data";
 
@@ -38,9 +38,9 @@ const editedConnection: ConnectionConfig = {
 function findDatabase(
   nodes: TreeNode[],
   id: string,
-): DatabaseNode | undefined {
+): NetworkDatabaseNode | undefined {
   for (const node of nodes) {
-    if (node.kind === "database" && node.id === id) {
+    if (node.kind === "database" && node.id === id && node.engine === "postgres") {
       return node;
     }
     if (node.kind === "folder") {

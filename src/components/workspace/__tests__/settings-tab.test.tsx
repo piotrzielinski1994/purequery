@@ -7,6 +7,11 @@ import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { SettingsTab } from "@/components/workspace/settings-tab";
 import { SidebarTree } from "@/components/workspace/sidebar-tree";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import type {
+  DatabaseNode,
+  QueryResult,
+  TreeNode,
+} from "@/components/workspace/mock-data";
 import { connectDatabase } from "@/lib/tauri";
 import { toast } from "sonner";
 
@@ -377,5 +382,150 @@ describe("SettingsTab connect flow updates the sidebar", () => {
     if (group) {
       expect(within(group).queryAllByRole("treeitem")).toHaveLength(0);
     }
+  });
+});
+
+const sqliteResult: QueryResult = {
+  status: "success",
+  timeMs: 0,
+  rowCount: 0,
+  columns: [],
+  rows: [],
+  message: "",
+};
+
+// A SQLite database node: engine + a single file path, no host/port/user/password.
+// The form must render a "Database file" field and hide the network fields.
+function sqliteNode(file: string): DatabaseNode {
+  return {
+    kind: "database",
+    id: "db-local",
+    name: "my_local_db",
+    engine: "sqlite",
+    file,
+    tables: [],
+    views: [],
+    sql: "",
+    savedScripts: [],
+    script: "",
+    result: sqliteResult,
+  };
+}
+
+function renderSqliteSettings(file = "/Users/me/data/app.sqlite") {
+  const tree: TreeNode[] = [sqliteNode(file)];
+  return render(
+    <WorkspaceProvider tree={tree} initialActiveTabId="db-local">
+      <SettingsTab />
+    </WorkspaceProvider>,
+  );
+}
+
+describe("SettingsTab SQLite engine", () => {
+  // TC-001, AC-001/AC-002 - behavior (sqlite engine shows the Database file field)
+  it("should show a Database file field when the engine is sqlite", () => {
+    renderSqliteSettings();
+    expect(
+      screen.getByLabelText("Database file", { exact: true }),
+    ).toBeInTheDocument();
+  });
+
+  // TC-001, AC-002 - behavior (sqlite hides the network fields)
+  it("should hide the host, port, user and password fields when the engine is sqlite", () => {
+    renderSqliteSettings();
+    expect(screen.queryByRole("textbox", { name: /host/i })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /port/i })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /user/i })).toBeNull();
+    expect(screen.queryByLabelText("Password", { exact: true })).toBeNull();
+  });
+
+  // TC-001, AC-002 - behavior (sqlite form seeds the file path from the node)
+  it("should seed the Database file field from the active sqlite node", () => {
+    renderSqliteSettings("/var/db/app.sqlite");
+    expect(
+      screen.getByLabelText("Database file", { exact: true }),
+    ).toHaveValue("/var/db/app.sqlite");
+  });
+
+  // TC-002, AC-002 - behavior (postgres engine keeps the network fields, no Database file)
+  it("should show the network fields and no Database file field when the engine is postgres", () => {
+    renderSettings();
+    expect(screen.getByRole("textbox", { name: /host/i })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /port/i })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /user/i })).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Password", { exact: true }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Database file", { exact: true }),
+    ).toBeNull();
+  });
+
+  // TC-003, AC-003 - behavior (empty file path disables Connect)
+  it("should disable Connect when the sqlite file path is empty", () => {
+    renderSqliteSettings("");
+    expect(screen.getByRole("button", { name: /^connect$/i })).toBeDisabled();
+  });
+
+  // TC-003, AC-003 - behavior (non-empty file path enables Connect)
+  it("should enable Connect when the sqlite file path is non-empty", () => {
+    renderSqliteSettings("/Users/me/data/app.sqlite");
+    expect(
+      screen.getByRole("button", { name: /^connect$/i }),
+    ).toBeEnabled();
+  });
+
+  // TC-003, AC-003 - behavior (clearing then typing toggles the gate)
+  it("should disable Connect after the file path is cleared and re-enable it after typing", async () => {
+    const user = userEvent.setup();
+    renderSqliteSettings("/Users/me/data/app.sqlite");
+
+    const fileField = screen.getByLabelText("Database file", { exact: true });
+    await user.clear(fileField);
+    expect(screen.getByRole("button", { name: /^connect$/i })).toBeDisabled();
+
+    await user.type(fileField, "/tmp/new.sqlite");
+    expect(screen.getByRole("button", { name: /^connect$/i })).toBeEnabled();
+  });
+
+  // TC-003, AC-003 - behavior (Connect sends the sqlite file path to the backend)
+  it("should invoke connectDatabase with the sqlite engine and file path when Connect is clicked", async () => {
+    const user = userEvent.setup();
+    mockConnect.mockResolvedValueOnce([]);
+    renderSqliteSettings("/Users/me/data/app.sqlite");
+
+    await user.click(screen.getByRole("button", { name: /^connect$/i }));
+
+    expect(mockConnect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        engine: "sqlite",
+        file: "/Users/me/data/app.sqlite",
+      }),
+    );
+  });
+});
+
+describe("SettingsTab engine switch keeps both shapes (TC-011)", () => {
+  // TC-011, AC-002, E-5 - behavior (a postgres node renders its typed network values)
+  it("should keep the postgres network values when rendering a postgres node", () => {
+    renderSettings();
+    expect(screen.getByRole("textbox", { name: /host/i })).toHaveValue(
+      "db.internal",
+    );
+    expect(screen.getByRole("textbox", { name: /user/i })).toHaveValue(
+      "seed_admin",
+    );
+    expect(
+      screen.queryByLabelText("Database file", { exact: true }),
+    ).toBeNull();
+  });
+
+  // TC-011, AC-002, E-5 - behavior (a sqlite node renders its file value and no stale host)
+  it("should keep the sqlite file value when rendering a sqlite node", () => {
+    renderSqliteSettings("/Users/me/data/app.sqlite");
+    expect(
+      screen.getByLabelText("Database file", { exact: true }),
+    ).toHaveValue("/Users/me/data/app.sqlite");
+    expect(screen.queryByRole("textbox", { name: /host/i })).toBeNull();
   });
 });

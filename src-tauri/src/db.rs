@@ -11,21 +11,55 @@ const CREDENTIAL_ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'_')
     .remove(b'~');
 
+// SQLite file paths keep their separators and path-safe punctuation; only URL-breaking
+// characters (spaces, ...) are percent-encoded so `sqlite://<path>` stays a valid URL.
+const PATH_ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
+    .remove(b'/')
+    .remove(b'-')
+    .remove(b'.')
+    .remove(b'_')
+    .remove(b'~');
+
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum DbEngine {
     Postgres,
     Mysql,
+    Sqlite,
 }
 
+// Engine-discriminated connection. The network engines carry host/port/credentials; SQLite is
+// a single file. Tagged on `engine` so the TypeScript union deserializes directly.
 #[derive(Debug, Clone, Deserialize)]
-pub struct ConnectionConfig {
-    pub engine: DbEngine,
-    pub host: String,
-    pub port: u16,
-    pub database: String,
-    pub user: String,
-    pub password: String,
+#[serde(tag = "engine", rename_all = "lowercase")]
+pub enum ConnectionConfig {
+    Postgres {
+        host: String,
+        port: u16,
+        database: String,
+        user: String,
+        password: String,
+    },
+    Mysql {
+        host: String,
+        port: u16,
+        database: String,
+        user: String,
+        password: String,
+    },
+    Sqlite {
+        file: String,
+    },
+}
+
+impl ConnectionConfig {
+    pub fn engine(&self) -> DbEngine {
+        match self {
+            ConnectionConfig::Postgres { .. } => DbEngine::Postgres,
+            ConnectionConfig::Mysql { .. } => DbEngine::Mysql,
+            ConnectionConfig::Sqlite { .. } => DbEngine::Sqlite,
+        }
+    }
 }
 
 fn encode(value: &str) -> String {
@@ -33,17 +67,22 @@ fn encode(value: &str) -> String {
 }
 
 pub fn build_url(config: &ConnectionConfig) -> String {
-    let scheme = match config.engine {
-        DbEngine::Postgres => "postgresql",
-        DbEngine::Mysql => "mysql",
+    let (scheme, host, port, database, user, password) = match config {
+        ConnectionConfig::Postgres { host, port, database, user, password } => {
+            ("postgresql", host, port, database, user, password)
+        }
+        ConnectionConfig::Mysql { host, port, database, user, password } => {
+            ("mysql", host, port, database, user, password)
+        }
+        ConnectionConfig::Sqlite { file } => {
+            return format!("sqlite://{}", utf8_percent_encode(file, PATH_ENCODE_SET));
+        }
     };
     format!(
         "{scheme}://{user}:{password}@{host}:{port}/{database}",
-        user = encode(&config.user),
-        password = encode(&config.password),
-        host = config.host,
-        port = config.port,
-        database = encode(&config.database),
+        user = encode(user),
+        password = encode(password),
+        database = encode(database),
     )
 }
 
@@ -60,6 +99,11 @@ pub fn catalog_query(engine: DbEngine) -> &'static str {
              WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' \
              ORDER BY table_name"
         }
+        DbEngine::Sqlite => {
+            "SELECT name FROM sqlite_master \
+             WHERE type = 'table' AND name NOT LIKE 'sqlite_%' \
+             ORDER BY name"
+        }
     }
 }
 
@@ -73,7 +117,7 @@ pub struct TableRows {
 
 pub fn quote_identifier(engine: DbEngine, name: &str) -> String {
     match engine {
-        DbEngine::Postgres => format!("\"{}\"", name.replace('"', "\"\"")),
+        DbEngine::Postgres | DbEngine::Sqlite => format!("\"{}\"", name.replace('"', "\"\"")),
         DbEngine::Mysql => format!("`{}`", name.replace('`', "``")),
     }
 }
@@ -91,6 +135,7 @@ pub fn columns_query(engine: DbEngine) -> &'static str {
              WHERE table_name = ? AND table_schema = DATABASE() \
              ORDER BY ordinal_position"
         }
+        DbEngine::Sqlite => "SELECT name FROM pragma_table_info(?) ORDER BY cid",
     }
 }
 
@@ -98,6 +143,7 @@ fn text_expression(engine: DbEngine, column: &str) -> String {
     match engine {
         DbEngine::Postgres => format!("{}::text", quote_identifier(engine, column)),
         DbEngine::Mysql => format!("CAST({} AS CHAR)", quote_identifier(engine, column)),
+        DbEngine::Sqlite => format!("CAST({} AS TEXT)", quote_identifier(engine, column)),
     }
 }
 
@@ -142,6 +188,9 @@ pub fn primary_key_query(engine: DbEngine) -> &'static str {
              AND constraint_name = 'PRIMARY' \
              ORDER BY ordinal_position"
         }
+        DbEngine::Sqlite => {
+            "SELECT name FROM pragma_table_info(?) WHERE pk > 0 ORDER BY pk"
+        }
     }
 }
 
@@ -168,7 +217,7 @@ pub fn build_update_query_value(
             binds.push(value.to_string());
             match engine {
                 DbEngine::Postgres => (format!("$1::{column_type}"), true),
-                DbEngine::Mysql => ("?".to_string(), true),
+                DbEngine::Mysql | DbEngine::Sqlite => ("?".to_string(), true),
             }
         }
     };
@@ -181,13 +230,15 @@ pub fn build_update_query_value(
                 "$1"
             }
         }
-        DbEngine::Mysql => "?",
+        DbEngine::Mysql | DbEngine::Sqlite => "?",
     };
     binds.push(pk_value.to_string());
 
     let pk_match = match engine {
         DbEngine::Postgres => format!("{}::text = {pk_placeholder}", quote_identifier(engine, pk_column)),
-        DbEngine::Mysql => format!("{} = {pk_placeholder}", text_expression(engine, pk_column)),
+        DbEngine::Mysql | DbEngine::Sqlite => {
+            format!("{} = {pk_placeholder}", text_expression(engine, pk_column))
+        }
     };
 
     let sql = format!(
@@ -233,6 +284,7 @@ pub fn wrap_select_as_text(
             match engine {
                 DbEngine::Postgres => format!("{quoted}::text"),
                 DbEngine::Mysql => format!("CAST({quoted} AS CHAR)"),
+                DbEngine::Sqlite => format!("CAST({quoted} AS TEXT)"),
             }
         })
         .collect::<Vec<_>>()
@@ -360,7 +412,7 @@ pub async fn run_query(
     sql: String,
     limit: u32,
 ) -> Result<QueryOutcome, String> {
-    let engine = config.engine;
+    let engine = config.engine();
     let pool = AnyPoolOptions::new()
         .max_connections(1)
         .connect(&build_url(&config))
@@ -369,7 +421,9 @@ pub async fn run_query(
 
     let outcome = match engine {
         DbEngine::Postgres => run_query_postgres(&pool, &sql, limit).await,
-        DbEngine::Mysql => run_query_mysql(&pool, &sql, limit).await,
+        // SQLite's Any type-describe handles `prepare().columns()` without Postgres's
+        // exotic-type failure, so it shares MySQL's prepared path.
+        DbEngine::Mysql | DbEngine::Sqlite => run_query_prepared(engine, &pool, &sql, limit).await,
     };
 
     pool.close().await;
@@ -485,7 +539,12 @@ async fn fetch_plain_text_rows(
     })
 }
 
-async fn run_query_mysql(
+// Shared by MySQL and SQLite: both let the Any driver describe a prepared statement, so the
+// result columns are discovered without executing, then the query is wrapped to cast every
+// column to text (per engine). Postgres cannot take this path (its describe fails on native
+// types) and uses run_query_postgres instead.
+async fn run_query_prepared(
+    engine: DbEngine,
     pool: &sqlx::AnyPool,
     sql: &str,
     limit: u32,
@@ -510,7 +569,7 @@ async fn run_query_mysql(
         return Ok(non_row_outcome(result.rows_affected()));
     }
 
-    let wrapped = wrap_select_as_text(DbEngine::Mysql, sql, &columns, limit);
+    let wrapped = wrap_select_as_text(engine, sql, &columns, limit);
     let data_rows = sqlx::query(&wrapped)
         .fetch_all(pool)
         .await
@@ -540,7 +599,7 @@ pub async fn list_tables(config: ConnectionConfig) -> Result<Vec<String>, String
         .await
         .map_err(|error| error.to_string())?;
 
-    let rows = sqlx::query(catalog_query(config.engine))
+    let rows = sqlx::query(catalog_query(config.engine()))
         .fetch_all(&pool)
         .await
         .map_err(|error| error.to_string());
@@ -559,7 +618,7 @@ pub async fn fetch_table_rows(
     limit: u32,
     filter: Option<String>,
 ) -> Result<TableRows, String> {
-    let engine = config.engine;
+    let engine = config.engine();
     let pool = AnyPoolOptions::new()
         .max_connections(1)
         .connect(&build_url(&config))
@@ -639,6 +698,7 @@ fn column_types_query(engine: DbEngine) -> &'static str {
             "SELECT column_name, data_type FROM information_schema.columns \
              WHERE table_name = ? AND table_schema = DATABASE()"
         }
+        DbEngine::Sqlite => "SELECT name, type FROM pragma_table_info(?)",
     }
 }
 
@@ -647,7 +707,7 @@ pub async fn update_cells(
     table: String,
     edits: Vec<CellEdit>,
 ) -> Result<u64, String> {
-    let engine = config.engine;
+    let engine = config.engine();
     let pool = AnyPoolOptions::new()
         .max_connections(1)
         .connect(&build_url(&config))
@@ -721,7 +781,7 @@ async fn write_cells(
 mod tests {
     use super::{
         build_rows_query, build_update_query, build_update_query_value, build_url, catalog_query,
-        columns_query, is_row_returning, is_subquery_wrappable, parse_json_rows,
+        column_types_query, columns_query, is_row_returning, is_subquery_wrappable, parse_json_rows,
         primary_key_query, quote_identifier, wrap_columns_probe, wrap_select_as_json,
         wrap_select_as_text, ConnectionConfig, DbEngine,
     };
@@ -731,8 +791,7 @@ mod tests {
     }
 
     fn postgres_config() -> ConnectionConfig {
-        ConnectionConfig {
-            engine: DbEngine::Postgres,
+        ConnectionConfig::Postgres {
             host: "localhost".to_string(),
             port: 5432,
             database: "app".to_string(),
@@ -742,13 +801,20 @@ mod tests {
     }
 
     fn mysql_config() -> ConnectionConfig {
-        ConnectionConfig {
-            engine: DbEngine::Mysql,
+        ConnectionConfig::Mysql {
             host: "db.internal".to_string(),
             port: 3306,
             database: "admin".to_string(),
             user: "seed_admin".to_string(),
             password: "s3cr3t".to_string(),
+        }
+    }
+
+    // SQLite carries a single file path (no host/port/user/password). Per the F1 plan the
+    // sqlite arm of the config is `{ engine: sqlite, file }`. A spaced path exercises E-4.
+    fn sqlite_config() -> ConnectionConfig {
+        ConnectionConfig::Sqlite {
+            file: "/Users/me/My Data/app.sqlite".to_string(),
         }
     }
 
@@ -773,8 +839,7 @@ mod tests {
     // AC-008, E-4, TC-006 - behavior (percent-encode credentials + database)
     #[test]
     fn should_percent_encode_special_chars_in_user_password_and_database() {
-        let config = ConnectionConfig {
-            engine: DbEngine::Postgres,
+        let config = ConnectionConfig::Postgres {
             host: "localhost".to_string(),
             port: 5432,
             database: "my db".to_string(),
@@ -1142,5 +1207,174 @@ mod tests {
         let (columns, rows) = parse_json_rows(&[]).unwrap();
         assert!(columns.is_empty());
         assert!(rows.is_empty());
+    }
+
+    // AC-009, TC-004 - behavior (SQLite URL uses the sqlite scheme and carries the file path)
+    #[test]
+    fn should_build_a_sqlite_url_from_the_file_path() {
+        let url = build_url(&sqlite_config());
+        assert!(
+            url.starts_with("sqlite:"),
+            "SQLite URL must use the sqlite scheme: {url}"
+        );
+        assert!(
+            url.contains("app.sqlite"),
+            "SQLite URL must carry the file path: {url}"
+        );
+    }
+
+    // AC-009, TC-004, E-4 - behavior (a file path with spaces still produces an openable URL)
+    #[test]
+    fn should_build_a_sqlite_url_for_a_path_with_spaces() {
+        let url = build_url(&ConnectionConfig::Sqlite {
+            file: "/Users/me/My Data/app.sqlite".to_string(),
+        });
+        assert!(url.starts_with("sqlite:"), "unexpected scheme: {url}");
+        assert!(
+            !url.contains(' '),
+            "a raw space breaks the connection URL; it must be encoded: {url}"
+        );
+        // the path is still recoverable (its non-space segments survive)
+        assert!(url.contains("My"), "expected the path segments in {url}");
+        assert!(url.contains("Data"), "expected the path segments in {url}");
+    }
+
+    // AC-004, TC-005 - behavior (SQLite catalog reads sqlite_master, user tables only)
+    #[test]
+    fn should_read_sqlite_master_excluding_internal_tables_in_the_sqlite_catalog_query() {
+        let query = catalog_query(DbEngine::Sqlite);
+        assert!(
+            query.contains("sqlite_master"),
+            "SQLite catalog must read sqlite_master: {query}"
+        );
+        assert!(
+            query.contains("type") && query.contains("'table'"),
+            "SQLite catalog must restrict to tables: {query}"
+        );
+        assert!(
+            query.contains("NOT LIKE 'sqlite_%'"),
+            "SQLite catalog must exclude internal sqlite_* tables: {query}"
+        );
+    }
+
+    // AC-009 - behavior (each engine gets a distinct catalog query, sqlite included)
+    #[test]
+    fn should_return_a_distinct_catalog_query_for_sqlite() {
+        assert_ne!(catalog_query(DbEngine::Sqlite), catalog_query(DbEngine::Postgres));
+        assert_ne!(catalog_query(DbEngine::Sqlite), catalog_query(DbEngine::Mysql));
+    }
+
+    // behavior (SQLite quotes identifiers with double quotes, doubling embedded quotes)
+    #[test]
+    fn should_quote_identifiers_with_double_quotes_for_sqlite() {
+        assert_eq!(quote_identifier(DbEngine::Sqlite, "product"), "\"product\"");
+        assert_eq!(quote_identifier(DbEngine::Sqlite, "we\"ird"), "\"we\"\"ird\"");
+    }
+
+    // AC-009, TC-006 - behavior (columns query is parameterized over pragma_table_info)
+    #[test]
+    fn should_build_a_parameterized_sqlite_columns_query_over_pragma_table_info() {
+        let query = columns_query(DbEngine::Sqlite);
+        assert!(
+            query.contains("pragma_table_info"),
+            "SQLite columns query must use pragma_table_info: {query}"
+        );
+        assert!(query.contains('?'), "SQLite columns query must be parameterized: {query}");
+    }
+
+    // AC-009, TC-006 - behavior (column-types query is parameterized over pragma_table_info)
+    #[test]
+    fn should_build_a_parameterized_sqlite_column_types_query_over_pragma_table_info() {
+        let query = column_types_query(DbEngine::Sqlite);
+        assert!(
+            query.contains("pragma_table_info"),
+            "SQLite column-types query must use pragma_table_info: {query}"
+        );
+        assert!(query.contains("type"), "SQLite column-types query must read the type: {query}");
+        assert!(query.contains('?'), "SQLite column-types query must be parameterized: {query}");
+    }
+
+    // AC-009, TC-006 - behavior (primary-key query is parameterized over pragma_table_info, pk>0)
+    #[test]
+    fn should_build_a_parameterized_sqlite_primary_key_query_over_pragma_table_info() {
+        let query = primary_key_query(DbEngine::Sqlite);
+        assert!(
+            query.contains("pragma_table_info"),
+            "SQLite pk query must use pragma_table_info: {query}"
+        );
+        assert!(query.contains("pk"), "SQLite pk query must filter on the pk column: {query}");
+        assert!(query.contains('?'), "SQLite pk query must be parameterized: {query}");
+    }
+
+    // AC-005, TC-007 - behavior (SQLite casts every column to TEXT, applies the limit, double-quotes)
+    #[test]
+    fn should_cast_each_column_to_text_and_limit_for_sqlite() {
+        let query = build_rows_query(DbEngine::Sqlite, "product", &cols(), 200, None);
+        assert_eq!(
+            query,
+            "SELECT CAST(\"id\" AS TEXT), CAST(\"price\" AS TEXT) FROM \"product\" LIMIT 200"
+        );
+    }
+
+    // AC-006, TC-008 - behavior (SQLite UPDATE binds the value plainly with ?, matches pk as text)
+    #[test]
+    fn should_build_an_update_for_sqlite() {
+        let (sql, binds) = build_update_query(
+            DbEngine::Sqlite,
+            "product",
+            "price",
+            "INTEGER",
+            "id",
+            "1999",
+            "7",
+        );
+        assert_eq!(
+            sql,
+            "UPDATE \"product\" SET \"price\" = ? WHERE CAST(\"id\" AS TEXT) = ?"
+        );
+        assert_eq!(binds, vec!["1999".to_string(), "7".to_string()]);
+    }
+
+    // AC-006, TC-008 - behavior (a None value becomes a NULL literal, not a bind, for SQLite)
+    #[test]
+    fn should_set_null_literal_when_the_new_value_is_none_for_sqlite() {
+        let (sql, binds) = build_update_query_value(
+            DbEngine::Sqlite,
+            "product",
+            "deleted_at",
+            "TEXT",
+            "id",
+            None,
+            "1",
+        );
+        assert_eq!(
+            sql,
+            "UPDATE \"product\" SET \"deleted_at\" = NULL WHERE CAST(\"id\" AS TEXT) = ?"
+        );
+        assert_eq!(binds, vec!["1".to_string()]);
+    }
+
+    // AC-007, TC-009 - behavior (SQLite reuses the shared keyword classifier for run_query)
+    #[test]
+    fn should_classify_sqlite_statements_with_the_shared_row_returning_classifier() {
+        assert!(is_row_returning("SELECT * FROM product"));
+        assert!(is_row_returning("  values (1), (2)"));
+        assert!(!is_row_returning("UPDATE product SET price = 1"));
+        assert!(!is_row_returning("CREATE TABLE t (id integer)"));
+    }
+
+    // AC-007, TC-009 - behavior (SQLite wraps a row-returning query casting each column to TEXT)
+    #[test]
+    fn should_wrap_a_select_casting_columns_to_text_for_sqlite() {
+        let sql = wrap_select_as_text(
+            DbEngine::Sqlite,
+            "SELECT id, price FROM product",
+            &["id".to_string(), "price".to_string()],
+            200,
+        );
+        assert_eq!(
+            sql,
+            "SELECT CAST(\"id\" AS TEXT), CAST(\"price\" AS TEXT) FROM (SELECT id, price FROM product) AS dbui_q LIMIT 200"
+        );
     }
 }

@@ -9,12 +9,13 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import type {
-  ConnectionStatus,
-  DatabaseNode,
-  FolderNode,
-  TableNode,
-  TreeNode,
+import {
+  connectionOf,
+  type ConnectionStatus,
+  type DatabaseNode,
+  type FolderNode,
+  type TableNode,
+  type TreeNode,
 } from "@/components/workspace/mock-data";
 
 function FolderRow({ node, depth }: { node: FolderNode; depth: number }) {
@@ -88,14 +89,7 @@ function DatabaseRow({ node, depth }: { node: DatabaseNode; depth: number }) {
       disconnect(node.id);
       return;
     }
-    connect(node.id, {
-      engine: node.engine,
-      host: node.host,
-      port: node.port,
-      database: node.database,
-      user: node.user,
-      password: node.password,
-    });
+    connect(node.id, connectionOf(node));
   };
 
   return (
