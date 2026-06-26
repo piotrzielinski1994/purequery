@@ -137,31 +137,32 @@ function AccentField({
 
   return (
     <Field label="Accent color" htmlFor="conn-accent-hex">
-      <div className="flex items-center gap-2">
-        <div className="flex">
-          {ACCENT_PRESETS.map((preset) => {
-            const isActive = accentColor === preset.value;
-            return (
-              <button
-                key={preset.label}
-                type="button"
-                aria-label={preset.label}
-                aria-pressed={isActive}
-                onClick={() => setDatabaseAccent(nodeId, preset.value)}
-                style={preset.value ? { backgroundColor: preset.value } : undefined}
-                className={cn(
-                  "flex size-6 items-center justify-center border border-l-0 border-border text-[10px] first:border-l",
-                  // relative+z so the active swatch's ring draws over its flush neighbours instead
-                  // of being clipped by them on the shared (left/right) edges.
-                  isActive && "relative z-10 ring-1 ring-foreground",
-                  !preset.value && "bg-transparent text-muted-foreground",
-                )}
-              >
-                {preset.value ? null : "/"}
-              </button>
-            );
-          })}
-        </div>
+      {/* One flush control group: preset swatches, the native picker, and the hex input all share
+          edges (no gaps) and one height (h-9). Each control after the first drops its left border so
+          neighbours collapse into a single 1px divider. */}
+      <div className="flex items-stretch">
+        {ACCENT_PRESETS.map((preset) => {
+          const isActive = accentColor === preset.value;
+          return (
+            <button
+              key={preset.label}
+              type="button"
+              aria-label={preset.label}
+              aria-pressed={isActive}
+              onClick={() => setDatabaseAccent(nodeId, preset.value)}
+              style={preset.value ? { backgroundColor: preset.value } : undefined}
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center border border-l-0 border-border text-[10px] first:border-l",
+                // relative+z so the active swatch's ring draws over its flush neighbours instead
+                // of being clipped by them on the shared (left/right) edges.
+                isActive && "relative z-10 ring-1 ring-foreground",
+                !preset.value && "bg-transparent text-muted-foreground",
+              )}
+            >
+              {preset.value ? null : "/"}
+            </button>
+          );
+        })}
         <input
           type="color"
           aria-label="Accent color picker"
@@ -177,7 +178,7 @@ function AccentField({
                   : ""),
             )
           }
-          className="size-7 cursor-pointer border border-border bg-transparent p-0.5"
+          className="h-9 w-9 shrink-0 cursor-pointer border border-l-0 border-border bg-transparent p-1"
         />
         <Input
           id="conn-accent-hex"
@@ -185,7 +186,7 @@ function AccentField({
           value={hex}
           onChange={(event) => onHexChange(event.target.value)}
           placeholder="#rrggbb(aa)"
-          className="w-32 font-mono"
+          className="h-9 flex-1 rounded-none border-l-0 font-mono"
         />
       </div>
     </Field>

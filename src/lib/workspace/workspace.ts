@@ -2,6 +2,7 @@ import type {
   DbEngine,
   NetworkEngine,
   QueryResult,
+  SavedScript,
   TreeNode,
 } from "@/lib/workspace/model";
 
@@ -16,6 +17,7 @@ export type PersistedNetworkDatabase = {
   user: string;
   password: string;
   accentColor?: string;
+  savedScripts?: SavedScript[];
 };
 
 export type PersistedSqliteDatabase = {
@@ -25,6 +27,7 @@ export type PersistedSqliteDatabase = {
   engine: "sqlite";
   file: string;
   accentColor?: string;
+  savedScripts?: SavedScript[];
 };
 
 export type PersistedDatabase =
@@ -82,15 +85,42 @@ function mergeAccentColor(value: unknown): { accentColor: string } | undefined {
   return { accentColor: value.toLowerCase() };
 }
 
+// Keeps only the saved-script entries that are records with string `name` + `sql`; anything else
+// (missing field, non-record, non-array payload) is dropped. Returns the field only when the cleaned
+// list is non-empty, so an empty list is omitted from the persisted shape (mirrors mergeAccentColor).
+function mergeSavedScripts(
+  value: unknown,
+): { savedScripts: SavedScript[] } | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const scripts = value.filter(
+    (entry): entry is SavedScript =>
+      isRecord(entry) &&
+      typeof entry.name === "string" &&
+      typeof entry.sql === "string",
+  );
+  return scripts.length > 0 ? { savedScripts: scripts } : undefined;
+}
+
 function mergeDatabase(value: Record<string, unknown>): PersistedDatabase | null {
   const { id, name, engine } = value;
   if (typeof id !== "string" || typeof name !== "string") {
     return null;
   }
   const accent = mergeAccentColor(value.accentColor);
+  const scripts = mergeSavedScripts(value.savedScripts);
   if (engine === "sqlite") {
     return typeof value.file === "string"
-      ? { kind: "database", id, name, engine: "sqlite", file: value.file, ...accent }
+      ? {
+          kind: "database",
+          id,
+          name,
+          engine: "sqlite",
+          file: value.file,
+          ...accent,
+          ...scripts,
+        }
       : null;
   }
   const { host, port, database, user, password } = value;
@@ -116,6 +146,7 @@ function mergeDatabase(value: Record<string, unknown>): PersistedDatabase | null
     user,
     password,
     ...accent,
+    ...scripts,
   };
 }
 
@@ -179,7 +210,7 @@ function hydrateNode(node: PersistedNode): TreeNode {
     tables: [],
     views: [],
     sql: "",
-    savedScripts: [],
+    savedScripts: node.savedScripts ?? [],
     script: "",
     result: { ...EMPTY_RESULT },
   };
@@ -217,6 +248,10 @@ function dehydrateNode(node: TreeNode): PersistedNode[] {
   }
   const accent =
     node.accentColor === null ? undefined : { accentColor: node.accentColor };
+  const scripts =
+    node.savedScripts.length > 0
+      ? { savedScripts: node.savedScripts }
+      : undefined;
   if (node.engine === "sqlite") {
     return [
       {
@@ -226,6 +261,7 @@ function dehydrateNode(node: TreeNode): PersistedNode[] {
         engine: "sqlite",
         file: node.file,
         ...accent,
+        ...scripts,
       },
     ];
   }
@@ -241,6 +277,7 @@ function dehydrateNode(node: TreeNode): PersistedNode[] {
       user: node.user,
       password: node.password,
       ...accent,
+      ...scripts,
     },
   ];
 }

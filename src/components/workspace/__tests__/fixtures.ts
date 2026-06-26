@@ -142,7 +142,10 @@ export const appDb: DatabaseNode = {
   tables: [usersTable, ordersTable, emptyAuditTable],
   views: appViews,
   sql: "SELECT id, name, email\nFROM users\nWHERE last_seen > now() - interval '7 days'",
-  savedScripts: ["active_users", "revenue"],
+  savedScripts: [
+    { name: "active_users_script", sql: "SELECT 1" },
+    { name: "revenue", sql: "SELECT 2" },
+  ],
   script: "-- nightly\nVACUUM ANALYZE users;",
   result: appUsersResult,
   // uncolored database (accent-border feature): plain border everywhere.
@@ -163,7 +166,7 @@ export const adminDb: DatabaseNode = {
   tables: [accountsTable, auditLogTable],
   views: [{ name: "recent_admins" }],
   sql: "SELECT id, role FROM accounts",
-  savedScripts: ["recent"],
+  savedScripts: [{ name: "recent", sql: "SELECT 3" }],
   script: "",
   result: adminResult,
   // colored database (accent-border feature): the red "prod" preset (50% alpha) its tables inherit.

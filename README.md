@@ -82,8 +82,15 @@ The dev server runs on port 1431 (set in both `vite.config.ts` and `src-tauri/ta
 > one go - they execute in order on one held connection, so your own `BEGIN`/`COMMIT` spans them;
 > the result grid shows the last row-returning statement. While a query runs the Run button
 > becomes **Cancel**. With a non-empty selection, Run executes only
-> the selected text; otherwise the whole buffer. The editor|results split flips between
-> side-by-side and stacked via `Cmd/Ctrl+\` (or the "Toggle split layout" palette command).
+> the selected text; otherwise the whole buffer. The editor toolbar carries per-database
+> **saved-script document tabs** on the left (the same tab component as the open-content tabs): the
+> editor always edits the active script, clicking a chip switches to it, and its **X** deletes it.
+> The **+** button (right of the chips) opens a fresh **`untitled`** document immediately (no
+> dialog) - type, then **Cmd/Ctrl+S** to save: an `untitled`'s first save prompts for a name
+> (renaming the tab), a named script saves silently in place. A database with no scripts auto-opens
+> an `untitled`. Saved scripts persist per database in `workspace.json` and a duplicate name is
+> rejected. The editor|results split flips between side-by-side and stacked via `Cmd/Ctrl+\` (or the
+> "Toggle split layout" palette command).
 > Views/Script tabs remain mock. The sidebar tree + its connection configs persist in
 > `workspace.json`; UI/layout state (panel toggles, split orientation, expanded nodes, open
 > tabs) persists in `settings.json` - both JSON files in the OS app-config dir (via

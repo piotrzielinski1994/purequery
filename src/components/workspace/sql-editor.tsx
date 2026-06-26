@@ -195,6 +195,9 @@ type SqlEditorProps = {
   engine: DbEngine;
   schema: TableSchema[];
   onSubmit?: () => void;
+  // Cmd/Ctrl+S inside the editor (save the current buffer as a named script). Returns true to
+  // signal handled so the browser's "save page" is suppressed.
+  onSave?: () => void;
   onCreateEditor?: (view: EditorView) => void;
   // A single-line editor (filter row): Enter submits, newlines are blocked, gutter/multiline off.
   singleLine?: boolean;
@@ -218,6 +221,7 @@ export function SqlEditor({
   engine,
   schema,
   onSubmit,
+  onSave,
   onCreateEditor,
   singleLine = false,
   ariaLabel = "SQL editor",
@@ -258,10 +262,30 @@ export function SqlEditor({
               return true;
             },
           },
+          ...(onSave
+            ? [
+                {
+                  key: "Mod-s",
+                  run: () => {
+                    onSave();
+                    return true;
+                  },
+                },
+              ]
+            : []),
         ]),
       ),
     ];
-  }, [engine, schema, onSubmit, singleLine, ariaLabel, placeholder, defaultTable]);
+  }, [
+    engine,
+    schema,
+    onSubmit,
+    onSave,
+    singleLine,
+    ariaLabel,
+    placeholder,
+    defaultTable,
+  ]);
 
   return (
     <CodeMirror

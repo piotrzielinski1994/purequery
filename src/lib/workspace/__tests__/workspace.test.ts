@@ -505,6 +505,111 @@ describe("dehydrate accent color (TC-004, E-7)", () => {
   });
 });
 
+describe("savedScripts persistence (AC-007, TC-006, TC-007)", () => {
+  // AC-007 - behavior (a persisted savedScripts array seeds the runtime node, not a hardcoded [])
+  it("should hydrate savedScripts from the persisted array", () => {
+    const [node] = hydrate([
+      {
+        ...validDatabase,
+        savedScripts: [
+          { name: "active_users", sql: "SELECT 1" },
+          { name: "revenue", sql: "SELECT 2" },
+        ],
+      } as PersistedDatabase,
+    ]);
+    const db = node as DatabaseNode;
+
+    expect(db.savedScripts).toEqual([
+      { name: "active_users", sql: "SELECT 1" },
+      { name: "revenue", sql: "SELECT 2" },
+    ]);
+  });
+
+  // AC-007, TC-006 - behavior (a non-empty savedScripts list survives a full merge/hydrate/dehydrate round trip with name + sql intact)
+  it("should round-trip a non-empty savedScripts list through merge, hydrate and dehydrate", () => {
+    const persisted: PersistedWorkspace = {
+      version: 1,
+      tree: [
+        {
+          ...validDatabase,
+          savedScripts: [{ name: "revenue", sql: "SELECT sum(amount) FROM sales" }],
+        } as PersistedDatabase,
+      ],
+    };
+
+    expect(dehydrate(hydrate(mergeWorkspace(persisted).tree))).toEqual(persisted);
+  });
+
+  // AC-007 - behavior (an empty savedScripts list is omitted from the dehydrated form, like accentColor)
+  it("should omit savedScripts from a dehydrated database whose list is empty", () => {
+    const [persisted] = dehydrate(hydrate([validDatabase])).tree;
+
+    expect(persisted).not.toHaveProperty("savedScripts");
+  });
+
+  // AC-007, TC-007 - behavior (an entry missing its sql is dropped on merge, valid siblings kept, no throw)
+  it("should drop a savedScripts entry that is missing its sql while keeping the valid ones", () => {
+    const merged = mergeWorkspace({
+      version: 1,
+      tree: [
+        {
+          ...validDatabase,
+          savedScripts: [
+            { name: "good", sql: "SELECT 1" },
+            { name: "no_sql" },
+          ],
+        },
+      ],
+    });
+    const db = merged.tree[0] as PersistedDatabase & {
+      savedScripts?: { name: string; sql: string }[];
+    };
+
+    expect(db.savedScripts).toEqual([{ name: "good", sql: "SELECT 1" }]);
+  });
+
+  // AC-007, TC-007 - behavior (a non-record entry is dropped on merge, valid siblings kept)
+  it("should drop a non-record savedScripts entry while keeping the valid ones", () => {
+    const merged = mergeWorkspace({
+      version: 1,
+      tree: [
+        {
+          ...validDatabase,
+          savedScripts: ["just a string", { name: "good", sql: "SELECT 1" }, 42],
+        },
+      ],
+    });
+    const db = merged.tree[0] as PersistedDatabase & {
+      savedScripts?: { name: string; sql: string }[];
+    };
+
+    expect(db.savedScripts).toEqual([{ name: "good", sql: "SELECT 1" }]);
+  });
+
+  // AC-007, TC-007 - behavior (savedScripts that is not an array is dropped entirely, db otherwise intact)
+  it("should drop a savedScripts value that is not an array but keep the rest of the database", () => {
+    const merged = mergeWorkspace({
+      version: 1,
+      tree: [{ ...validDatabase, savedScripts: "nope" }],
+    });
+
+    expect(merged.tree).toEqual([validDatabase]);
+    expect(merged.tree[0]).not.toHaveProperty("savedScripts");
+  });
+
+  // AC-007, TC-007 - behavior (a malformed savedScripts payload never throws on merge)
+  it("should not throw when merging a database with a malformed savedScripts payload", () => {
+    expect(() =>
+      mergeWorkspace({
+        version: 1,
+        tree: [
+          { ...validDatabase, savedScripts: [null, 1, "x", { name: 5, sql: 6 }] },
+        ],
+      }),
+    ).not.toThrow();
+  });
+});
+
 describe("SQLite persistence (TC-010)", () => {
   // TC-010, AC-008 - behavior (a valid sqlite database is kept with its file path)
   it("should keep a valid sqlite database node carrying its file path", () => {

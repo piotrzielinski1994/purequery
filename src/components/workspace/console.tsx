@@ -58,6 +58,7 @@ export function Console() {
     >
       <TabBar
         ariaLabel="Console panels"
+        className="h-7"
         trailing={
           clearTarget(tab, history.length, pendingCount) ? (
             <button

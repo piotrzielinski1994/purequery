@@ -33,16 +33,15 @@ function renderSql(activeTabId?: string) {
 }
 
 describe("SqlTab", () => {
-  // behavior (left: an editable CodeMirror SQL editor seeded from the node's sql)
-  it("should render an editable SQL editor seeded from the database's sql", () => {
+  // behavior (left: an editable CodeMirror SQL editor showing the active saved script - scripts are
+  // document tabs and appDb's first script "active_users_script" is the active document)
+  it("should render an editable SQL editor showing the active saved script", () => {
     const { container } = renderSql("db-app");
     const editor = screen.getByRole("textbox", { name: /sql editor/i });
     expect(editor).toHaveAttribute("contenteditable", "true");
     // CodeMirror renders the document across .cm-line divs (no textarea value), so
-    // read the seeded text from the live EditorView's document instead of toHaveValue.
-    expect(liveView(container).state.doc.toString()).toBe(
-      "SELECT id, name, email\nFROM users\nWHERE last_seen > now() - interval '7 days'",
-    );
+    // read the active script's text from the live EditorView's document instead of toHaveValue.
+    expect(liveView(container).state.doc.toString()).toBe("SELECT 1");
   });
 
   // behavior (left header: a Run control)
