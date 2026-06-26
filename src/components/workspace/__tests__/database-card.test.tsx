@@ -68,15 +68,17 @@ describe("DatabaseCard", () => {
     ).not.toBeInTheDocument();
   });
 
-  // AC-008 — behavior (SQL is the default active sub-tab; editor seeded from the sql)
-  it("should render the SQL panel by default with the database sql text", () => {
+  // AC-008 — behavior (SQL is the default active sub-tab; the editor shows the first saved script,
+  // since scripts are document tabs and the first one is the active document)
+  it("should render the SQL panel by default editing the first saved script", () => {
     const { container } = renderCard("db-app");
     expect(
       screen.getByRole("textbox", { name: /sql editor/i }),
     ).toBeInTheDocument();
     const editorEl = container.querySelector<HTMLElement>(".cm-editor");
     const view = editorEl ? EditorView.findFromDOM(editorEl) : null;
-    expect(view?.state.doc.toString()).toContain("FROM users");
+    // appDb's first saved script is "active_users_script" (sql "SELECT 1").
+    expect(view?.state.doc.toString()).toBe("SELECT 1");
   });
 
   // AC-008, AC-012, TC-006 — behavior (switching to Views)

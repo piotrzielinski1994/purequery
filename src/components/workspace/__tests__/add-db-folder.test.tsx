@@ -115,7 +115,9 @@ describe("WorkspaceLayout - New database / New folder commands", () => {
     expect(
       screen.getByRole("button", { name: /^connect$/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("combobox")).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: /type/i }),
+    ).toBeInTheDocument();
 
     // the sidebar gained a database row
     expect(

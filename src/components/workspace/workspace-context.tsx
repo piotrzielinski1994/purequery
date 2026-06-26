@@ -17,6 +17,7 @@ import type {
   ConnectionStatus,
   DatabaseNode,
   FolderNode,
+  SavedScript,
   TableNode,
   TableRef,
   TableSchema,
@@ -104,6 +105,23 @@ type WorkspaceContextValue = {
   addFolder: (name: string) => void;
   renameDatabase: (id: string, name: string) => void;
   setDatabaseAccent: (id: string, color: string | null) => void;
+  saveScript: (databaseId: string, name: string, sql: string) => boolean;
+  // Overwrite the sql of an EXISTING saved script (matched by name). Used when Cmd/Ctrl+S is pressed
+  // while a named script is the active document - it saves in place, no name prompt.
+  updateScript: (databaseId: string, name: string, sql: string) => void;
+  // Rename a saved script in place (first save of an `untitled`). Returns false if the new name
+  // already exists on that database (caller keeps the dialog/old name).
+  renameScript: (databaseId: string, oldName: string, newName: string) => boolean;
+  deleteScript: (databaseId: string, name: string) => void;
+  // Which saved script is the active document per database (the tab the editor is editing). In
+  // memory only - resets to the first script on reload.
+  activeScriptByDb: Map<string, string>;
+  setActiveScript: (databaseId: string, name: string) => void;
+  // Per-script unsaved editor draft, keyed by `${databaseId}::${scriptName}`, kept in the provider
+  // so edits survive the SQL pane unmounting on a content-tab/script switch. In-memory only - the
+  // saved sql is what persists to workspace.json (on Cmd/Ctrl+S).
+  sqlBuffers: Map<string, string>;
+  setSqlBuffer: (key: string, sql: string) => void;
   accentColorFor: (id: string) => string | null;
   removeNode: (id: string) => void;
   setConnectionStatus: (id: string, status: ConnectionStatus) => void;
@@ -325,6 +343,99 @@ function setAccentColor(
   });
 }
 
+function addSavedScript(
+  nodes: TreeNode[],
+  databaseId: string,
+  script: SavedScript,
+): TreeNode[] {
+  return nodes.map((node) => {
+    if (node.kind === "folder") {
+      return {
+        ...node,
+        children: addSavedScript(node.children, databaseId, script),
+      };
+    }
+    if (node.kind === "database" && node.id === databaseId) {
+      return { ...node, savedScripts: [...node.savedScripts, script] };
+    }
+    return node;
+  });
+}
+
+function updateSavedScript(
+  nodes: TreeNode[],
+  databaseId: string,
+  name: string,
+  sql: string,
+): TreeNode[] {
+  return nodes.map((node) => {
+    if (node.kind === "folder") {
+      return {
+        ...node,
+        children: updateSavedScript(node.children, databaseId, name, sql),
+      };
+    }
+    if (node.kind === "database" && node.id === databaseId) {
+      return {
+        ...node,
+        savedScripts: node.savedScripts.map((script) =>
+          script.name === name ? { ...script, sql } : script,
+        ),
+      };
+    }
+    return node;
+  });
+}
+
+function renameSavedScript(
+  nodes: TreeNode[],
+  databaseId: string,
+  oldName: string,
+  newName: string,
+): TreeNode[] {
+  return nodes.map((node) => {
+    if (node.kind === "folder") {
+      return {
+        ...node,
+        children: renameSavedScript(node.children, databaseId, oldName, newName),
+      };
+    }
+    if (node.kind === "database" && node.id === databaseId) {
+      return {
+        ...node,
+        savedScripts: node.savedScripts.map((script) =>
+          script.name === oldName ? { ...script, name: newName } : script,
+        ),
+      };
+    }
+    return node;
+  });
+}
+
+function removeSavedScript(
+  nodes: TreeNode[],
+  databaseId: string,
+  name: string,
+): TreeNode[] {
+  return nodes.map((node) => {
+    if (node.kind === "folder") {
+      return {
+        ...node,
+        children: removeSavedScript(node.children, databaseId, name),
+      };
+    }
+    if (node.kind === "database" && node.id === databaseId) {
+      return {
+        ...node,
+        savedScripts: node.savedScripts.filter(
+          (script) => script.name !== name,
+        ),
+      };
+    }
+    return node;
+  });
+}
+
 function toggleInSet(set: Set<string>, id: string): Set<string> {
   const next = new Set(set);
   if (next.has(id)) {
@@ -395,6 +506,12 @@ export function WorkspaceProvider({
     useState<DatabaseTab>("sql");
   const [pendingEdits, setPendingEdits] = useState<PendingMutation[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [sqlBuffers, setSqlBuffers] = useState<Map<string, string>>(
+    () => new Map(),
+  );
+  const [activeScriptByDb, setActiveScriptByDb] = useState<Map<string, string>>(
+    () => new Map(),
+  );
   const [splitOrientation, setSplitOrientation] = useState<SplitOrientation>(
     initialSplitOrientation,
   );
@@ -430,6 +547,16 @@ export function WorkspaceProvider({
     [],
   );
   const discardAllPendingEdits = useCallback(() => setPendingEdits([]), []);
+  const setSqlBuffer = useCallback(
+    (key: string, sql: string) =>
+      setSqlBuffers((current) => new Map(current).set(key, sql)),
+    [],
+  );
+  const setActiveScript = useCallback(
+    (databaseId: string, name: string) =>
+      setActiveScriptByDb((current) => new Map(current).set(databaseId, name)),
+    [],
+  );
   const clearHistory = useCallback(() => setHistory([]), []);
   const addHistoryEntry = useCallback(
     (entry: HistoryEntry) =>
@@ -510,6 +637,45 @@ export function WorkspaceProvider({
         setTree((current) => renameNode(current, id, name)),
       setDatabaseAccent: (id, color) =>
         setTree((current) => setAccentColor(current, id, color)),
+      saveScript: (databaseId, name, sql) => {
+        const trimmed = name.trim();
+        const node = nodesById.get(databaseId);
+        if (!node || node.kind !== "database") {
+          return false;
+        }
+        if (node.savedScripts.some((script) => script.name === trimmed)) {
+          return false;
+        }
+        setTree((current) =>
+          addSavedScript(current, databaseId, { name: trimmed, sql }),
+        );
+        return true;
+      },
+      updateScript: (databaseId, name, sql) =>
+        setTree((current) => updateSavedScript(current, databaseId, name, sql)),
+      renameScript: (databaseId, oldName, newName) => {
+        const trimmed = newName.trim();
+        const node = nodesById.get(databaseId);
+        if (!node || node.kind !== "database") {
+          return false;
+        }
+        if (
+          trimmed !== oldName &&
+          node.savedScripts.some((script) => script.name === trimmed)
+        ) {
+          return false;
+        }
+        setTree((current) =>
+          renameSavedScript(current, databaseId, oldName, trimmed),
+        );
+        return true;
+      },
+      deleteScript: (databaseId, name) =>
+        setTree((current) => removeSavedScript(current, databaseId, name)),
+      activeScriptByDb,
+      setActiveScript,
+      sqlBuffers,
+      setSqlBuffer,
       accentColorFor: (id) => {
         const node = nodesById.get(id);
         if (!node) {
@@ -606,6 +772,10 @@ export function WorkspaceProvider({
     layouts,
     isSidebarVisible,
     isConsoleVisible,
+    activeScriptByDb,
+    setActiveScript,
+    sqlBuffers,
+    setSqlBuffer,
     upsertPendingEdit,
     discardPendingEdit,
     discardPendingEditsForTable,

@@ -50,12 +50,15 @@ export function Tab({
   return (
     <div
       className={cn(
-        "flex h-full items-center gap-1 border-r px-3 hover:bg-accent",
+        "flex h-full items-center border-r hover:bg-accent",
         isActive
           ? "-mb-px h-[calc(100%+1px)] bg-accent shadow-[inset_0_-1px_0_0_var(--primary)]"
           : "bg-transparent",
       )}
     >
+      {/* The label button fills the tab's full height + carries the horizontal padding, so the
+          ENTIRE tab area (not just the glyph) is the click target. A trailing control (close X) sits
+          after it with its own handler. */}
       <button
         type="button"
         role="tab"
@@ -63,14 +66,15 @@ export function Tab({
         aria-label={ariaLabel}
         onClick={onSelect}
         className={cn(
-          "flex items-center gap-1.5 truncate text-sm",
+          "flex h-full items-center gap-1.5 truncate px-3 text-sm",
+          trailing ? "pr-1" : "",
           isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
           labelClassName,
         )}
       >
         {children}
       </button>
-      {trailing}
+      {trailing ? <div className="pr-2">{trailing}</div> : null}
     </div>
   );
 }

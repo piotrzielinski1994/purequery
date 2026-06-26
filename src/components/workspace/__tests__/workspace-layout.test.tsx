@@ -93,7 +93,8 @@ describe("WorkspaceLayout", () => {
     ).toBeInTheDocument();
     const editorEl = container.querySelector<HTMLElement>(".cm-editor");
     const view = editorEl ? EditorView.findFromDOM(editorEl) : null;
-    expect(view?.state.doc.toString()).toContain("FROM accounts");
+    // The SQL editor edits the active saved script - admin_db's first script "recent" (sql "SELECT 3").
+    expect(view?.state.doc.toString()).toBe("SELECT 3");
   });
 
   // AC-006, AC-008, AC-015, AC-018, E-8 — behavior (a table tab renders a table card, not a database card)

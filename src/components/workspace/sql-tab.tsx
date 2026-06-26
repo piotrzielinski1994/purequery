@@ -1,9 +1,13 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import type { EditorView } from "@codemirror/view";
+import { toast } from "sonner";
+import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CopyButtons, DataGrid } from "@/components/workspace/data-grid";
 import { HorizontalSplit } from "@/components/workspace/horizontal-split";
+import { SaveScriptDialog } from "@/components/workspace/save-script-dialog";
+import { Tab, TabBar } from "@/components/workspace/tab-bar";
 import {
   SqlEditor,
   selectedOrAllSql,
@@ -12,12 +16,33 @@ import { useWorkspace } from "@/components/workspace/workspace-context";
 import { cancelQuery, executeSql, type QueryOutcome } from "@/lib/tauri";
 import type {
   DbEngine,
+  SavedScript,
   Sort,
   TableSchema,
 } from "@/lib/workspace/model";
 
 const noop = () => {};
 const alwaysFalse = () => false;
+
+const UNTITLED = "untitled";
+
+// True for the auto-generated names "untitled", "untitled-2", ... (an unnamed, never-saved-by-name
+// document). Their first Cmd/Ctrl+S opens the name dialog instead of saving silently.
+function isUntitledName(name: string): boolean {
+  return name === UNTITLED || /^untitled-\d+$/.test(name);
+}
+
+// The next free "untitled" / "untitled-2" / ... not already taken by an existing script.
+function untitledName(existing: string[]): string {
+  if (!existing.includes(UNTITLED)) {
+    return UNTITLED;
+  }
+  let n = 2;
+  while (existing.includes(`${UNTITLED}-${n}`)) {
+    n += 1;
+  }
+  return `${UNTITLED}-${n}`;
+}
 
 // The Rust cancel path rejects a cancelled run with this exact string (mirrors requi). It is a
 // control signal, never shown raw to the user - it surfaces as a neutral "Cancelled" status.
@@ -228,6 +253,7 @@ export function SqlTab() {
       isConnected={isConnected}
       engine={activeNode.engine}
       schema={databaseSchemas.get(activeNode.id) ?? EMPTY_SCHEMA}
+      savedScripts={activeNode.savedScripts}
       key={activeNode.id}
     />
   );
@@ -248,17 +274,56 @@ function SqlPane({
   isConnected,
   engine,
   schema,
+  savedScripts,
 }: {
   node: { id: string; sql: string };
   connectionId: string;
   isConnected: boolean;
   engine: DbEngine;
   schema: TableSchema[];
+  savedScripts: SavedScript[];
 }) {
-  const { addHistoryEntry, splitOrientation, layouts, saveLayout } =
-    useWorkspace();
-  const [sql, setSql] = useState(node.sql);
+  const {
+    addHistoryEntry,
+    splitOrientation,
+    layouts,
+    saveLayout,
+    saveScript,
+    updateScript,
+    renameScript,
+    deleteScript,
+    activeScriptByDb,
+    setActiveScript,
+    sqlBuffers,
+    setSqlBuffer,
+  } = useWorkspace();
+  const [isSaveOpen, setIsSaveOpen] = useState(false);
   const editorRef = useRef<EditorView | null>(null);
+
+  // Scripts are document tabs. Ensure the database always has at least one: if it has none, create
+  // a persisted "untitled" (seeded from the node's sql, if any) so the user can type immediately.
+  // Runs once per empty database.
+  const ensuredRef = useRef(false);
+  useEffect(() => {
+    if (savedScripts.length === 0 && !ensuredRef.current) {
+      ensuredRef.current = true;
+      saveScript(node.id, untitledName([]), node.sql);
+    }
+  }, [savedScripts.length, node.id, node.sql, saveScript]);
+
+  // The active document tab for this database (defaults to the first script). Lives in the provider
+  // so it survives the pane unmounting on a content-tab switch.
+  const activeScript =
+    activeScriptByDb.get(node.id) ?? savedScripts[0]?.name ?? null;
+  const activeSaved = savedScripts.find((s) => s.name === activeScript) ?? null;
+
+  // The editor buffer: the per-script unsaved draft if one exists, else the script's saved sql.
+  const bufferKey = activeScript ? `${node.id}::${activeScript}` : node.id;
+  const sql = sqlBuffers.get(bufferKey) ?? activeSaved?.sql ?? "";
+  const setSql = useCallback(
+    (next: string) => setSqlBuffer(bufferKey, next),
+    [setSqlBuffer, bufferKey],
+  );
   // The request id of the in-flight run, so Cancel targets exactly this run.
   const requestIdRef = useRef<string | null>(null);
   const run = useMutation<QueryOutcome[], unknown, string>({
@@ -307,6 +372,62 @@ function SqlPane({
       void cancelQuery(requestIdRef.current);
     }
   };
+  // Read the live editor doc (like Run does), not the React `sql` state, so the saved SQL is exactly
+  // what the user sees in the editor - the state can lag the editor between renders.
+  const currentSql = () => {
+    const view = editorRef.current;
+    return view ? view.state.doc.toString() : sql;
+  };
+  const canSave = activeScript !== null;
+  const isUntitled = activeScript !== null && isUntitledName(activeScript);
+  // Switch the active document tab. The current draft is already in the provider (keyed per script),
+  // so nothing is lost.
+  const selectScript = (name: string) => setActiveScript(node.id, name);
+  // The "+" affordance: create a fresh empty "untitled" script (persisted immediately) and make it
+  // the active document, so the user types straight into it - no upfront name prompt.
+  const newScript = () => {
+    const name = untitledName(savedScripts.map((s) => s.name));
+    if (saveScript(node.id, name, "")) {
+      setActiveScript(node.id, name);
+    }
+  };
+  // Cmd/Ctrl+S: an `untitled` document's FIRST save opens the name dialog (rename in place); an
+  // already-named document saves silently in place.
+  const save = () => {
+    if (!canSave || !activeScript) {
+      return;
+    }
+    if (isUntitled) {
+      setIsSaveOpen(true);
+      return;
+    }
+    updateScript(node.id, activeScript, currentSql());
+    toast.success(`Saved script "${activeScript}"`);
+  };
+  // The dialog confirm: name the active `untitled` document, persisting its current sql under the
+  // new name. Rejects a name that collides with an existing script.
+  const confirmName = (name: string) => {
+    if (!activeScript) {
+      return;
+    }
+    const trimmed = name.trim();
+    updateScript(node.id, activeScript, currentSql());
+    if (!renameScript(node.id, activeScript, trimmed)) {
+      toast.error(`Script "${trimmed}" already exists`);
+      return;
+    }
+    setActiveScript(node.id, trimmed);
+    toast.success(`Saved script "${trimmed}"`);
+  };
+  const removeScript = (name: string) => {
+    deleteScript(node.id, name);
+    if (activeScript === name) {
+      const fallback = savedScripts.find((s) => s.name !== name);
+      if (fallback) {
+        setActiveScript(node.id, fallback.name);
+      }
+    }
+  };
 
   return (
     <HorizontalSplit
@@ -317,38 +438,86 @@ function SqlPane({
       onLeftPercentChange={(percent) => saveLayout("sql", { left: percent })}
       left={
         <div className="flex h-full min-w-0 flex-col">
-          <div className="flex h-9 shrink-0 items-stretch justify-end border-b bg-muted/30">
-            {!isConnected ? (
-              <span className="flex items-center px-3 font-mono text-xs text-muted-foreground">
-                Connect first (Settings tab)
-              </span>
-            ) : null}
-            {run.isPending ? (
-              <Button
-                type="button"
-                onClick={cancel}
-                className="h-full shrink-0 rounded-none border-0 border-l border-l-border"
+          <TabBar
+            ariaLabel="Saved scripts"
+            className="min-w-0"
+            trailing={
+              <>
+                <button
+                  type="button"
+                  aria-label="New script"
+                  onClick={newScript}
+                  className="flex shrink-0 items-center px-2 py-1.5 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Plus className="size-4" />
+                </button>
+                {!isConnected ? (
+                  <span className="ml-auto flex items-center px-3 font-mono text-xs text-muted-foreground">
+                    Connect first (Settings tab)
+                  </span>
+                ) : null}
+                {run.isPending ? (
+                  <Button
+                    type="button"
+                    onClick={cancel}
+                    className={`h-full shrink-0 rounded-none border-0 border-l border-l-border${
+                      isConnected ? " ml-auto" : ""
+                    }`}
+                  >
+                    Cancel
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={submit}
+                    disabled={!canRun}
+                    className={`h-full shrink-0 rounded-none border-0 border-l border-l-border${
+                      isConnected ? " ml-auto" : ""
+                    }`}
+                  >
+                    Run
+                  </Button>
+                )}
+              </>
+            }
+          >
+            {savedScripts.map((script) => (
+              <Tab
+                key={script.name}
+                isActive={activeScript === script.name}
+                onSelect={() => selectScript(script.name)}
+                ariaLabel={script.name}
+                trailing={
+                  <button
+                    type="button"
+                    aria-label={`Delete ${script.name}`}
+                    onClick={() => removeScript(script.name)}
+                    className="p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    <X className="size-3" />
+                  </button>
+                }
               >
-                Cancel
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                onClick={submit}
-                disabled={!canRun}
-                className="h-full shrink-0 rounded-none border-0 border-l border-l-border"
-              >
-                Run
-              </Button>
-            )}
-          </div>
+                {script.name}
+              </Tab>
+            ))}
+          </TabBar>
+          <SaveScriptDialog
+            open={isSaveOpen}
+            onOpenChange={setIsSaveOpen}
+            onSave={confirmName}
+          />
           <div className="min-h-0 flex-1 overflow-auto">
+            {/* Keyed per active script so switching/creating a document mounts a FRESH editor seeded
+                with that script's own value - no content bleed from the previously active script. */}
             <SqlEditor
+              key={activeScript ?? "none"}
               value={sql}
               onChange={setSql}
               engine={engine}
               schema={schema}
               onSubmit={submit}
+              onSave={save}
               onCreateEditor={(view) => {
                 editorRef.current = view;
               }}

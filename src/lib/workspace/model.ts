@@ -65,6 +65,8 @@ export type QueryResult = {
 
 export type ViewObject = { name: string };
 
+export type SavedScript = { name: string; sql: string };
+
 export type TableNode = {
   kind: "table";
   id: string;
@@ -86,7 +88,7 @@ type DatabaseNodeBase = {
   tables: TableNode[];
   views: ViewObject[];
   sql: string;
-  savedScripts: string[];
+  savedScripts: SavedScript[];
   script: string;
   result: QueryResult;
 };
