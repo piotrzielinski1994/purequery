@@ -9,6 +9,7 @@ import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { SqlEditor } from "@/components/workspace/sql-editor";
 import {
   Dialog,
@@ -699,7 +700,7 @@ function LiveTable({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="min-h-0 flex-1 overflow-auto">
+      <ScrollArea className="min-h-0 flex-1">
         <TableView
           columns={columnNames}
           rows={gridRows}
@@ -715,7 +716,7 @@ function LiveTable({
           onUndeleteRow={editable ? undeleteRow : undefined}
           onCloneRow={editable ? cloneRow : undefined}
         />
-      </div>
+      </ScrollArea>
       <div className="flex h-9 shrink-0 items-stretch border-t bg-muted/30">
         <span className="flex items-center px-3 text-xs text-muted-foreground">
           {rows.length}
@@ -894,7 +895,7 @@ export function TableCard() {
           <Search className="size-4" />
         </Button>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="flex min-h-0 flex-1 flex-col">
         {isLive && config && databaseId ? (
           <LiveTable
             config={config}
@@ -905,10 +906,12 @@ export function TableCard() {
             filter={filter}
           />
         ) : (
-          <TableView
-            columns={staticColumns(activeNode)}
-            rows={staticRows(activeNode, filter)}
-          />
+          <ScrollArea className="min-h-0 flex-1">
+            <TableView
+              columns={staticColumns(activeNode)}
+              rows={staticRows(activeNode, filter)}
+            />
+          </ScrollArea>
         )}
       </div>
       <Dialog

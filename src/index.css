@@ -77,6 +77,31 @@
   * {
     border-color: var(--border);
     outline-color: var(--ring);
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 25%, transparent)
+      transparent;
+  }
+  /* Thin, square, semi-transparent scrollbar for surfaces that own their own
+     internal scroller and can't host a Radix ScrollArea (CodeMirror .cm-scroller,
+     the Select and Command popovers). Tuned to match the ScrollArea thumb. */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--foreground) 20%, transparent);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--foreground) 35%, transparent);
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
   }
   html,
   body,

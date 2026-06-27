@@ -5,6 +5,7 @@ import { SqlTab } from "@/components/workspace/sql-tab";
 import { ViewsTab } from "@/components/workspace/views-tab";
 import { ScriptTab } from "@/components/workspace/script-tab";
 import { SettingsTab } from "@/components/workspace/settings-tab";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   useWorkspace,
   type DatabaseTab,
@@ -51,19 +52,19 @@ export function DatabaseCard() {
         <SqlTab />
       </div>
       {activeDatabaseTab === "views" ? (
-        <div className="min-h-0 flex-1 overflow-auto">
+        <ScrollArea className="min-h-0 flex-1">
           <ViewsTab />
-        </div>
+        </ScrollArea>
       ) : null}
       {activeDatabaseTab === "script" ? (
-        <div className="min-h-0 flex-1 overflow-auto">
+        <ScrollArea className="min-h-0 flex-1">
           <ScriptTab />
-        </div>
+        </ScrollArea>
       ) : null}
       {activeDatabaseTab === "settings" ? (
-        <div className="min-h-0 flex-1 overflow-auto">
+        <ScrollArea className="min-h-0 flex-1">
           <SettingsTab />
-        </div>
+        </ScrollArea>
       ) : null}
     </div>
   );

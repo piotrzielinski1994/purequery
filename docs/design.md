@@ -15,6 +15,14 @@ UI design rules for this app. Entries are about *visual language and interaction
 - Cursor signals affordance (`cursor-col-resize` / `cursor-row-resize`), not thickness.
 - Borders use the `border`/`border-border` token, 1px. Don't introduce heavier borders for emphasis - use background/spacing instead.
 
+## Scrollbars
+
+- **One scrollbar everywhere: thin, square, semi-transparent, overlay, auto-hiding.** The Tauri app ships from one WebView on all platforms, so we draw the bar ourselves - never defer to the OS default (thick gray gutter on Windows/Linux).
+- The standard is the shared Radix `ScrollArea` ([src/components/ui/scroll-area.tsx](../src/components/ui/scroll-area.tsx)): `type="hover"` auto-hide, a thin `w-1.5`/`h-1.5` track, and a `bg-foreground/20` (hover `/30`) thumb. Wrap any scrollable region in it rather than using a bare `overflow-auto` div.
+- Surfaces that own their own internal scroller and can't host a `ScrollArea` - CodeMirror (`.cm-scroller`), the Radix Select and cmdk Command popovers - are covered by the global `::-webkit-scrollbar` + `scrollbar-width`/`scrollbar-color` rule in [src/index.css](../src/index.css), tuned to the same visual. It's always-visible (webkit can't auto-hide) but thin enough to read identically.
+- **The thumb stays square** - no `rounded-*`, no `bg-border`. macOS uses a rounded pill; we deliver "macOS-style" via thin + semi-transparent + overlay + auto-hide, NOT rounding. The thumb is not an exception to the no-rounded-corners rule.
+- Thumb color tracks `--foreground` (semi-transparent via `color-mix`), so it adapts across all themes automatically. Don't hard-code a scrollbar color.
+
 ## Tables / grids
 
 - One grid component, reused everywhere a result set is shown. All grids look identical: same row height, padding, header treatment, single-line cells (`overflow-hidden text-ellipsis whitespace-nowrap`), resizable columns.

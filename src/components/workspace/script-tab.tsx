@@ -12,8 +12,6 @@ export function ScriptTab() {
   }
 
   return (
-    <pre className="h-full overflow-auto p-3 font-mono text-xs">
-      {activeNode.script}
-    </pre>
+    <pre className="h-full p-3 font-mono text-xs">{activeNode.script}</pre>
   );
 }

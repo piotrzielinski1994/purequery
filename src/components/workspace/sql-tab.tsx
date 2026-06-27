@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CopyButtons, DataGrid } from "@/components/workspace/data-grid";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { HorizontalSplit } from "@/components/workspace/horizontal-split";
 import { SaveScriptDialog } from "@/components/workspace/save-script-dialog";
 import { Tab, TabBar } from "@/components/workspace/tab-bar";
@@ -127,7 +128,7 @@ function OutcomeGrid({ outcome }: { outcome: QueryOutcome }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="min-h-0 flex-1 overflow-auto">
+      <ScrollArea className="min-h-0 flex-1">
         <DataGrid
           columns={outcome.columns}
           rows={rows}
@@ -140,7 +141,7 @@ function OutcomeGrid({ outcome }: { outcome: QueryOutcome }) {
           sort={sort}
           onSortColumn={cycleSort}
         />
-      </div>
+      </ScrollArea>
       <div className="flex h-9 shrink-0 items-stretch border-t bg-muted/30">
         <span className="flex items-center px-3 text-xs text-muted-foreground">
           {rows.length} rows
