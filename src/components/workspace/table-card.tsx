@@ -31,6 +31,7 @@ import {
   applyRowMutations,
   countTable,
   fetchTable,
+  fetchTableStructure,
   type RowMutation,
 } from "@/lib/tauri";
 import { toResult } from "@/lib/result";
@@ -41,11 +42,13 @@ import {
 } from "@/lib/workspace/row-select";
 import {
   useJsonView,
+  useStructureView,
   useWorkspace,
   type PendingMutation,
 } from "@/components/workspace/workspace-context";
 import { queryPreview } from "@/components/workspace/query-preview";
 import { JsonView } from "@/components/workspace/json-view";
+import { StructureView } from "@/components/workspace/structure-view";
 import {
   diffToMutations,
   jsonMutationId,
@@ -62,6 +65,7 @@ import type {
   TableNode,
   TableRows,
   TableSchema,
+  TableStructure,
 } from "@/lib/workspace/model";
 
 const EMPTY_SCHEMA: TableSchema[] = [];
@@ -353,6 +357,40 @@ function TableView({
   );
 }
 
+// Loading / error / data wrapper for the Structure view (AC-010). Wraps the pure StructureView in
+// the react-query states so the panel shows a placeholder while introspecting and the DB message on
+// failure, never a partial render.
+function StructureBranch({
+  query,
+  engine,
+}: {
+  query: ReturnType<typeof useQuery<TableStructure, Error>>;
+  engine: ConnectionConfig["engine"];
+}) {
+  if (query.isPending || query.isLoading) {
+    return (
+      <div className="p-3 text-sm text-muted-foreground">
+        Loading structure...
+      </div>
+    );
+  }
+  if (query.error) {
+    return (
+      <div className="border-b border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+        {errorMessage(query.error)}
+      </div>
+    );
+  }
+  if (!query.data) {
+    return null;
+  }
+  return (
+    <ScrollArea className="min-h-0 flex-1">
+      <StructureView structure={query.data} engine={engine} />
+    </ScrollArea>
+  );
+}
+
 function LiveTable({
   config,
   connectionId,
@@ -376,6 +414,34 @@ function LiveTable({
     discardPendingEditsForTable,
     addHistoryEntry,
   } = useWorkspace();
+  const { isStructureView, toggleStructureView } = useStructureView();
+  // The structure toggle listener lives HERE, not in TableView, because turning the view on
+  // unmounts TableView (StructureBranch replaces it) - a listener there would toggle one-way. Only
+  // a live table has a Structure view, so LiveTable is the right always-mounted home for it.
+  const structureShortcuts =
+    useSettingsOptional()?.settings.shortcuts ?? DEFAULT_SETTINGS.shortcuts;
+  useEffect(() => {
+    const binding = resolveShortcuts(structureShortcuts)["toggle-structure-view"];
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!matchesHotkey(event, binding)) {
+        return;
+      }
+      if (isEditableTarget(event.target)) {
+        return;
+      }
+      event.preventDefault();
+      toggleStructureView();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [structureShortcuts, toggleStructureView]);
+  const structure = useQuery<TableStructure, Error>({
+    queryKey: ["table-structure", tableId],
+    queryFn: () => fetchTableStructure(connectionId, tableName, schema),
+    // Lazy: only fetched once the Structure view is opened (AC-010), never for tables never inspected.
+    enabled: isStructureView,
+    staleTime: Infinity,
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [sort, setSort] = useState<Sort | null>(null);
   const [pageSize, setPageSize] = useState(ROW_LIMIT);
@@ -958,25 +1024,29 @@ function LiveTable({
   return (
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1 flex-col">
-        <TableView
-          columns={columnNames}
-          rows={gridRows}
-          jsonRows={rows}
-          onSaveJson={editable ? saveJson : undefined}
-          editable={editable}
-          edits={edits}
-          onCommitEdit={commitEdit}
-          columnMeta={columnMeta}
-          sort={sort}
-          onSortColumn={cycleSort}
-          isDraftRow={editable ? isDraftRow : undefined}
-          isDeletedRow={editable ? isDeletedRow : undefined}
-          onDeleteRow={editable ? deleteRow : undefined}
-          onDeleteRows={editable ? deleteRows : undefined}
-          onUndeleteRow={editable ? undeleteRow : undefined}
-          onCloneRow={editable ? cloneRow : undefined}
-          onEditDocument={editable && isMongo ? openDocEditor : undefined}
-        />
+        {isStructureView ? (
+          <StructureBranch query={structure} engine={config.engine} />
+        ) : (
+          <TableView
+            columns={columnNames}
+            rows={gridRows}
+            jsonRows={rows}
+            onSaveJson={editable ? saveJson : undefined}
+            editable={editable}
+            edits={edits}
+            onCommitEdit={commitEdit}
+            columnMeta={columnMeta}
+            sort={sort}
+            onSortColumn={cycleSort}
+            isDraftRow={editable ? isDraftRow : undefined}
+            isDeletedRow={editable ? isDeletedRow : undefined}
+            onDeleteRow={editable ? deleteRow : undefined}
+            onDeleteRows={editable ? deleteRows : undefined}
+            onUndeleteRow={editable ? undeleteRow : undefined}
+            onCloneRow={editable ? cloneRow : undefined}
+            onEditDocument={editable && isMongo ? openDocEditor : undefined}
+          />
+        )}
       </div>
       <DocumentEditorDialog
         open={editingDoc !== null}

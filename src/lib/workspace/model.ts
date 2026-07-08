@@ -81,6 +81,50 @@ export type QueryResult = {
 
 export type ViewObject = { name: string };
 
+// The read-only Structure view (F6 #14). SQL engines populate all four sections; MongoDB fills
+// `indexes` only (documents have no columns / FKs / SQL constraints).
+export type StructureColumn = {
+  name: string;
+  dataType: string;
+  nullable: boolean;
+  isPrimaryKey: boolean;
+  defaultValue: string | null;
+  ordinal: number;
+};
+
+export type IndexInfo = {
+  name: string;
+  columns: string[];
+  isUnique: boolean;
+  isPrimary: boolean;
+};
+
+export type ForeignKey = {
+  name: string;
+  columns: string[];
+  referencedTable: string;
+  referencedColumns: string[];
+};
+
+export type ConstraintInfo = {
+  name: string;
+  kind: "check" | "unique";
+  definition: string | null;
+};
+
+export type TableStructure = {
+  columns: StructureColumn[];
+  indexes: IndexInfo[];
+  foreignKeys: ForeignKey[];
+  constraints: ConstraintInfo[];
+};
+
+// The catalog returned on connect (F6 #15): browsable tables PLUS the database's views.
+export type ConnectCatalog = {
+  tables: TableRef[];
+  views: TableRef[];
+};
+
 export type SavedScript = { name: string; sql: string };
 
 export type TableNode = {

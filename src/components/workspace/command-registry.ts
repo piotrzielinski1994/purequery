@@ -11,7 +11,8 @@ export type PaletteCommandId =
   | "toggle-sidebar"
   | "toggle-console"
   | "toggle-theme"
-  | "toggle-json-view";
+  | "toggle-json-view"
+  | "toggle-structure-view";
 
 export type PaletteState = {
   openTabCount: number;
@@ -21,9 +22,20 @@ export type PaletteState = {
 
 import type { ShortcutActionId } from "@/lib/shortcuts/registry";
 
+// Palette command groups, in the order they render under their headings. Keeps the palette scannable
+// (Create / Tabs / View) instead of one flat mishmash.
+export type PaletteGroup = "Create" | "Tabs" | "View";
+
+export const PALETTE_GROUP_ORDER: readonly PaletteGroup[] = [
+  "Create",
+  "Tabs",
+  "View",
+];
+
 export type PaletteCommandDef = {
   id: PaletteCommandId;
   name: string;
+  group: PaletteGroup;
   // The registry action whose effective binding supplies the displayed hint;
   // commands with no bound shortcut (e.g. new-tab, close-all-tabs) omit it.
   actionId?: ShortcutActionId;
@@ -37,64 +49,87 @@ export const PALETTE_COMMANDS: readonly PaletteCommandDef[] = [
   {
     id: "new-database",
     name: "New database",
+    group: "Create",
     actionId: "new-database",
     when: () => true,
   },
   {
     id: "new-folder",
     name: "New folder",
+    group: "Create",
     actionId: "new-folder",
     when: () => true,
   },
-  { id: "close-tab", name: "Close tab", actionId: "close-tab", when: hasTabs },
-  {
-    id: "close-other-tabs",
-    name: "Close other tabs",
-    actionId: "close-other-tabs",
-    when: hasMultipleTabs,
-  },
-  { id: "close-all-tabs", name: "Close all tabs", when: hasTabs },
+  { id: "new-tab", name: "New tab", group: "Create", when: () => true },
   {
     id: "next-tab",
     name: "Next tab",
+    group: "Tabs",
     actionId: "next-tab",
     when: hasMultipleTabs,
   },
   {
     id: "prev-tab",
     name: "Previous tab",
+    group: "Tabs",
     actionId: "prev-tab",
     when: hasMultipleTabs,
   },
-  { id: "new-tab", name: "New tab", when: () => true },
   {
-    id: "toggle-split-orientation",
-    name: "Toggle split layout (rows / columns)",
-    actionId: "toggle-split-orientation",
-    when: (state) => state.isSplitView,
+    id: "close-tab",
+    name: "Close tab",
+    group: "Tabs",
+    actionId: "close-tab",
+    when: hasTabs,
   },
+  {
+    id: "close-other-tabs",
+    name: "Close other tabs",
+    group: "Tabs",
+    actionId: "close-other-tabs",
+    when: hasMultipleTabs,
+  },
+  { id: "close-all-tabs", name: "Close all tabs", group: "Tabs", when: hasTabs },
   {
     id: "toggle-sidebar",
     name: "Toggle sidebar",
+    group: "View",
     actionId: "toggle-sidebar",
     when: () => true,
   },
   {
     id: "toggle-console",
     name: "Toggle console panel",
+    group: "View",
     actionId: "toggle-console",
     when: () => true,
   },
   {
+    id: "toggle-split-orientation",
+    name: "Toggle split layout (rows / columns)",
+    group: "View",
+    actionId: "toggle-split-orientation",
+    when: (state) => state.isSplitView,
+  },
+  {
     id: "toggle-theme",
     name: "Toggle theme",
+    group: "View",
     actionId: "toggle-theme",
     when: () => true,
   },
   {
     id: "toggle-json-view",
     name: "View rows as JSON",
+    group: "View",
     actionId: "toggle-json-view",
+    when: (state) => state.isTableActive,
+  },
+  {
+    id: "toggle-structure-view",
+    name: "View table structure",
+    group: "View",
+    actionId: "toggle-structure-view",
     when: (state) => state.isTableActive,
   },
 ];

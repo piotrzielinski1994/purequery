@@ -23,11 +23,16 @@ type SettingsContextValue = {
   // the store but does NOT setSettings, so it never re-renders settings consumers - chrome is only
   // ever READ as the initial seed, never reactively, so a re-render would be pure waste (and it was
   // driving a persist feedback loop that made sidebar/console toggles laggy with a big table open).
-  saveChrome: (chrome: Omit<Settings, "theme" | "shortcuts">) => void;
+  // `windowFullscreen` is excluded like theme/shortcuts: it is written separately (by the window
+  // fullscreen sync) and must survive a chrome write, so saveChrome merges it from current settings.
+  saveChrome: (
+    chrome: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen">,
+  ) => void;
   saveThemeMode: (mode: ThemeMode) => void;
   saveThemeColors: (colors: ThemeColors) => void;
   saveShortcut: (id: ShortcutActionId, hotkey: string) => void;
   resetShortcut: (id: ShortcutActionId) => void;
+  saveWindowFullscreen: (fullscreen: boolean) => void;
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -64,7 +69,7 @@ export function SettingsProvider({ store, children }: SettingsProviderProps) {
   // Closing over `settings` is stable across chrome toggles (saveChrome never setState's, and theme/
   // shortcut edits - the only writers - are rare), so a toggle never re-renders settings consumers.
   const saveChrome = useCallback(
-    (chrome: Omit<Settings, "theme" | "shortcuts">) => {
+    (chrome: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen">) => {
       store.save({ ...(settings ?? DEFAULT_SETTINGS), ...chrome });
     },
     [store, settings],
@@ -113,6 +118,12 @@ export function SettingsProvider({ store, children }: SettingsProviderProps) {
     [update],
   );
 
+  const saveWindowFullscreen = useCallback(
+    (fullscreen: boolean) =>
+      update((base) => ({ ...base, windowFullscreen: fullscreen })),
+    [update],
+  );
+
   const value = useMemo<SettingsContextValue | null>(
     () =>
       settings === null
@@ -125,6 +136,7 @@ export function SettingsProvider({ store, children }: SettingsProviderProps) {
             saveThemeColors,
             saveShortcut,
             resetShortcut,
+            saveWindowFullscreen,
           },
     [
       settings,
@@ -134,6 +146,7 @@ export function SettingsProvider({ store, children }: SettingsProviderProps) {
       saveThemeColors,
       saveShortcut,
       resetShortcut,
+      saveWindowFullscreen,
     ],
   );
 

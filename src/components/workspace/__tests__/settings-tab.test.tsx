@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { SettingsTab } from "@/components/workspace/settings-tab";
 import { SidebarTree } from "@/components/workspace/sidebar-tree";
+import { __resetInFlightConnects } from "@/components/workspace/use-connection";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
 import type {
   DatabaseNode,
@@ -71,6 +72,7 @@ function renderSettings(opts?: {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  __resetInFlightConnects();
 });
 
 describe("SettingsTab", () => {
@@ -162,7 +164,7 @@ describe("SettingsTab", () => {
   // AC-003, TC-001 - behavior (Connect calls the backend once with the form config)
   it("should invoke connectDatabase once with the current form config when Connect is clicked", async () => {
     const user = userEvent.setup();
-    mockConnect.mockResolvedValueOnce([{ schema: null, name: "a" }, { schema: null, name: "b" }]);
+    mockConnect.mockResolvedValueOnce({ tables: [{ schema: null, name: "a" }, { schema: null, name: "b" }], views: [] });
     renderSettings();
 
     await user.click(screen.getByRole("button", { name: /^connect$/i }));
@@ -199,7 +201,7 @@ describe("SettingsTab", () => {
   // AC-003 - behavior (Connect sends edited values)
   it("should send the edited host to the backend when the host was changed before connecting", async () => {
     const user = userEvent.setup();
-    mockConnect.mockResolvedValueOnce([]);
+    mockConnect.mockResolvedValueOnce({ tables: [], views: [] });
     renderSettings();
 
     const host = screen.getByRole("textbox", { name: /host/i });
@@ -216,7 +218,7 @@ describe("SettingsTab", () => {
   // AC-004, TC-001 - side-effect-contract (success toast reports the table count)
   it("should fire a success toast reporting the table count when the connect resolves", async () => {
     const user = userEvent.setup();
-    mockConnect.mockResolvedValueOnce([{ schema: null, name: "a" }, { schema: null, name: "b" }]);
+    mockConnect.mockResolvedValueOnce({ tables: [{ schema: null, name: "a" }, { schema: null, name: "b" }], views: [] });
     renderSettings();
 
     await user.click(screen.getByRole("button", { name: /^connect$/i }));
@@ -251,10 +253,10 @@ describe("SettingsTab", () => {
   it("should swap Connect for an enabled Cancel button while the connect is in flight", async () => {
     const user = userEvent.setup();
     let resolveConnect: (
-      tables: import("@/lib/workspace/model").TableRef[],
+      catalog: import("@/lib/workspace/model").ConnectCatalog,
     ) => void = () => {};
     mockConnect.mockReturnValueOnce(
-      new Promise<import("@/lib/workspace/model").TableRef[]>((resolve) => {
+      new Promise<import("@/lib/workspace/model").ConnectCatalog>((resolve) => {
         resolveConnect = resolve;
       }),
     );
@@ -268,7 +270,7 @@ describe("SettingsTab", () => {
     expect(cancelButton).toBeEnabled();
     expect(screen.queryByRole("button", { name: /^connect$/i })).toBeNull();
 
-    resolveConnect([]);
+    resolveConnect({ tables: [], views: [] });
   });
 
   // E-1 - behavior (Connect disabled when host is empty)
@@ -334,20 +336,13 @@ describe("SettingsTab", () => {
 describe("SettingsTab connect flow updates the sidebar", () => {
   // AC-004, TC-001 - behavior (sidebar tables replaced by fetched names)
   it("should reveal the fetched table names in the sidebar on a successful connect", async () => {
-    const user = userEvent.setup();
-    mockConnect.mockResolvedValueOnce([{ schema: null, name: "fetched_one" }, { schema: null, name: "fetched_two" }]);
+    // db-admin is restored expanded, so the sidebar row auto-connects on mount (no Connect click).
+    mockConnect.mockResolvedValueOnce({ tables: [{ schema: null, name: "fetched_one" }, { schema: null, name: "fetched_two" }], views: [] });
     renderSettings({
       activeTabId: "db-admin",
       expanded: ["folder-staging", "db-admin"],
       children: <SidebarTree />,
     });
-
-    // Not connected yet: no table leaves are shown (the app can't know them).
-    expect(
-      screen.queryByRole("treeitem", { name: "accounts" }),
-    ).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: /^connect$/i }));
 
     expect(
       await screen.findByRole("treeitem", { name: "fetched_one" }),
@@ -359,15 +354,12 @@ describe("SettingsTab connect flow updates the sidebar", () => {
 
   // AC-005, TC-002 - behavior (no tables revealed when the connect fails)
   it("should reveal no sidebar tables when the connect rejects", async () => {
-    const user = userEvent.setup();
     mockConnect.mockRejectedValueOnce(new Error("boom"));
     renderSettings({
       activeTabId: "db-admin",
       expanded: ["folder-staging", "db-admin"],
       children: <SidebarTree />,
     });
-
-    await user.click(screen.getByRole("button", { name: /^connect$/i }));
 
     await waitFor(() => {
       expect(mockToast.error).toHaveBeenCalled();
@@ -382,15 +374,12 @@ describe("SettingsTab connect flow updates the sidebar", () => {
 
   // AC-004, TC-005, E-3 - behavior (zero tables -> childless list + "0 tables" toast)
   it("should report 0 tables and leave the database childless when the connect returns an empty list", async () => {
-    const user = userEvent.setup();
-    mockConnect.mockResolvedValueOnce([]);
+    mockConnect.mockResolvedValueOnce({ tables: [], views: [] });
     renderSettings({
       activeTabId: "db-admin",
       expanded: ["folder-staging", "db-admin"],
       children: <SidebarTree />,
     });
-
-    await user.click(screen.getByRole("button", { name: /^connect$/i }));
 
     await waitFor(() => {
       expect(mockToast.success).toHaveBeenCalledWith(
@@ -517,7 +506,7 @@ describe("SettingsTab SQLite engine", () => {
   // TC-003, AC-003 - behavior (Connect sends the sqlite file path to the backend)
   it("should invoke connectDatabase with the sqlite engine and file path when Connect is clicked", async () => {
     const user = userEvent.setup();
-    mockConnect.mockResolvedValueOnce([]);
+    mockConnect.mockResolvedValueOnce({ tables: [], views: [] });
     renderSqliteSettings("/Users/me/data/app.sqlite");
 
     await user.click(screen.getByRole("button", { name: /^connect$/i }));
@@ -727,7 +716,7 @@ describe("SettingsTab MongoDB engine (TC-001, TC-002)", () => {
   // TC-002, AC-002 - behavior (Connect sends the mongodb engine + fields + uri to the backend)
   it("should invoke connectDatabase with the mongodb engine and its fields when Connect is clicked", async () => {
     const user = userEvent.setup();
-    mockConnect.mockResolvedValueOnce([{ schema: null, name: "users" }]);
+    mockConnect.mockResolvedValueOnce({ tables: [{ schema: null, name: "users" }], views: [] });
     renderMongoSettings("mongodb://app_user:m0ngo-pw@localhost:27017/shop");
 
     await user.click(screen.getByRole("button", { name: /^connect$/i }));

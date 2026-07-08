@@ -80,6 +80,8 @@ export type Settings = {
   expandedIds: string[];
   openTabIds: string[];
   activeTabId: string | null;
+  // Whether the native window was fullscreen at last exit - restored on next launch.
+  windowFullscreen: boolean;
   theme: ThemeSettings;
   shortcuts: ShortcutOverrides;
 };
@@ -102,6 +104,7 @@ export const DEFAULT_SETTINGS: Settings = {
   expandedIds: [],
   openTabIds: [],
   activeTabId: null,
+  windowFullscreen: false,
   theme: { mode: "system", colors: emptyThemeColors() },
   shortcuts: {},
 };
@@ -284,6 +287,10 @@ export function mergeSettings(defaults: Settings, partial: unknown): Settings {
     expandedIds: isStringArray(partial.expandedIds),
     openTabIds,
     activeTabId,
+    windowFullscreen:
+      typeof partial.windowFullscreen === "boolean"
+        ? partial.windowFullscreen
+        : defaults.windowFullscreen,
     theme: mergeTheme(defaults.theme, partial.theme),
     shortcuts: mergeShortcuts(partial.shortcuts),
   };

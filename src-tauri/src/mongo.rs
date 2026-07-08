@@ -7,7 +7,8 @@
 // scalars become their JSON-literal text, a missing key becomes a NULL cell.
 
 use crate::db::{
-    QueryOutcome, RowMutation, SchemaColumn, Sort, TableColumn, TableRef, TableRows, TableSchema,
+    ConnectCatalog, IndexInfo, QueryOutcome, RowMutation, SchemaColumn, Sort, TableColumn, TableRef,
+    TableRows, TableSchema, TableStructure,
 };
 use futures_util::TryStreamExt;
 use mongodb::bson::{doc, oid::ObjectId, Bson, Document};
@@ -399,7 +400,10 @@ pub fn build_replace(pk_value: &str, document_json: &str) -> Result<(Document, D
 // Opens a Mongo client (fail-fast server selection), pings, lists collections, and holds the
 // client keyed by id. Cancellable via the SHARED cancel registry under the same `connect:` key the
 // SQL connect uses, so the Settings "Cancel" button aborts a stuck Mongo connect identically.
-pub async fn connect(connection_id: String, config: MongoConfig) -> Result<Vec<TableRef>, String> {
+pub async fn connect(
+    connection_id: String,
+    config: MongoConfig,
+) -> Result<ConnectCatalog, String> {
     let cancel_key = crate::db::connect_cancel_key(&connection_id);
     let token = crate::db::register_cancel_token(&cancel_key);
     let result = tokio::select! {
@@ -414,7 +418,7 @@ pub async fn connect(connection_id: String, config: MongoConfig) -> Result<Vec<T
 async fn open_and_list(
     connection_id: String,
     config: MongoConfig,
-) -> Result<Vec<TableRef>, String> {
+) -> Result<ConnectCatalog, String> {
     let mut options = ClientOptions::parse(mongo_uri(&config))
         .await
         .map_err(|error| error.to_string())?;
@@ -461,14 +465,70 @@ async fn open_and_list(
         },
     );
 
-    Ok(names
-        .into_iter()
-        .map(|name| TableRef { schema: None, name })
-        .collect())
+    // MongoDB has no SQL-style views; the Views tab stays empty for a Mongo connection.
+    Ok(ConnectCatalog {
+        tables: names
+            .into_iter()
+            .map(|name| TableRef { schema: None, name })
+            .collect(),
+        views: Vec::new(),
+    })
 }
 
 pub async fn disconnect(connection_id: String) {
     MONGOS.lock().unwrap().remove(&connection_id);
+}
+
+// The read-only Structure view for a Mongo collection (F6 #14): only indexes are meaningful -
+// documents have no fixed columns, foreign keys, or SQL constraints, so those sections are empty.
+// Each index's `keys` document maps to the ordered column list; `_id_` is the primary index.
+pub async fn fetch_table_structure(
+    connection_id: String,
+    collection: String,
+) -> Result<TableStructure, String> {
+    let held = with_client(&connection_id)?;
+    let coll = held
+        .client
+        .database(&held.database)
+        .collection::<Document>(&collection);
+
+    let models: Vec<mongodb::IndexModel> = coll
+        .list_indexes()
+        .await
+        .map_err(|error| error.to_string())?
+        .try_collect()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    let indexes = models
+        .into_iter()
+        .map(|model| {
+            let name = model
+                .options
+                .as_ref()
+                .and_then(|options| options.name.clone())
+                .unwrap_or_default();
+            let is_unique = model
+                .options
+                .as_ref()
+                .and_then(|options| options.unique)
+                .unwrap_or(false);
+            let columns = model.keys.keys().cloned().collect::<Vec<_>>();
+            IndexInfo {
+                is_primary: name == "_id_",
+                name,
+                columns,
+                is_unique,
+            }
+        })
+        .collect();
+
+    Ok(TableStructure {
+        columns: Vec::new(),
+        indexes,
+        foreign_keys: Vec::new(),
+        constraints: Vec::new(),
+    })
 }
 
 fn sort_doc(sort: Option<&Sort>) -> Document {
@@ -1170,8 +1230,8 @@ mod tests {
         };
         let id = "live-test".to_string();
 
-        let collections = connect(id.clone(), config).await.expect("connect");
-        let names: Vec<&str> = collections.iter().map(|c| c.name.as_str()).collect();
+        let catalog = connect(id.clone(), config).await.expect("connect");
+        let names: Vec<&str> = catalog.tables.iter().map(|c| c.name.as_str()).collect();
         assert!(names.contains(&"users"), "collections: {names:?}");
         assert!(names.contains(&"orders"));
         assert!(names.contains(&"events"));
@@ -1245,6 +1305,21 @@ mod tests {
         assert!(field_names.contains(&"_id"));
         assert!(field_names.contains(&"address"), "fields: {field_names:?}");
         assert!(field_names.contains(&"tags"));
+
+        // F6 #14 (AC-006): structure returns indexes only for a collection; every collection has at
+        // least the `_id_` primary index, and columns/FK/constraints stay empty.
+        let structure = super::fetch_table_structure(id.clone(), "users".to_string())
+            .await
+            .expect("structure");
+        assert!(structure.columns.is_empty());
+        assert!(structure.foreign_keys.is_empty());
+        assert!(structure.constraints.is_empty());
+        let id_index = structure
+            .indexes
+            .iter()
+            .find(|index| index.name == "_id_")
+            .expect("_id_ index");
+        assert!(id_index.is_primary);
 
         super::disconnect(id).await;
     }

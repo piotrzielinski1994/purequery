@@ -53,7 +53,7 @@ function getPalette(): HTMLElement {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockConnect.mockResolvedValue([]);
+  mockConnect.mockResolvedValue({ tables: [], views: [] });
 });
 
 describe("WorkspaceLayout - New database / New folder commands", () => {

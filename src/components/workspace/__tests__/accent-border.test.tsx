@@ -14,7 +14,7 @@ import type { ConnectionConfig } from "@/lib/workspace/model";
 import { fetchTable, countTable } from "@/lib/tauri";
 
 vi.mock("@/lib/tauri", () => ({
-  connectDatabase: vi.fn(() => Promise.resolve([])),
+  connectDatabase: vi.fn(() => Promise.resolve({ tables: [], views: [] })),
   fetchSchema: vi.fn(() => Promise.resolve([])),
   disconnectDatabase: vi.fn(() => Promise.resolve()),
   cancelConnect: vi.fn(() => Promise.resolve()),

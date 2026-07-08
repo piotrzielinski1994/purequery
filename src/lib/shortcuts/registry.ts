@@ -14,6 +14,7 @@ export type ShortcutActionId =
   | "close-other-tabs"
   | "toggle-record-view"
   | "toggle-json-view"
+  | "toggle-structure-view"
   | "delete-rows"
   | "delete-nodes"
   | "run-query"
@@ -119,6 +120,14 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
     name: "Toggle JSON view",
     description: "Show the loaded rows as an editable, foldable JSON array.",
     defaultHotkey: "Mod+Shift+J",
+    scope: "grid",
+  },
+  {
+    id: "toggle-structure-view",
+    name: "Toggle structure view",
+    description:
+      "Show the table's columns, indexes, foreign keys, and constraints.",
+    defaultHotkey: "Mod+Shift+I",
     scope: "grid",
   },
   {

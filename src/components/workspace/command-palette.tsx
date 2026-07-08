@@ -2,11 +2,13 @@ import { formatForDisplay } from "@tanstack/react-hotkeys";
 import {
   useChrome,
   useJsonView,
+  useStructureView,
   useWorkspace,
 } from "@/components/workspace/workspace-context";
 import { useThemeToggle } from "@/lib/theme/theme-context";
 import {
   PALETTE_COMMANDS,
+  PALETTE_GROUP_ORDER,
   type PaletteCommandId,
 } from "@/components/workspace/command-registry";
 import { useSettingsOptional } from "@/lib/settings/settings-context";
@@ -15,6 +17,7 @@ import { resolveShortcuts } from "@/lib/shortcuts/resolve";
 import {
   CommandDialog,
   CommandEmpty,
+  CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
@@ -47,6 +50,7 @@ export function CommandPalette({
   } = useWorkspace();
   const { toggleSidebar, toggleConsole } = useChrome();
   const { toggleJsonView } = useJsonView();
+  const { toggleStructureView } = useStructureView();
   const toggleTheme = useThemeToggle();
 
   const cycleTab = (step: number) => {
@@ -87,6 +91,7 @@ export function CommandPalette({
     "toggle-console": toggleConsole,
     "toggle-theme": toggleTheme,
     "toggle-json-view": toggleJsonView,
+    "toggle-structure-view": toggleStructureView,
   };
 
   const shortcuts =
@@ -108,23 +113,33 @@ export function CommandPalette({
       <CommandInput placeholder="Type a command…" />
       <CommandList>
         <CommandEmpty>No matching commands</CommandEmpty>
-        {commands.map((def) => (
-          <CommandItem
-            key={def.id}
-            value={def.name}
-            onSelect={() => {
-              handlers[def.id]();
-              onOpenChange(false);
-            }}
-          >
-            <span>{def.name}</span>
-            {def.actionId && (
-              <CommandShortcut>
-                {formatForDisplay(effective[def.actionId])}
-              </CommandShortcut>
-            )}
-          </CommandItem>
-        ))}
+        {PALETTE_GROUP_ORDER.map((group) => {
+          const groupCommands = commands.filter((def) => def.group === group);
+          if (groupCommands.length === 0) {
+            return null;
+          }
+          return (
+            <CommandGroup key={group} heading={group}>
+              {groupCommands.map((def) => (
+                <CommandItem
+                  key={def.id}
+                  value={def.name}
+                  onSelect={() => {
+                    handlers[def.id]();
+                    onOpenChange(false);
+                  }}
+                >
+                  <span>{def.name}</span>
+                  {def.actionId && (
+                    <CommandShortcut>
+                      {formatForDisplay(effective[def.actionId])}
+                    </CommandShortcut>
+                  )}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          );
+        })}
       </CommandList>
     </CommandDialog>
   );

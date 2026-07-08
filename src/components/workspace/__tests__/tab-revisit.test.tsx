@@ -89,7 +89,7 @@ const productRows: TableRows = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockConnect.mockResolvedValue([]);
+  mockConnect.mockResolvedValue({ tables: [], views: [] });
   mockFetch.mockResolvedValue(productRows);
 });
 

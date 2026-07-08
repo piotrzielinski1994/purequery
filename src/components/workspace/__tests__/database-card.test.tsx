@@ -34,7 +34,7 @@ const mockConnect = vi.mocked(connectDatabase);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockConnect.mockResolvedValue([]);
+  mockConnect.mockResolvedValue({ tables: [], views: [] });
 });
 
 function renderCard(
@@ -87,13 +87,21 @@ describe("DatabaseCard", () => {
     expect(view?.state.doc.toString()).toBe("SELECT 1");
   });
 
-  // AC-008, AC-012, TC-006 — behavior (switching to Views)
+  // AC-008, AC-012, TC-006 — behavior (switching to Views). Views now come from the connect
+  // catalog (F6 #15): auto-connect populates them, so the mock returns them here.
   it("should render the Views panel when the Views sub-tab is clicked", async () => {
     const user = userEvent.setup();
+    mockConnect.mockResolvedValue({
+      tables: [],
+      views: [
+        { schema: null, name: "active_users" },
+        { schema: null, name: "daily_signups" },
+      ],
+    });
     renderCard("db-app");
 
     await user.click(screen.getByRole("tab", { name: "Views" }));
-    expect(screen.getByText("active_users")).toBeInTheDocument();
+    expect(await screen.findByText("active_users")).toBeInTheDocument();
     expect(screen.getByText("daily_signups")).toBeInTheDocument();
   });
 
@@ -236,7 +244,7 @@ describe("DatabaseCard MongoDB engine (TC-012)", () => {
 describe("DatabaseCard auto-connect", () => {
   // behavior (opening a database view connects it automatically, no manual Connect)
   it("should auto-connect the database when its view is opened", async () => {
-    mockConnect.mockResolvedValue([{ schema: null, name: "product" }]);
+    mockConnect.mockResolvedValue({ tables: [{ schema: null, name: "product" }], views: [] });
     renderCard("db-app");
 
     await waitFor(() => {
@@ -253,7 +261,7 @@ describe("DatabaseCard auto-connect", () => {
 
   // behavior (auto-connect fires once, not on every render)
   it("should auto-connect only once for the same database", async () => {
-    mockConnect.mockResolvedValue([{ schema: null, name: "product" }]);
+    mockConnect.mockResolvedValue({ tables: [{ schema: null, name: "product" }], views: [] });
     renderCard("db-app");
 
     await waitFor(() => {
@@ -281,7 +289,7 @@ describe("DatabaseCard auto-connect", () => {
       user: "saved_user",
       password: "saved_pw",
     };
-    mockConnect.mockResolvedValue([{ schema: null, name: "restored_table" }]);
+    mockConnect.mockResolvedValue({ tables: [{ schema: null, name: "restored_table" }], views: [] });
     renderCard("db-app", [["db-app", saved]]);
 
     await waitFor(() => {

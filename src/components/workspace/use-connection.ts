@@ -10,6 +10,21 @@ import { toResult } from "@/lib/result";
 // The Rust connect path rejects a cancelled connect with this exact string (mirrors the query
 // cancel sentinel). A cancelled connect is neutral - it resets to idle without an error toast.
 const CANCEL_SENTINEL = "__cancelled__";
+
+// Ids with a connect in flight. Two triggers can fire connect() for the same database in the SAME
+// mount tick (the sidebar row auto-connecting a restored-expanded database AND the active database
+// card's own auto-connect), and the `connectionStatus === "connecting"` guard is racy on mount -
+// both read "idle" before setConnectionStatus lands. This module-level set is shared across every
+// useConnectionActions instance and updated synchronously, so a duplicate connect is dropped before
+// the second connectDatabase call (which would otherwise double the pool open + success toast).
+const inFlightConnects = new Set<string>();
+
+// Test-only: clears the module-level in-flight guard between tests. A test whose connect mock never
+// resolves (e.g. the Cancel-button test) would otherwise leave an id stuck in the set and silently
+// drop the next test's connect for the same database id. Not used by production code.
+export function __resetInFlightConnects() {
+  inFlightConnects.clear();
+}
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import type { ConnectionConfig } from "@/lib/workspace/model";
 
@@ -18,6 +33,7 @@ export function useConnectionActions() {
     setConnection,
     setConnectionStatus,
     setDatabaseTables,
+    setDatabaseViews,
     setDatabaseSchema,
     removeConnection,
     updateDatabaseConfig,
@@ -25,32 +41,41 @@ export function useConnectionActions() {
   } = useWorkspace();
 
   const connect = async (id: string, config: ConnectionConfig) => {
-    if (connectionStatus.get(id) === "connecting") {
+    if (connectionStatus.get(id) === "connecting" || inFlightConnects.has(id)) {
       return;
     }
+    inFlightConnects.add(id);
     setConnectionStatus(id, "connecting");
-    const result = await toResult(connectDatabase(id, config));
-    if (!result.ok) {
-      // A user-cancelled connect is not a failure: drop back to idle, no error toast.
-      if (result.error === CANCEL_SENTINEL) {
-        setConnectionStatus(id, "idle");
+    try {
+      const result = await toResult(connectDatabase(id, config));
+      if (!result.ok) {
+        // A user-cancelled connect is not a failure: drop back to idle, no error toast.
+        if (result.error === CANCEL_SENTINEL) {
+          setConnectionStatus(id, "idle");
+          return;
+        }
+        setConnectionStatus(id, "error");
+        toast.error(result.error);
         return;
       }
-      setConnectionStatus(id, "error");
-      toast.error(result.error);
-      return;
-    }
-    const tables = result.value;
-    setConnection(id, config);
-    updateDatabaseConfig(id, config);
-    setDatabaseTables(id, tables);
-    setConnectionStatus(id, "connected");
-    toast.success(`Connected - ${tables.length} tables`);
+      const { tables, views } = result.value;
+      setConnection(id, config);
+      updateDatabaseConfig(id, config);
+      setDatabaseTables(id, tables);
+      setDatabaseViews(
+        id,
+        views.map((view) => ({ name: view.name })),
+      );
+      setConnectionStatus(id, "connected");
+      toast.success(`Connected - ${tables.length} tables`);
 
-    // Schema feeds the SQL editor's autocomplete; a failure leaves the connection up with no
-    // completion data rather than blocking the connect.
-    const schema = await toResult(fetchSchema(id));
-    setDatabaseSchema(id, schema.ok ? schema.value : []);
+      // Schema feeds the SQL editor's autocomplete; a failure leaves the connection up with no
+      // completion data rather than blocking the connect.
+      const schema = await toResult(fetchSchema(id));
+      setDatabaseSchema(id, schema.ok ? schema.value : []);
+    } finally {
+      inFlightConnects.delete(id);
+    }
   };
 
   const disconnect = (id: string) => {

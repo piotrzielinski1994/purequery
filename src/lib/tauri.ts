@@ -1,23 +1,25 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  ConnectCatalog,
   ConnectionConfig,
   Sort,
-  TableRef,
   TableRows,
   TableSchema,
+  TableStructure,
 } from "@/lib/workspace/model";
 
 export function greet(name: string): Promise<string> {
   return invoke<string>("greet", { name });
 }
 
-// Opens + holds a pool for this connection id and returns the table catalog. The only command
-// that sends `config`; the rest address the held pool by id.
+// Opens + holds a pool for this connection id and returns the catalog: browsable tables PLUS the
+// database's views (F6 #15). The only command that sends `config`; the rest address the held pool
+// by id.
 export function connectDatabase(
   connectionId: string,
   config: ConnectionConfig,
-): Promise<TableRef[]> {
-  return invoke<TableRef[]>("connect_database", { connectionId, config });
+): Promise<ConnectCatalog> {
+  return invoke<ConnectCatalog>("connect_database", { connectionId, config });
 }
 
 export function disconnectDatabase(connectionId: string): Promise<void> {
@@ -26,6 +28,20 @@ export function disconnectDatabase(connectionId: string): Promise<void> {
 
 export function fetchSchema(connectionId: string): Promise<TableSchema[]> {
   return invoke<TableSchema[]>("fetch_schema", { connectionId });
+}
+
+// Read-only per-table structure for the schema browser (F6 #14): columns/indexes/FK/constraints for
+// SQL engines, indexes-only for MongoDB. Fetched lazily when the Structure view opens.
+export function fetchTableStructure(
+  connectionId: string,
+  table: string,
+  schema?: string | null,
+): Promise<TableStructure> {
+  return invoke<TableStructure>("fetch_table_structure", {
+    connectionId,
+    schema: schema ?? null,
+    table,
+  });
 }
 
 export function fetchTable(

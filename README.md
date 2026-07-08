@@ -93,9 +93,13 @@ The dev server runs on port 1431 (set in both `vite.config.ts` and `src-tauri/ta
 > an `untitled`. Saved scripts persist per database in `workspace.json` and a duplicate name is
 > rejected. The editor|results split flips between side-by-side and stacked via `Cmd/Ctrl+\` (or the
 > "Toggle split layout" palette command).
-> Views/Script tabs remain mock. The sidebar tree + its connection configs persist in
+> The **Views** tab lists the connected database's real views (queried on connect); the Script tab
+> remains mock. An open table also has a read-only **Structure** view (`Mod/Ctrl+Shift+I` or the
+> "View table structure" palette command) showing its columns, indexes, foreign keys, and
+> constraints (MongoDB: collection indexes only). The sidebar tree + its connection configs persist in
 > `workspace.json`; UI/layout state (panel toggles, split orientation, expanded nodes, open
-> tabs) persists in `settings.json`; the theme **mode** also lives in `settings.json` while the
+> tabs, and whether the window was fullscreen at exit - restored on next launch) persists in
+> `settings.json`; the theme **mode** also lives in `settings.json` while the
 > per-mode **color overrides** persist in a separate `theme.json`, and the **keyboard-shortcut
 > overrides** persist in a separate `keymap.json` - all JSON files in the OS app-config dir (via
 > `@tauri-apps/plugin-store`).

@@ -1,17 +1,32 @@
 import { useState } from "react";
 import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
+import { isTauri } from "@tauri-apps/api/core";
 import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createTauriSettingsStore } from "@/lib/settings/tauri-store";
 import { ThemeProvider } from "@/lib/theme/theme-context";
 import { WorkspaceStoreProvider } from "@/lib/workspace/workspace-store-context";
 import { createTauriWorkspaceStore } from "@/lib/workspace/tauri-store";
+import {
+  createNoopWindowController,
+  createWindowController,
+} from "@/lib/window/window-controller";
+import { WindowFullscreenSync } from "@/lib/window/window-fullscreen-sync";
+
+// Only the real Tauri host has a window to drive; the dev-browser AND the jsdom test env (both
+// non-Tauri) get the noop, so getCurrentWindow() - which throws without a Tauri host - is never
+// called outside the native build.
+function createWindowControllerForEnv() {
+  return isTauri() ? createWindowController() : createNoopWindowController();
+}
 
 function RootLayout() {
   const [settingsStore] = useState(createTauriSettingsStore);
   const [workspaceStore] = useState(createTauriWorkspaceStore);
+  const [windowController] = useState(createWindowControllerForEnv);
 
   return (
     <SettingsProvider store={settingsStore}>
+      <WindowFullscreenSync controller={windowController} />
       <ThemeProvider>
         <WorkspaceStoreProvider store={workspaceStore}>
           <Outlet />

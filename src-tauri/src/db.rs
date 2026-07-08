@@ -405,6 +405,67 @@ pub struct TableSchema {
     pub columns: Vec<SchemaColumn>,
 }
 
+// The catalog read on connect: the browsable tables PLUS the database's views (F6 #15). Views ride
+// the existing connect round-trip so the Views tab has real data without a second command. MongoDB
+// returns no views.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectCatalog {
+    pub tables: Vec<TableRef>,
+    pub views: Vec<TableRef>,
+}
+
+// One column's full metadata for the read-only Structure view (F6 #14): the grid header already
+// shows type/nullable/PK, this adds the default value + ordinal position.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StructureColumn {
+    pub name: String,
+    pub data_type: String,
+    pub nullable: bool,
+    pub is_primary_key: bool,
+    pub default_value: Option<String>,
+    pub ordinal: i64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexInfo {
+    pub name: String,
+    pub columns: Vec<String>,
+    pub is_unique: bool,
+    pub is_primary: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ForeignKey {
+    pub name: String,
+    pub columns: Vec<String>,
+    pub referenced_table: String,
+    pub referenced_columns: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConstraintInfo {
+    pub name: String,
+    // "check" | "unique" - the two named constraint kinds F6 surfaces.
+    pub kind: String,
+    pub definition: Option<String>,
+}
+
+// The four read-only sections of the Structure view, assembled per table. MongoDB fills `indexes`
+// only (documents have no columns/FK/SQL constraints).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TableStructure {
+    pub columns: Vec<StructureColumn>,
+    pub indexes: Vec<IndexInfo>,
+    pub foreign_keys: Vec<ForeignKey>,
+    pub constraints: Vec<ConstraintInfo>,
+}
+
 pub fn quote_identifier(engine: DbEngine, name: &str) -> String {
     match engine {
         DbEngine::Postgres | DbEngine::Sqlite => format!("\"{}\"", name.replace('"', "\"\"")),
@@ -1104,7 +1165,7 @@ async fn run_query_prepared(
 pub async fn connect_database(
     connection_id: String,
     config: ConnectionConfig,
-) -> Result<Vec<TableRef>, String> {
+) -> Result<ConnectCatalog, String> {
     // The connect is cancellable like a query: its token lives under a `connect:` key so the
     // Settings "Cancel" button (cancel_query) can abort a stuck connect without colliding with a
     // query request id. The guard removes the token on every exit.
@@ -1136,7 +1197,7 @@ pub fn connect_cancel_key(connection_id: &str) -> String {
 async fn open_and_catalog(
     connection_id: String,
     config: ConnectionConfig,
-) -> Result<Vec<TableRef>, String> {
+) -> Result<ConnectCatalog, String> {
     let engine = config.engine();
     let pool = AnyPoolOptions::new()
         .max_connections(POOL_MAX_CONNECTIONS)
@@ -1146,12 +1207,15 @@ async fn open_and_catalog(
         .await
         .map_err(|error| error.to_string())?;
 
-    let rows = sqlx::query(catalog_query(engine))
+    let table_rows = sqlx::query(catalog_query(engine))
         .fetch_all(&pool)
         .await
         .map_err(|error| error.to_string());
+    // Views ride the connect round-trip (F6 #15). A views-query failure must not fail the connect -
+    // an engine/permission that can't read views still browses tables - so it degrades to empty.
+    let view_rows = sqlx::query(views_query(engine)).fetch_all(&pool).await;
 
-    if let Err(error) = rows {
+    if let Err(error) = table_rows {
         pool.close().await;
         return Err(error);
     }
@@ -1165,10 +1229,21 @@ async fn open_and_catalog(
     }
 
     // Postgres returns (schema, table) so the sidebar can group + every command can qualify;
-    // MySQL/SQLite return the bare name only (no schema level).
+    // MySQL/SQLite return the bare name only (no schema level). Views share the same shape.
     let has_schema_column = matches!(engine, DbEngine::Postgres);
-    rows.expect("error returned above")
-        .iter()
+    let tables = table_refs(&table_rows.expect("error returned above"), has_schema_column)?;
+    let views = view_rows
+        .ok()
+        .map(|rows| table_refs(&rows, has_schema_column))
+        .transpose()?
+        .unwrap_or_default();
+    Ok(ConnectCatalog { tables, views })
+}
+
+// Maps catalog rows (tables or views) to `TableRef`s. Postgres carries (schema, name); MySQL/SQLite
+// carry the bare name (schema None).
+fn table_refs(rows: &[sqlx::any::AnyRow], has_schema_column: bool) -> Result<Vec<TableRef>, String> {
+    rows.iter()
         .map(|row| {
             if has_schema_column {
                 let schema = row.try_get::<String, _>(0).map_err(|e| e.to_string())?;
@@ -1422,6 +1497,175 @@ fn read_nullable(engine: DbEngine, row: &sqlx::any::AnyRow) -> bool {
     }
 }
 
+// Reads a boolean metadata column across engines: Postgres returns a real `bool`, while MySQL/SQLite
+// return it as an integer expression (`(non_unique = 0)`, `il."unique"`), so fall back to `i64 != 0`.
+fn read_flag(row: &sqlx::any::AnyRow, index: usize) -> bool {
+    if let Ok(flag) = row.try_get::<bool, _>(index) {
+        return flag;
+    }
+    row.try_get::<i64, _>(index).map(|value| value != 0).unwrap_or(false)
+}
+
+// Folds one-row-per-column index metadata (already ordered by index name then column position) into
+// grouped `IndexInfo`s, preserving first-seen order and appending each index's columns in order.
+// Pure over plain tuples so composite-index grouping is unit-testable without a live database.
+fn fold_indexes(rows: &[(String, String, bool, bool)]) -> Vec<IndexInfo> {
+    let mut indexes: Vec<IndexInfo> = Vec::new();
+    for (name, column, is_unique, is_primary) in rows {
+        match indexes.iter_mut().find(|index| &index.name == name) {
+            Some(index) => index.columns.push(column.clone()),
+            None => indexes.push(IndexInfo {
+                name: name.clone(),
+                columns: vec![column.clone()],
+                is_unique: *is_unique,
+                is_primary: *is_primary,
+            }),
+        }
+    }
+    indexes
+}
+
+// Folds one-row-per-column foreign-key metadata (ordered by constraint name then column position)
+// into grouped `ForeignKey`s. Pure over tuples so composite-FK grouping is unit-testable.
+fn fold_foreign_keys(rows: &[(String, String, String, String)]) -> Vec<ForeignKey> {
+    let mut keys: Vec<ForeignKey> = Vec::new();
+    for (name, column, referenced_table, referenced_column) in rows {
+        match keys.iter_mut().find(|key| &key.name == name) {
+            Some(key) => {
+                key.columns.push(column.clone());
+                key.referenced_columns.push(referenced_column.clone());
+            }
+            None => keys.push(ForeignKey {
+                name: name.clone(),
+                columns: vec![column.clone()],
+                referenced_table: referenced_table.clone(),
+                referenced_columns: vec![referenced_column.clone()],
+            }),
+        }
+    }
+    keys
+}
+
+// Assembles the read-only Structure view for one table: full columns (+ default/ordinal/PK), grouped
+// indexes, grouped foreign keys, and named check/unique constraints. Each section is one
+// introspection query on the held pool; a table with none of a section yields an empty vec.
+async fn read_table_structure(
+    pool: &sqlx::AnyPool,
+    engine: DbEngine,
+    schema: Option<&str>,
+    table: &str,
+) -> Result<TableStructure, String> {
+    let has_schema = schema.is_some();
+
+    // Primary-key column set marks `is_primary_key` (PG/MySQL structure query omits it; SQLite's
+    // pragma carries it but we reuse the one pk query for all engines for consistency).
+    let pk_bind = pk_regclass_bind(engine, schema, table);
+    let pk_rows = sqlx::query(primary_key_query(engine))
+        .bind(&pk_bind)
+        .fetch_all(pool)
+        .await
+        .map_err(|error| error.to_string())?;
+    let pk_columns: std::collections::HashSet<String> = pk_rows
+        .iter()
+        .filter_map(|row| row.try_get::<String, _>(0).ok())
+        .collect();
+
+    let column_rows =
+        fetch_introspection(pool, &structure_columns_query(engine, has_schema), table, schema)
+            .await?;
+    let columns = column_rows
+        .iter()
+        .enumerate()
+        .map(|(position, row)| {
+            let name = row.try_get::<String, _>(0).unwrap_or_default();
+            let data_type = row.try_get::<String, _>(1).unwrap_or_default();
+            let nullable = read_nullable(engine, row);
+            let default_value = row.try_get::<Option<String>, _>(3).unwrap_or(None);
+            let ordinal = row
+                .try_get::<i64, _>(4)
+                .unwrap_or((position + 1) as i64);
+            StructureColumn {
+                is_primary_key: pk_columns.contains(&name),
+                name,
+                data_type,
+                nullable,
+                default_value,
+                ordinal,
+            }
+        })
+        .collect();
+
+    let index_rows =
+        fetch_introspection(pool, &index_query(engine, has_schema), table, schema).await?;
+    let index_tuples = index_rows
+        .iter()
+        .filter_map(|row| {
+            Some((
+                row.try_get::<String, _>(0).ok()?,
+                row.try_get::<String, _>(1).ok()?,
+                read_flag(row, 2),
+                read_flag(row, 3),
+            ))
+        })
+        .collect::<Vec<_>>();
+    let indexes = fold_indexes(&index_tuples);
+
+    let fk_rows =
+        fetch_introspection(pool, &foreign_key_query(engine, has_schema), table, schema).await?;
+    let fk_tuples = fk_rows
+        .iter()
+        .filter_map(|row| {
+            Some((
+                read_text(row, 0)?,
+                read_text(row, 1)?,
+                read_text(row, 2)?,
+                read_text(row, 3)?,
+            ))
+        })
+        .collect::<Vec<_>>();
+    let foreign_keys = fold_foreign_keys(&fk_tuples);
+
+    let constraint_rows =
+        fetch_introspection(pool, &constraint_query(engine, has_schema), table, schema).await?;
+    let constraints = constraint_rows
+        .iter()
+        .filter_map(|row| {
+            let name = read_text(row, 0)?;
+            let kind = read_text(row, 1).unwrap_or_default().to_ascii_lowercase();
+            Some(ConstraintInfo {
+                name,
+                kind,
+                definition: row.try_get::<Option<String>, _>(2).unwrap_or(None),
+            })
+        })
+        .collect();
+
+    Ok(TableStructure {
+        columns,
+        indexes,
+        foreign_keys,
+        constraints,
+    })
+}
+
+// Reads a text column that some engines expose as a non-text type (SQLite `pragma_foreign_key_list`
+// returns the FK `id` and `seq` as integers), coercing to a String so the fold keys stay uniform.
+fn read_text(row: &sqlx::any::AnyRow, index: usize) -> Option<String> {
+    if let Ok(text) = row.try_get::<String, _>(index) {
+        return Some(text);
+    }
+    row.try_get::<i64, _>(index).ok().map(|value| value.to_string())
+}
+
+pub async fn fetch_table_structure(
+    connection_id: String,
+    schema: Option<String>,
+    table: String,
+) -> Result<TableStructure, String> {
+    let held = with_pool(&connection_id)?;
+    read_table_structure(&held.pool, held.engine, schema.as_deref(), &table).await
+}
+
 // A batch of row-level changes the table card stages and applies on Save. Internally tagged by
 // `kind`; the frontend `PendingMutation` carries extra UI-only fields (id, tableName, sql, ...)
 // that serde ignores here.
@@ -1480,6 +1724,182 @@ fn nullable_query(engine: DbEngine, has_schema: bool) -> String {
              WHERE table_name = ? AND table_schema = DATABASE()"
             .to_string(),
         DbEngine::Sqlite => "SELECT name, notnull FROM pragma_table_info(?)".to_string(),
+    }
+}
+
+// ----- F6: schema browser (read-only structure + views) query builders -----
+
+// The database's views, a sibling of `catalog_query` that filters for VIEW instead of BASE TABLE.
+// Postgres/MySQL read `information_schema.tables` (`table_type = 'VIEW'`); SQLite reads
+// `sqlite_master` (`type = 'view'`). Same shape as the table catalog so the frontend reuses TableRef.
+pub fn views_query(engine: DbEngine) -> &'static str {
+    match engine {
+        DbEngine::Postgres => {
+            "SELECT table_schema::text, table_name::text FROM information_schema.tables \
+             WHERE table_type = 'VIEW' \
+             AND table_schema NOT IN ('pg_catalog', 'information_schema') \
+             ORDER BY table_schema, table_name"
+        }
+        DbEngine::Mysql => {
+            "SELECT table_name FROM information_schema.tables \
+             WHERE table_schema = DATABASE() AND table_type = 'VIEW' \
+             ORDER BY table_name"
+        }
+        DbEngine::Sqlite => {
+            "SELECT name FROM sqlite_master \
+             WHERE type = 'view' AND name NOT LIKE 'sqlite_%' \
+             ORDER BY name"
+        }
+    }
+}
+
+// Full per-column metadata for the Structure view: name, type, nullability, default, ordinal. Binds
+// $1=table (Postgres schema-pins $2 like the other introspection queries via `postgres_table_scope`).
+// SQLite reads `pragma_table_info`, whose `dflt_value` carries the DEFAULT and `notnull`/`pk` the
+// flags; the assembler reads them positionally.
+pub fn structure_columns_query(engine: DbEngine, has_schema: bool) -> String {
+    match engine {
+        DbEngine::Postgres => format!(
+            "SELECT column_name::text, data_type::text, is_nullable::text, \
+             column_default::text, ordinal_position::bigint \
+             FROM information_schema.columns \
+             WHERE table_name = $1 AND {} \
+             ORDER BY ordinal_position",
+            postgres_table_scope(has_schema)
+        ),
+        DbEngine::Mysql => "SELECT column_name, data_type, is_nullable, \
+             column_default, ordinal_position \
+             FROM information_schema.columns \
+             WHERE table_name = ? AND table_schema = DATABASE() \
+             ORDER BY ordinal_position"
+            .to_string(),
+        DbEngine::Sqlite => "SELECT name, type, notnull, dflt_value, cid, pk \
+             FROM pragma_table_info(?) ORDER BY cid"
+            .to_string(),
+    }
+}
+
+// Every index on a table with its ordered columns and unique/primary flags. Postgres reads
+// `pg_index`/`pg_class`/`pg_attribute` (resolving the table via `$1::regclass`-style name); MySQL
+// reads `information_schema.statistics` (one row per column, ordered by `seq_in_index`); SQLite uses
+// `pragma_index_list` + `pragma_index_info`. Rows come back one-per-(index, column); the assembler
+// groups by index name preserving column order.
+pub fn index_query(engine: DbEngine, has_schema: bool) -> String {
+    match engine {
+        DbEngine::Postgres => format!(
+            "SELECT ic.relname::text AS index_name, a.attname::text AS column_name, \
+             i.indisunique AS is_unique, i.indisprimary AS is_primary, \
+             array_position(i.indkey, a.attnum) AS ordinal \
+             FROM pg_index i \
+             JOIN pg_class ic ON ic.oid = i.indexrelid \
+             JOIN pg_class tc ON tc.oid = i.indrelid \
+             JOIN pg_namespace n ON n.oid = tc.relnamespace \
+             JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) \
+             WHERE tc.relname = $1 AND {} \
+             ORDER BY ic.relname, ordinal",
+            if has_schema {
+                "n.nspname = $2"
+            } else {
+                "n.nspname NOT IN ('pg_catalog', 'information_schema')"
+            }
+        ),
+        DbEngine::Mysql => "SELECT index_name, column_name, \
+             (non_unique = 0) AS is_unique, (index_name = 'PRIMARY') AS is_primary, \
+             seq_in_index AS ordinal \
+             FROM information_schema.statistics \
+             WHERE table_name = ? AND table_schema = DATABASE() \
+             ORDER BY index_name, seq_in_index"
+            .to_string(),
+        DbEngine::Sqlite => "SELECT il.name AS index_name, ii.name AS column_name, \
+             il.\"unique\" AS is_unique, (il.origin = 'pk') AS is_primary, \
+             ii.seqno AS ordinal \
+             FROM pragma_index_list(?) il \
+             JOIN pragma_index_info(il.name) ii \
+             ORDER BY il.name, ii.seqno"
+            .to_string(),
+    }
+}
+
+// Foreign keys with their constrained column(s), referenced table, and referenced column(s).
+// Postgres/MySQL join `referential_constraints` with `key_column_usage`; SQLite uses
+// `pragma_foreign_key_list`. Rows come back one-per-column of a composite FK, ordered so the
+// assembler groups by constraint name.
+pub fn foreign_key_query(engine: DbEngine, has_schema: bool) -> String {
+    match engine {
+        DbEngine::Postgres => format!(
+            "SELECT rc.constraint_name::text AS name, \
+             kcu.column_name::text AS column_name, \
+             ccu.table_name::text AS referenced_table, \
+             ccu.column_name::text AS referenced_column, \
+             kcu.ordinal_position AS ordinal \
+             FROM information_schema.referential_constraints rc \
+             JOIN information_schema.key_column_usage kcu \
+               ON kcu.constraint_name = rc.constraint_name \
+               AND kcu.constraint_schema = rc.constraint_schema \
+             JOIN information_schema.constraint_column_usage ccu \
+               ON ccu.constraint_name = rc.constraint_name \
+               AND ccu.constraint_schema = rc.constraint_schema \
+             WHERE kcu.table_name = $1 AND {} \
+             ORDER BY rc.constraint_name, kcu.ordinal_position",
+            if has_schema {
+                "kcu.table_schema = $2"
+            } else {
+                "kcu.table_schema NOT IN ('pg_catalog', 'information_schema')"
+            }
+        ),
+        DbEngine::Mysql => "SELECT kcu.constraint_name AS name, \
+             kcu.column_name AS column_name, \
+             kcu.referenced_table_name AS referenced_table, \
+             kcu.referenced_column_name AS referenced_column, \
+             kcu.ordinal_position AS ordinal \
+             FROM information_schema.key_column_usage kcu \
+             WHERE kcu.table_name = ? AND kcu.table_schema = DATABASE() \
+             AND kcu.referenced_table_name IS NOT NULL \
+             ORDER BY kcu.constraint_name, kcu.ordinal_position"
+            .to_string(),
+        DbEngine::Sqlite => "SELECT id AS name, \"from\" AS column_name, \
+             \"table\" AS referenced_table, \"to\" AS referenced_column, seq AS ordinal \
+             FROM pragma_foreign_key_list(?) \
+             ORDER BY id, seq"
+            .to_string(),
+    }
+}
+
+// Named CHECK + UNIQUE constraints. Postgres/MySQL read `information_schema.table_constraints`
+// (filtered to the two kinds); Postgres also joins `check_constraints` for the definition. SQLite
+// has no constraint catalog - CHECK text lives only in the DDL, so this returns UNIQUE constraints
+// from `pragma_index_list` where `origin = 'u'` (documented limitation, E-4).
+pub fn constraint_query(engine: DbEngine, has_schema: bool) -> String {
+    match engine {
+        DbEngine::Postgres => format!(
+            "SELECT tc.constraint_name::text AS name, \
+             tc.constraint_type::text AS kind, \
+             cc.check_clause::text AS definition \
+             FROM information_schema.table_constraints tc \
+             LEFT JOIN information_schema.check_constraints cc \
+               ON cc.constraint_name = tc.constraint_name \
+               AND cc.constraint_schema = tc.constraint_schema \
+             WHERE tc.table_name = $1 \
+             AND tc.constraint_type IN ('CHECK', 'UNIQUE') AND {} \
+             ORDER BY tc.constraint_name",
+            if has_schema {
+                "tc.table_schema = $2"
+            } else {
+                "tc.table_schema NOT IN ('pg_catalog', 'information_schema')"
+            }
+        ),
+        DbEngine::Mysql => "SELECT constraint_name AS name, constraint_type AS kind, \
+             NULL AS definition \
+             FROM information_schema.table_constraints \
+             WHERE table_name = ? AND table_schema = DATABASE() \
+             AND constraint_type IN ('CHECK', 'UNIQUE') \
+             ORDER BY constraint_name"
+            .to_string(),
+        DbEngine::Sqlite => "SELECT name, 'UNIQUE' AS kind, NULL AS definition \
+             FROM pragma_index_list(?) \
+             WHERE origin = 'u' \
+             ORDER BY name"
+            .to_string(),
     }
 }
 
@@ -1625,11 +2045,12 @@ mod tests {
     use super::{
         assemble_columns, build_count_query, build_delete_query, build_insert_query,
         build_mutation, build_rows_query, build_update_query, build_update_query_value, build_url,
-        cancel_query, catalog_query, column_types_query, columns_query, group_schema,
+        cancel_query, catalog_query, column_types_query, columns_query, constraint_query,
+        fold_foreign_keys, fold_indexes, foreign_key_query, group_schema, index_query,
         is_row_returning, is_subquery_wrappable, nullable_query, parse_json_rows, pk_regclass_bind,
         primary_key_query, qualified_table, quote_identifier, schema_query, split_sql_statements,
-        with_pool, wrap_columns_probe, wrap_select_as_json, wrap_select_as_text, ConnectionConfig,
-        DbEngine, RowMutation, Sort, CANCELS, CANCEL_SENTINEL,
+        structure_columns_query, views_query, with_pool, wrap_columns_probe, wrap_select_as_json,
+        wrap_select_as_text, ConnectionConfig, DbEngine, RowMutation, Sort, CANCELS, CANCEL_SENTINEL,
     };
     use std::collections::HashMap;
 
@@ -3105,5 +3526,347 @@ mod tests {
             RowMutation::Delete { pk_value } => assert_eq!(pk_value, "7"),
             other => panic!("expected a Delete mutation, got {other:?}"),
         }
+    }
+
+    // ----- F6: schema browser query builders (AC-001..004, AC-007, TC-006) -----
+
+    // AC-001, TC-006 - behavior (the structure columns query returns full column metadata and, for
+    // Postgres, binds the table as $1 while ordering by ordinal position)
+    #[test]
+    fn should_build_a_structure_columns_query_returning_full_metadata_for_postgres() {
+        let unpinned = structure_columns_query(DbEngine::Postgres, false);
+        assert!(
+            unpinned.contains("information_schema.columns"),
+            "PG structure columns query must read information_schema.columns: {unpinned}"
+        );
+        assert!(
+            unpinned.contains("$1"),
+            "PG structure columns query must bind the table as $1: {unpinned}"
+        );
+        assert!(
+            unpinned.contains("ordinal_position"),
+            "PG structure columns query must order by ordinal_position: {unpinned}"
+        );
+        assert!(
+            unpinned.contains("NOT IN ('pg_catalog', 'information_schema')"),
+            "unpinned PG structure columns query keeps the system-schema exclusion: {unpinned}"
+        );
+        assert!(
+            !unpinned.contains("$2"),
+            "unpinned PG structure columns query has no $2: {unpinned}"
+        );
+    }
+
+    // AC-001, E-3, TC-006 - behavior (Postgres schema-pinned form binds $2 and drops the
+    // system-schema exclusion, exactly like columns_query/postgres_table_scope)
+    #[test]
+    fn should_pin_the_postgres_structure_columns_query_to_a_schema_when_one_is_known() {
+        let pinned = structure_columns_query(DbEngine::Postgres, true);
+        assert!(
+            pinned.contains("table_schema = $2"),
+            "schema-pinned PG structure columns query must bind the schema as $2: {pinned}"
+        );
+        assert!(
+            !pinned.contains("NOT IN"),
+            "schema-pinned PG structure columns query must not also exclude system schemas: {pinned}"
+        );
+    }
+
+    // AC-001, TC-006 - behavior (MySQL structure columns scope to DATABASE() and bind the table)
+    #[test]
+    fn should_scope_the_mysql_structure_columns_query_to_the_current_database() {
+        let query = structure_columns_query(DbEngine::Mysql, false);
+        assert!(
+            query.contains("DATABASE()"),
+            "MySQL structure columns query must scope to DATABASE(): {query}"
+        );
+        assert!(
+            query.contains('?'),
+            "MySQL structure columns query must be parameterized: {query}"
+        );
+        // MySQL never carries a schema; the flag must not change the query.
+        assert_eq!(
+            structure_columns_query(DbEngine::Mysql, true),
+            structure_columns_query(DbEngine::Mysql, false)
+        );
+    }
+
+    // AC-001, TC-004, TC-006 - behavior (SQLite structure columns read pragma_table_info, exposing
+    // the default value via dflt_value)
+    #[test]
+    fn should_build_the_sqlite_structure_columns_query_over_pragma_table_info() {
+        let query = structure_columns_query(DbEngine::Sqlite, false);
+        assert!(
+            query.contains("pragma_table_info"),
+            "SQLite structure columns query must use pragma_table_info: {query}"
+        );
+        assert!(
+            query.contains("dflt_value"),
+            "SQLite structure columns query must read the default (dflt_value): {query}"
+        );
+        assert!(
+            query.contains('?'),
+            "SQLite structure columns query must be parameterized: {query}"
+        );
+    }
+
+    // AC-002, TC-006 - behavior (Postgres index query reads pg_index/pg_class and exposes the
+    // unique flag)
+    #[test]
+    fn should_build_the_postgres_index_query_over_pg_index_and_pg_class() {
+        let query = index_query(DbEngine::Postgres, false);
+        assert!(
+            query.contains("pg_index"),
+            "PG index query must read pg_index: {query}"
+        );
+        assert!(
+            query.contains("pg_class"),
+            "PG index query must join pg_class: {query}"
+        );
+        assert!(
+            query.contains("indisunique"),
+            "PG index query must expose the unique flag (indisunique): {query}"
+        );
+    }
+
+    // AC-002, TC-006 - behavior (MySQL index query reads information_schema.statistics)
+    #[test]
+    fn should_build_the_mysql_index_query_over_information_schema_statistics() {
+        let query = index_query(DbEngine::Mysql, false);
+        assert!(
+            query.contains("information_schema.statistics"),
+            "MySQL index query must read information_schema.statistics: {query}"
+        );
+        assert!(
+            query.contains("DATABASE()"),
+            "MySQL index query must scope to DATABASE(): {query}"
+        );
+        assert!(
+            query.contains('?'),
+            "MySQL index query must be parameterized: {query}"
+        );
+    }
+
+    // AC-002, TC-004, TC-006 - behavior (SQLite index query uses the pragma index list)
+    #[test]
+    fn should_build_the_sqlite_index_query_over_pragma_index_list() {
+        let query = index_query(DbEngine::Sqlite, false);
+        assert!(
+            query.contains("pragma_index_list"),
+            "SQLite index query must use pragma_index_list: {query}"
+        );
+        assert!(
+            query.contains('?'),
+            "SQLite index query must be parameterized: {query}"
+        );
+    }
+
+    // AC-003, TC-006 - behavior (Postgres FK query reads the information_schema referential/key
+    // usage views and returns the referenced table)
+    #[test]
+    fn should_build_the_postgres_foreign_key_query_over_information_schema() {
+        let query = foreign_key_query(DbEngine::Postgres, false);
+        assert!(
+            query.contains("referential_constraints"),
+            "PG FK query must read referential_constraints: {query}"
+        );
+        assert!(
+            query.contains("key_column_usage"),
+            "PG FK query must read key_column_usage: {query}"
+        );
+        assert!(
+            query.contains("$1"),
+            "PG FK query must bind the table as $1: {query}"
+        );
+    }
+
+    // AC-003, E-3 - behavior (Postgres FK query pins to $2 when a schema is known and drops the
+    // system-schema exclusion)
+    #[test]
+    fn should_pin_the_postgres_foreign_key_query_to_a_schema_when_one_is_known() {
+        let pinned = foreign_key_query(DbEngine::Postgres, true);
+        assert!(
+            pinned.contains("$2"),
+            "schema-pinned PG FK query must bind the schema as $2: {pinned}"
+        );
+        assert!(
+            !pinned.contains("NOT IN"),
+            "schema-pinned PG FK query must not also exclude system schemas: {pinned}"
+        );
+    }
+
+    // AC-003, TC-006 - behavior (MySQL FK query reads the referential/key usage views scoped to the
+    // current database)
+    #[test]
+    fn should_build_the_mysql_foreign_key_query_over_information_schema() {
+        let query = foreign_key_query(DbEngine::Mysql, false);
+        assert!(
+            query.contains("key_column_usage"),
+            "MySQL FK query must read key_column_usage: {query}"
+        );
+        assert!(
+            query.contains("DATABASE()"),
+            "MySQL FK query must scope to DATABASE(): {query}"
+        );
+        assert!(
+            query.contains('?'),
+            "MySQL FK query must be parameterized: {query}"
+        );
+    }
+
+    // AC-003, TC-004, TC-006 - behavior (SQLite FK query uses pragma_foreign_key_list)
+    #[test]
+    fn should_build_the_sqlite_foreign_key_query_over_pragma_foreign_key_list() {
+        let query = foreign_key_query(DbEngine::Sqlite, false);
+        assert!(
+            query.contains("pragma_foreign_key_list"),
+            "SQLite FK query must use pragma_foreign_key_list: {query}"
+        );
+        assert!(
+            query.contains('?'),
+            "SQLite FK query must be parameterized: {query}"
+        );
+    }
+
+    // AC-004, TC-006 - behavior (Postgres constraint query returns named check + unique constraints
+    // via information_schema.table_constraints)
+    #[test]
+    fn should_build_the_postgres_constraint_query_for_check_and_unique() {
+        let query = constraint_query(DbEngine::Postgres, false);
+        assert!(
+            query.contains("table_constraints"),
+            "PG constraint query must read table_constraints: {query}"
+        );
+        assert!(
+            query.contains("CHECK") && query.contains("UNIQUE"),
+            "PG constraint query must cover both CHECK and UNIQUE constraints: {query}"
+        );
+        assert!(
+            query.contains("$1"),
+            "PG constraint query must bind the table as $1: {query}"
+        );
+    }
+
+    // AC-004, TC-006 - behavior (MySQL constraint query scopes to DATABASE() and is parameterized)
+    #[test]
+    fn should_build_the_mysql_constraint_query_scoped_to_the_current_database() {
+        let query = constraint_query(DbEngine::Mysql, false);
+        assert!(
+            query.contains("DATABASE()"),
+            "MySQL constraint query must scope to DATABASE(): {query}"
+        );
+        assert!(
+            query.contains('?'),
+            "MySQL constraint query must be parameterized: {query}"
+        );
+    }
+
+    // AC-004, E-4, TC-004, TC-006 - behavior (SQLite exposes only UNIQUE constraints via
+    // pragma_index_list where origin='u'; check constraints live only in DDL text -> omitted)
+    #[test]
+    fn should_build_the_sqlite_constraint_query_reading_unique_indexes_only() {
+        let query = constraint_query(DbEngine::Sqlite, false);
+        assert!(
+            query.contains("pragma_index_list"),
+            "SQLite constraint query must read pragma_index_list: {query}"
+        );
+        assert!(
+            query.contains("'u'"),
+            "SQLite constraint query must select origin='u' unique constraints: {query}"
+        );
+        assert!(
+            query.contains('?'),
+            "SQLite constraint query must be parameterized: {query}"
+        );
+    }
+
+    // AC-007, TC-003, TC-006 - behavior (the views catalog filters table_type='VIEW' for PG/MySQL,
+    // sibling of catalog_query which filters 'BASE TABLE')
+    #[test]
+    fn should_filter_views_by_view_table_type_for_postgres_and_mysql() {
+        let postgres = views_query(DbEngine::Postgres);
+        assert!(
+            postgres.contains("information_schema.views") || postgres.contains("'VIEW'"),
+            "PG views query must select views (table_type='VIEW' or information_schema.views): {postgres}"
+        );
+
+        let mysql = views_query(DbEngine::Mysql);
+        assert!(
+            mysql.contains("'VIEW'") || mysql.contains("information_schema.views"),
+            "MySQL views query must select views: {mysql}"
+        );
+        assert!(
+            mysql.contains("DATABASE()"),
+            "MySQL views query must scope to DATABASE(): {mysql}"
+        );
+    }
+
+    // AC-007, TC-003, TC-006 - behavior (SQLite views come from sqlite_master type='view')
+    #[test]
+    fn should_filter_views_by_view_type_in_the_sqlite_views_query() {
+        let query = views_query(DbEngine::Sqlite);
+        assert!(
+            query.contains("sqlite_master"),
+            "SQLite views query must read sqlite_master: {query}"
+        );
+        assert!(
+            query.contains("'view'"),
+            "SQLite views query must filter type='view': {query}"
+        );
+    }
+
+    // AC-007 - behavior (each engine gets a distinct views query, and it is not the table catalog)
+    #[test]
+    fn should_return_a_distinct_views_query_per_engine_that_differs_from_the_table_catalog() {
+        assert_ne!(views_query(DbEngine::Postgres), views_query(DbEngine::Mysql));
+        assert_ne!(views_query(DbEngine::Postgres), views_query(DbEngine::Sqlite));
+        assert_ne!(
+            views_query(DbEngine::Postgres),
+            catalog_query(DbEngine::Postgres)
+        );
+        assert_ne!(views_query(DbEngine::Sqlite), catalog_query(DbEngine::Sqlite));
+    }
+
+    fn s(text: &str) -> String {
+        text.to_string()
+    }
+
+    // AC-005, E-2 - behavior (one-row-per-column index metadata folds into grouped IndexInfos with
+    // columns in row order and first-seen index order preserved)
+    #[test]
+    fn should_fold_composite_index_rows_into_one_index_with_ordered_columns() {
+        let rows = vec![
+            (s("pk_users"), s("id"), true, true),
+            (s("users_name_email_idx"), s("name"), false, false),
+            (s("users_name_email_idx"), s("email"), false, false),
+        ];
+        let indexes = fold_indexes(&rows);
+        assert_eq!(indexes.len(), 2);
+        assert_eq!(indexes[0].name, "pk_users");
+        assert!(indexes[0].is_primary && indexes[0].is_unique);
+        assert_eq!(indexes[1].name, "users_name_email_idx");
+        assert_eq!(indexes[1].columns, vec!["name".to_string(), "email".to_string()]);
+        assert!(!indexes[1].is_unique && !indexes[1].is_primary);
+    }
+
+    // AC-005, E-2 - behavior (composite FK rows fold into one ForeignKey pairing each local column
+    // with its referenced column in order)
+    #[test]
+    fn should_fold_composite_foreign_key_rows_pairing_local_and_referenced_columns() {
+        let rows = vec![
+            (s("orders_customer_fk"), s("customer_org"), s("customers"), s("org")),
+            (s("orders_customer_fk"), s("customer_id"), s("customers"), s("id")),
+        ];
+        let keys = fold_foreign_keys(&rows);
+        assert_eq!(keys.len(), 1);
+        assert_eq!(keys[0].referenced_table, "customers");
+        assert_eq!(
+            keys[0].columns,
+            vec!["customer_org".to_string(), "customer_id".to_string()]
+        );
+        assert_eq!(
+            keys[0].referenced_columns,
+            vec!["org".to_string(), "id".to_string()]
+        );
     }
 }

@@ -18,7 +18,12 @@ const EXPECTED_BY_SCOPE: Record<ShortcutScope, ShortcutActionId[]> = {
     "toggle-split-orientation",
   ],
   tab: ["next-tab", "prev-tab", "close-tab", "close-other-tabs"],
-  grid: ["toggle-record-view", "delete-rows", "toggle-json-view"],
+  grid: [
+    "toggle-record-view",
+    "delete-rows",
+    "toggle-json-view",
+    "toggle-structure-view",
+  ],
   tree: ["delete-nodes"],
   editor: ["run-query", "save-script"],
 };

@@ -18,6 +18,7 @@ describe("DEFAULT_SETTINGS", () => {
       expandedIds: [],
       openTabIds: [],
       activeTabId: null,
+      windowFullscreen: false,
       theme: {
         mode: "system",
         colors: {
@@ -46,6 +47,7 @@ describe("mergeSettings", () => {
       expandedIds: ["folder-staging", "db-admin"],
       openTabIds: ["db-admin", "tbl-accounts"],
       activeTabId: "tbl-accounts",
+      windowFullscreen: true,
       theme: {
         mode: "dark",
         colors: {
@@ -89,6 +91,7 @@ describe("mergeSettings", () => {
       expandedIds: [],
       openTabIds: [],
       activeTabId: null,
+      windowFullscreen: false,
       theme: {
         mode: "system",
         colors: {
@@ -114,6 +117,22 @@ describe("mergeSettings", () => {
     const merged = mergeSettings(DEFAULT_SETTINGS, { consoleHidden: 1 });
 
     expect(merged.consoleHidden).toBe(false);
+  });
+
+  // behavior: windowFullscreen round-trips a persisted boolean
+  it("should keep a persisted windowFullscreen boolean", () => {
+    expect(
+      mergeSettings(DEFAULT_SETTINGS, { windowFullscreen: true })
+        .windowFullscreen,
+    ).toBe(true);
+  });
+
+  // behavior: a non-boolean windowFullscreen falls back to the default (false)
+  it("should fall back to the default windowFullscreen if it is not a boolean", () => {
+    expect(
+      mergeSettings(DEFAULT_SETTINGS, { windowFullscreen: "yes" })
+        .windowFullscreen,
+    ).toBe(false);
   });
 
   // AC-002, E-2 - behavior

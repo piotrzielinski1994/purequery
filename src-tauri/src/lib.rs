@@ -5,8 +5,9 @@ mod mongo;
 use db::{
     apply_row_mutations, cancel_query as cancel_query_db, connect_database as connect_database_db,
     count_table_rows, disconnect_database as disconnect_database_db,
-    fetch_schema as fetch_schema_db, fetch_table_rows, run_query, ConnectionConfig, QueryOutcome,
-    RowMutation, Sort, TableRef, TableRows, TableSchema, DEFAULT_ROW_LIMIT,
+    fetch_schema as fetch_schema_db, fetch_table_rows,
+    fetch_table_structure as fetch_table_structure_db, run_query, ConnectCatalog, ConnectionConfig,
+    QueryOutcome, RowMutation, Sort, TableRows, TableSchema, TableStructure, DEFAULT_ROW_LIMIT,
 };
 use mongo::MongoConfig;
 
@@ -31,7 +32,7 @@ fn config_engine(config: &serde_json::Value) -> Option<&str> {
 async fn connect_database(
     connection_id: String,
     config: serde_json::Value,
-) -> Result<Vec<TableRef>, String> {
+) -> Result<ConnectCatalog, String> {
     let engine = config_engine(&config).unwrap_or("?").to_string();
     let started = std::time::Instant::now();
     // A deserialize failure folds into `result` (not an early `?`) so it is logged like any other
@@ -49,9 +50,9 @@ async fn connect_database(
     };
     let ms = started.elapsed().as_millis();
     match &result {
-        Ok(tables) => log::info!(
+        Ok(catalog) => log::info!(
             "{}",
-            logging::format_connect_ok(&connection_id, &engine, tables.len(), ms)
+            logging::format_connect_ok(&connection_id, &engine, catalog.tables.len(), ms)
         ),
         Err(error) if !logging::is_cancel_sentinel(error) => log::error!(
             "{}",
@@ -215,6 +216,20 @@ async fn fetch_schema(connection_id: String) -> Result<Vec<TableSchema>, String>
     fetch_schema_db(connection_id).await
 }
 
+// Read-only per-table structure for the schema browser (F6 #14): columns/indexes/FK/constraints for
+// SQL engines, indexes-only for MongoDB. Dispatched like every connection-addressed command.
+#[tauri::command]
+async fn fetch_table_structure(
+    connection_id: String,
+    schema: Option<String>,
+    table: String,
+) -> Result<TableStructure, String> {
+    if mongo::is_connected(&connection_id) {
+        return mongo::fetch_table_structure(connection_id, table).await;
+    }
+    fetch_table_structure_db(connection_id, schema, table).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     sqlx::any::install_default_drivers();
@@ -237,6 +252,7 @@ pub fn run() {
             execute_mongo,
             cancel_query,
             fetch_schema,
+            fetch_table_structure,
             logging::log_message
         ])
         .run(tauri::generate_context!())

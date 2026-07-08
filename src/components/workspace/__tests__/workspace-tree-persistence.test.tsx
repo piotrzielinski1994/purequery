@@ -160,7 +160,7 @@ describe("SidebarTree empty workspace state", () => {
 describe("connect persists the edited config into the tree", () => {
   // AC-008 - side-effect-contract (the connect() action, not just updateDatabaseConfig)
   it("should fire onTreeChange with the connected config when connect succeeds", async () => {
-    mockConnect.mockResolvedValueOnce([{ schema: null, name: "t1" }]);
+    mockConnect.mockResolvedValueOnce({ tables: [{ schema: null, name: "t1" }], views: [] });
     const onTreeChange = vi.fn<(tree: TreeNode[]) => void>();
 
     function ConnectProbe() {

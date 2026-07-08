@@ -81,6 +81,27 @@ describe("WorkspaceLayout command palette", () => {
     expect(screen.getByText("New tab")).toBeInTheDocument();
   });
 
+  // behavior: commands are grouped under Create / Tabs / View headings so the palette is scannable
+  it("should render commands under their group headings", () => {
+    render(
+      <WorkspaceProvider tree={fixtureTree} initialActiveTabId="db-admin">
+        <WorkspaceLayout />
+      </WorkspaceProvider>,
+    );
+
+    openPalette();
+
+    for (const heading of ["Create", "Tabs", "View"]) {
+      expect(screen.getByText(heading)).toBeInTheDocument();
+    }
+    // A grouped command sits inside its heading's group, not loose in the list.
+    const viewGroup = screen
+      .getByText("View")
+      .closest("[cmdk-group]") as HTMLElement;
+    expect(viewGroup).not.toBeNull();
+    expect(within(viewGroup).getByText("Toggle sidebar")).toBeInTheDocument();
+  });
+
   // AC-003, TC-003 — behavior
   it("should filter the command list to close commands if 'close' is typed", async () => {
     const user = userEvent.setup();

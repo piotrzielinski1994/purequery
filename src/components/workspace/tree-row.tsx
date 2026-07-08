@@ -345,6 +345,12 @@ function DatabaseRow({ node, depth }: { node: DatabaseNode; depth: number }) {
   const toggleConnection = () => {
     if (hasConnection) {
       disconnect(node.id);
+      // Collapse on disconnect: a disconnected database renders no table children (they need a live
+      // connection), so an expanded chevron with nothing under it is misleading - and re-expanding
+      // to reconnect would otherwise need a redundant collapse first.
+      if (isExpanded) {
+        toggleExpand(node.id);
+      }
       return;
     }
     connect(node.id, connectionOf(node));
@@ -371,6 +377,27 @@ function DatabaseRow({ node, depth }: { node: DatabaseNode; depth: number }) {
       connect(node.id, connectionOf(node));
     }
   };
+
+  // A database restored EXPANDED on launch (its chevron points down from a persisted `expandedIds`)
+  // must connect so its tables populate - the chevron toggle only fires connect on a user click, and
+  // the database card's auto-connect only runs when THAT card is the active tab. Without this, a
+  // restored-expanded row that isn't the active tab shows a down chevron but no tables until a manual
+  // collapse+expand. Fire exactly once per mount for an idle expanded row (a restored connection has
+  // a config but status "idle"); skip if already connecting/connected or previously attempted here.
+  const autoConnectAttempted = useRef(false);
+  useEffect(() => {
+    if (!isExpanded || autoConnectAttempted.current) {
+      return;
+    }
+    if (status !== "idle") {
+      return;
+    }
+    autoConnectAttempted.current = true;
+    connect(node.id, connectionOf(node));
+    // Run for the initial expanded+idle state only; connect/status identities churn each render, so
+    // gate on the ref + a status re-check inside rather than listing them as deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded]);
 
   return (
     <li className="relative">

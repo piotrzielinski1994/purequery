@@ -13,10 +13,12 @@ export function HomePage() {
 
   // The workspace persists only the UI-chrome slice of Settings. saveChrome is a WRITE-ONLY store
   // save (no setSettings), so a sidebar/console toggle never re-renders the settings tree - it
-  // merges over the current theme/shortcuts internally. Stable identity ([saveChrome] only), so it
-  // never re-fires the provider's persist effect. (Chrome is only ever read as the initial seed.)
+  // merges over the current theme/shortcuts/windowFullscreen internally. Stable identity
+  // ([saveChrome] only), so it never re-fires the provider's persist effect. (Chrome is only ever
+  // read as the initial seed.)
   const persistChrome = useCallback(
-    (next: Omit<Settings, "theme" | "shortcuts">) => saveChrome(next),
+    (next: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen">) =>
+      saveChrome(next),
     [saveChrome],
   );
 

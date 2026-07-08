@@ -18,6 +18,7 @@ const nonDefaultSettings: Settings = {
   expandedIds: ["folder-staging", "db-admin"],
   openTabIds: ["db-admin", "tbl-accounts"],
   activeTabId: "tbl-accounts",
+  windowFullscreen: true,
   theme: {
     mode: "dark",
     colors: {

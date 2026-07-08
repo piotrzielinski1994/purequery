@@ -39,6 +39,7 @@ UI design rules for this app. Entries are about *visual language and interaction
 - Edited/dirty cells get a subtle highlight (`bg-amber-500/15`), applied identically in every view (list and single-record).
 - Rows are `select-none`: click/Shift-click/Cmd-click select ROWS, and must never trigger the browser's native text selection (which would highlight cell text blue and fight range-select). An inline-edit `<input>` re-enables its own text selection, so editing is unaffected.
 - Copy CSV/JSON is not a footer button - it lives in the row context menu and copies the current selection (right-clicking a row outside the selection copies just that row). Both the editable table card and the read-only SQL result grid are row-selectable for this.
+- The "one grid" rule is for RESULT SETS (rows of data). Metadata panels - the Views tab and the Structure view (columns/indexes/FK/constraints) - are read-only descriptive tables, NOT the result grid, so they render as their own plain `<table>` (same compact density, muted headers, `font-mono` cells, 1px `border-b` dividers) rather than reusing `DataGrid`. Match the look, don't fork the grid.
 
 ## Density & typography
 

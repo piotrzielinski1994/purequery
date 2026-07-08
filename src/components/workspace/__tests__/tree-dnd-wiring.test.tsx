@@ -82,10 +82,10 @@ describe("SidebarTree drag affordance wiring (AC-007)", () => {
   // AC-007, TC-007 - side-effect-contract (a table leaf carries NO drag affordance)
   it("should not expose a drag affordance on a table leaf row", async () => {
     const user = userEvent.setup();
-    mockConnect.mockResolvedValueOnce([
+    mockConnect.mockResolvedValueOnce({ tables: [
       { schema: null, name: "accounts" },
       { schema: null, name: "audit_log" },
-    ]);
+    ], views: [] });
     renderTree({ expanded: ["folder-staging"], connected: ["db-admin"] });
 
     const dbRow = screen.getByRole("treeitem", { name: "admin_db" });

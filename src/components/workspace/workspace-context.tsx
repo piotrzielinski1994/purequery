@@ -23,6 +23,7 @@ import type {
   TableRef,
   TableSchema,
   TreeNode,
+  ViewObject,
 } from "@/lib/workspace/model";
 import {
   moveNode as moveTreeNode,
@@ -170,6 +171,7 @@ type WorkspaceContextValue = {
   setDatabaseSchema: (id: string, schema: TableSchema[]) => void;
   updateDatabaseConfig: (id: string, config: ConnectionConfig) => void;
   setDatabaseTables: (id: string, tables: TableRef[]) => void;
+  setDatabaseViews: (id: string, views: ViewObject[]) => void;
   upsertPendingEdit: (edit: PendingMutation) => void;
   discardPendingEdit: (id: string) => void;
   discardPendingEditsForTable: (tableId: string) => void;
@@ -202,6 +204,18 @@ type JsonViewContextValue = {
 };
 
 const JsonViewContext = createContext<JsonViewContextValue | null>(null);
+
+// The Structure-view toggle (F6 #14) is isolated exactly like the JSON view: only TableView reads
+// it and only it flips on the toggle, so keeping it out of the workspace value means neither a
+// chrome toggle nor a view toggle churns the heavy TableCard subtree.
+type StructureViewContextValue = {
+  isStructureView: boolean;
+  toggleStructureView: () => void;
+};
+
+const StructureViewContext = createContext<StructureViewContextValue | null>(
+  null,
+);
 
 function indexNodes(nodes: TreeNode[]): Map<string, OpenNode> {
   const flatten = (node: TreeNode): OpenNode[] => {
@@ -256,6 +270,25 @@ function replaceDatabaseTables(
     }
     if (node.kind === "database" && node.id === databaseId) {
       return { ...node, tables };
+    }
+    return node;
+  });
+}
+
+function replaceDatabaseViews(
+  nodes: TreeNode[],
+  databaseId: string,
+  views: ViewObject[],
+): TreeNode[] {
+  return nodes.map((node) => {
+    if (node.kind === "folder") {
+      return {
+        ...node,
+        children: replaceDatabaseViews(node.children, databaseId, views),
+      };
+    }
+    if (node.kind === "database" && node.id === databaseId) {
+      return { ...node, views };
     }
     return node;
   });
@@ -530,7 +563,7 @@ type WorkspaceProviderProps = {
   initialLayouts?: Settings["layouts"];
   // The workspace persists only the UI-chrome slice of Settings; the theme is owned by the
   // ThemeProvider, so it is not part of this payload (the route folds it back in).
-  onPersist?: (settings: Omit<Settings, "theme" | "shortcuts">) => void;
+  onPersist?: (settings: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen">) => void;
   onTreeChange?: (tree: TreeNode[]) => void;
 };
 
@@ -608,6 +641,7 @@ export function WorkspaceProvider({
   );
   const [isConsoleVisible, setIsConsoleVisible] = useState(!initialConsoleHidden);
   const [isJsonView, setIsJsonView] = useState(initialJsonView);
+  const [isStructureView, setIsStructureView] = useState(false);
 
   // These actions are consumed by the heavy, memoized DataGrid (via table-card's commitEdit). They
   // use functional setters only, so they have no reactive deps - pinning their identity with
@@ -663,7 +697,7 @@ export function WorkspaceProvider({
   // defaultLayout seed). It writes the ref and re-persists the full chrome payload, which it reads
   // from persistPayloadRef (kept current by the render below) so this stays a stable useCallback
   // with no reactive deps - a layout write never rebuilds the workspace value.
-  const persistPayloadRef = useRef<Omit<Settings, "theme" | "shortcuts"> | null>(
+  const persistPayloadRef = useRef<Omit<Settings, "theme" | "shortcuts" | "windowFullscreen"> | null>(
     null,
   );
   const onPersistRef = useRef(onPersist);
@@ -938,6 +972,8 @@ export function WorkspaceProvider({
         setTree((current) =>
           replaceDatabaseTables(current, id, tablesFromRefs(id, tables)),
         ),
+      setDatabaseViews: (id, views) =>
+        setTree((current) => replaceDatabaseViews(current, id, views)),
       pendingEdits,
       upsertPendingEdit,
       discardPendingEdit,
@@ -1007,6 +1043,14 @@ export function WorkspaceProvider({
     [isJsonView],
   );
 
+  const structureViewValue = useMemo<StructureViewContextValue>(
+    () => ({
+      isStructureView,
+      toggleStructureView: () => setIsStructureView((current) => !current),
+    }),
+    [isStructureView],
+  );
+
   // The current chrome payload, minus layouts (which saveLayout owns via layoutsRef). Kept in a ref
   // so saveLayout can re-persist with the latest chrome without being a reactive dep.
   const chromePayload = useMemo(
@@ -1051,7 +1095,9 @@ export function WorkspaceProvider({
     <WorkspaceContext.Provider value={value}>
       <ChromeContext.Provider value={chromeValue}>
         <JsonViewContext.Provider value={jsonViewValue}>
-          {children}
+          <StructureViewContext.Provider value={structureViewValue}>
+            {children}
+          </StructureViewContext.Provider>
         </JsonViewContext.Provider>
       </ChromeContext.Provider>
     </WorkspaceContext.Provider>
@@ -1081,6 +1127,17 @@ export function useJsonView(): JsonViewContextValue {
     useContext(JsonViewContext) ?? {
       isJsonView: false,
       toggleJsonView: () => {},
+    }
+  );
+}
+
+// Optional (like useJsonView) so a component rendered outside the provider still works; the
+// Structure view toggle is only meaningful inside the workspace.
+export function useStructureView(): StructureViewContextValue {
+  return (
+    useContext(StructureViewContext) ?? {
+      isStructureView: false,
+      toggleStructureView: () => {},
     }
   );
 }

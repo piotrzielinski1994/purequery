@@ -121,7 +121,7 @@ describe("row context menu - database row", () => {
   // AC-104, TC-103 - side-effect-contract (Connect calls connectDatabase with node config)
   it("should invoke connectDatabase with the node config when Connect is selected on a not-connected database", async () => {
     const user = userEvent.setup();
-    mockConnect.mockResolvedValueOnce([]);
+    mockConnect.mockResolvedValueOnce({ tables: [], views: [] });
     renderTree({ expanded: ["folder-staging"] });
 
     openRowMenu("admin_db");
