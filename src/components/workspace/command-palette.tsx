@@ -99,7 +99,10 @@ export function CommandPalette({
   const effective = resolveShortcuts(shortcuts);
 
   const isSplitView =
-    activeNode?.kind === "database" && activeDatabaseTab === "sql";
+    activeNode?.kind === "database" &&
+    (activeDatabaseTab === "sql" ||
+      activeDatabaseTab === "query" ||
+      activeDatabaseTab === "script");
   const isTableActive = activeNode?.kind === "table";
   const state = {
     openTabCount: openTabIds.length,

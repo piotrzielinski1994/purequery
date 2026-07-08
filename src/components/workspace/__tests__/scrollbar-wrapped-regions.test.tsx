@@ -47,16 +47,22 @@ function isBareOverflowOutsideScrollArea(el: Element | null): boolean {
   return bare != null && !isInsideScrollArea(bare);
 }
 
-describe("Script tab body routes through ScrollArea (AC-003)", () => {
-  // TC-006 - behavior: the script body sits inside a ScrollArea, not a bare overflow-auto div.
-  it("should render the script body inside a data-slot scroll-area when the Script tab is active", async () => {
+describe("Script tab body avoids a bare overflow scroller (AC-003)", () => {
+  // The Script tab body is a CodeMirror JS editor which owns its own themed scroller (same as the
+  // JSON view), so it must NOT sit in a bare overflow-auto div outside a ScrollArea - that would
+  // double the scrollbars / break the consistent-scrollbar rule.
+  it("should not wrap the script editor in a bare overflow-auto scroller", async () => {
     const user = renderDatabaseCard("db-app");
 
     await user.click(screen.getByRole("tab", { name: "Script" }));
 
-    const scriptText = await screen.findByText(/VACUUM ANALYZE users/);
-    expect(isInsideScrollArea(scriptText)).toBe(true);
-    expect(isBareOverflowOutsideScrollArea(scriptText)).toBe(false);
+    // Scope to the JS editor specifically - the SQL pane stays mounted (hidden) with its own
+    // .cm-editor, so target the Script tab's editor by its aria-label.
+    const jsEditor = screen
+      .getByRole("textbox", { name: /javascript editor/i })
+      .closest(".cm-editor");
+    expect(jsEditor).not.toBeNull();
+    expect(isBareOverflowOutsideScrollArea(jsEditor)).toBe(false);
   });
 });
 

@@ -20,9 +20,10 @@ const SQL_SECTIONS: { id: DatabaseTab; label: string }[] = [
   { id: "settings", label: "Settings" },
 ];
 
-// MongoDB has no SQL/views/saved-scripts: its card is the JSON Query tab + Settings only.
+// MongoDB has no SQL/views: its card is the JSON Query tab + a JS Script tab + Settings.
 const MONGO_SECTIONS: { id: DatabaseTab; label: string }[] = [
   { id: "query", label: "Query" },
+  { id: "script", label: "Script" },
   { id: "settings", label: "Settings" },
 ];
 
@@ -77,9 +78,9 @@ export function DatabaseCard() {
         </ScrollArea>
       ) : null}
       {activeId === "script" ? (
-        <ScrollArea className="min-h-0 flex-1">
+        <div className="min-h-0 flex-1">
           <ScriptTab />
-        </ScrollArea>
+        </div>
       ) : null}
       {activeId === "settings" ? (
         <ScrollArea className="min-h-0 flex-1">

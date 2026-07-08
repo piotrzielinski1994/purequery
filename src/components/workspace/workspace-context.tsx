@@ -18,6 +18,7 @@ import type {
   ConnectionStatus,
   DatabaseNode,
   FolderNode,
+  SavedJsScript,
   SavedScript,
   TableNode,
   TableRef,
@@ -162,6 +163,20 @@ type WorkspaceContextValue = {
   sqlBuffers: Map<string, string>;
   setSqlBuffer: (key: string, sql: string) => void;
   clearSqlBuffer: (key: string) => void;
+  // JS saved-script document tabs (F7), mirroring the SQL saveScript/... family but keyed on `code`.
+  saveJsScript: (databaseId: string, name: string, code: string) => boolean;
+  updateJsScript: (databaseId: string, name: string, code: string) => void;
+  renameJsScript: (databaseId: string, oldName: string, newName: string) => boolean;
+  deleteJsScript: (databaseId: string, name: string) => void;
+  activeJsScriptByDb: Map<string, string>;
+  setActiveJsScript: (databaseId: string, name: string) => void;
+  jsBuffers: Map<string, string>;
+  setJsBuffer: (key: string, code: string) => void;
+  clearJsBuffer: (key: string) => void;
+  // Append a line to the bottom Console log / clear it (F7 script output). The log appends across
+  // runs and is only wiped by the Console Clear button.
+  appendConsoleLine: (line: string) => void;
+  clearConsole: () => void;
   accentColorFor: (id: string) => string | null;
   removeNode: (id: string) => void;
   removeNodes: (ids: string[]) => void;
@@ -316,7 +331,7 @@ function applyDatabaseConfig(
         views,
         sql,
         savedScripts,
-        script,
+        savedJsScripts,
         result,
       } = node;
       return {
@@ -328,7 +343,7 @@ function applyDatabaseConfig(
         views,
         sql,
         savedScripts,
-        script,
+        savedJsScripts,
         result,
         ...config,
       };
@@ -353,7 +368,7 @@ function newDatabaseNode(id: string): DatabaseNode {
     views: [],
     sql: "",
     savedScripts: [],
-    script: "",
+    savedJsScripts: [],
     result: {
       status: "success",
       timeMs: 0,
@@ -537,6 +552,104 @@ function removeSavedScript(
   });
 }
 
+function addSavedJsScript(
+  nodes: TreeNode[],
+  databaseId: string,
+  script: SavedJsScript,
+): TreeNode[] {
+  return nodes.map((node) => {
+    if (node.kind === "folder") {
+      return {
+        ...node,
+        children: addSavedJsScript(node.children, databaseId, script),
+      };
+    }
+    if (node.kind === "database" && node.id === databaseId) {
+      return { ...node, savedJsScripts: [...node.savedJsScripts, script] };
+    }
+    return node;
+  });
+}
+
+function updateSavedJsScript(
+  nodes: TreeNode[],
+  databaseId: string,
+  name: string,
+  code: string,
+): TreeNode[] {
+  return nodes.map((node) => {
+    if (node.kind === "folder") {
+      return {
+        ...node,
+        children: updateSavedJsScript(node.children, databaseId, name, code),
+      };
+    }
+    if (node.kind === "database" && node.id === databaseId) {
+      return {
+        ...node,
+        savedJsScripts: node.savedJsScripts.map((script) =>
+          script.name === name ? { ...script, code } : script,
+        ),
+      };
+    }
+    return node;
+  });
+}
+
+function renameSavedJsScript(
+  nodes: TreeNode[],
+  databaseId: string,
+  oldName: string,
+  newName: string,
+): TreeNode[] {
+  return nodes.map((node) => {
+    if (node.kind === "folder") {
+      return {
+        ...node,
+        children: renameSavedJsScript(
+          node.children,
+          databaseId,
+          oldName,
+          newName,
+        ),
+      };
+    }
+    if (node.kind === "database" && node.id === databaseId) {
+      return {
+        ...node,
+        savedJsScripts: node.savedJsScripts.map((script) =>
+          script.name === oldName ? { ...script, name: newName } : script,
+        ),
+      };
+    }
+    return node;
+  });
+}
+
+function removeSavedJsScript(
+  nodes: TreeNode[],
+  databaseId: string,
+  name: string,
+): TreeNode[] {
+  return nodes.map((node) => {
+    if (node.kind === "folder") {
+      return {
+        ...node,
+        children: removeSavedJsScript(node.children, databaseId, name),
+      };
+    }
+    if (node.kind === "database" && node.id === databaseId) {
+      return {
+        ...node,
+        savedJsScripts: node.savedJsScripts.filter(
+          (script) => script.name !== name,
+        ),
+      };
+    }
+    return node;
+  });
+}
+
 function toggleInSet(set: Set<string>, id: string): Set<string> {
   const next = new Set(set);
   if (next.has(id)) {
@@ -625,6 +738,16 @@ export function WorkspaceProvider({
   const [activeScriptByDb, setActiveScriptByDb] = useState<Map<string, string>>(
     () => new Map(),
   );
+  const [jsBuffers, setJsBuffers] = useState<Map<string, string>>(
+    () => new Map(),
+  );
+  const [activeJsScriptByDb, setActiveJsScriptByDb] = useState<
+    Map<string, string>
+  >(() => new Map());
+  // The bottom Console log is state (seeded from the prop) so script output appends live; only the
+  // Console Clear button wipes it (F7). Prod feeds no prop; tests may seed prior lines.
+  const [consoleLinesState, setConsoleLinesState] =
+    useState<string[]>(consoleLines);
   const [splitOrientation, setSplitOrientation] = useState<SplitOrientation>(
     initialSplitOrientation,
   );
@@ -693,6 +816,35 @@ export function WorkspaceProvider({
       setActiveScriptByDb((current) => new Map(current).set(databaseId, name)),
     [],
   );
+  const setJsBuffer = useCallback(
+    (key: string, code: string) =>
+      setJsBuffers((current) => new Map(current).set(key, code)),
+    [],
+  );
+  const clearJsBuffer = useCallback(
+    (key: string) =>
+      setJsBuffers((current) => {
+        if (!current.has(key)) {
+          return current;
+        }
+        const next = new Map(current);
+        next.delete(key);
+        return next;
+      }),
+    [],
+  );
+  const setActiveJsScript = useCallback(
+    (databaseId: string, name: string) =>
+      setActiveJsScriptByDb((current) =>
+        new Map(current).set(databaseId, name),
+      ),
+    [],
+  );
+  const appendConsoleLine = useCallback(
+    (line: string) => setConsoleLinesState((current) => [...current, line]),
+    [],
+  );
+  const clearConsole = useCallback(() => setConsoleLinesState([]), []);
   // saveLayout persists a panel-group layout WITHOUT setState (layouts are read only as the
   // defaultLayout seed). It writes the ref and re-persists the full chrome payload, which it reads
   // from persistPayloadRef (kept current by the render below) so this stays a stable useCallback
@@ -791,7 +943,7 @@ export function WorkspaceProvider({
 
     return {
       tree,
-      consoleLines,
+      consoleLines: consoleLinesState,
       expandedIds,
       openTabIds,
       activeTabId,
@@ -912,6 +1064,50 @@ export function WorkspaceProvider({
       sqlBuffers,
       setSqlBuffer,
       clearSqlBuffer,
+      saveJsScript: (databaseId, name, code) => {
+        const trimmed = name.trim();
+        const node = nodesById.get(databaseId);
+        if (!node || node.kind !== "database") {
+          return false;
+        }
+        if (node.savedJsScripts.some((script) => script.name === trimmed)) {
+          return false;
+        }
+        setTree((current) =>
+          addSavedJsScript(current, databaseId, { name: trimmed, code }),
+        );
+        return true;
+      },
+      updateJsScript: (databaseId, name, code) =>
+        setTree((current) =>
+          updateSavedJsScript(current, databaseId, name, code),
+        ),
+      renameJsScript: (databaseId, oldName, newName) => {
+        const trimmed = newName.trim();
+        const node = nodesById.get(databaseId);
+        if (!node || node.kind !== "database") {
+          return false;
+        }
+        if (
+          trimmed !== oldName &&
+          node.savedJsScripts.some((script) => script.name === trimmed)
+        ) {
+          return false;
+        }
+        setTree((current) =>
+          renameSavedJsScript(current, databaseId, oldName, trimmed),
+        );
+        return true;
+      },
+      deleteJsScript: (databaseId, name) =>
+        setTree((current) => removeSavedJsScript(current, databaseId, name)),
+      activeJsScriptByDb,
+      setActiveJsScript,
+      jsBuffers,
+      setJsBuffer,
+      clearJsBuffer,
+      appendConsoleLine,
+      clearConsole,
       accentColorFor: (id) => {
         const node = nodesById.get(id);
         if (!node) {
@@ -994,7 +1190,7 @@ export function WorkspaceProvider({
     layoutsSeed,
     saveLayout,
     tree,
-    consoleLines,
+    consoleLinesState,
     expandedIds,
     selectedIds,
     selectAnchorId,
@@ -1015,6 +1211,13 @@ export function WorkspaceProvider({
     sqlBuffers,
     setSqlBuffer,
     clearSqlBuffer,
+    activeJsScriptByDb,
+    setActiveJsScript,
+    jsBuffers,
+    setJsBuffer,
+    clearJsBuffer,
+    appendConsoleLine,
+    clearConsole,
     upsertPendingEdit,
     discardPendingEdit,
     discardPendingEditsForTable,

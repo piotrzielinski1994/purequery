@@ -105,13 +105,17 @@ describe("DatabaseCard", () => {
     expect(screen.getByText("daily_signups")).toBeInTheDocument();
   });
 
-  // AC-008, AC-013, TC-006 — behavior (switching to Script)
+  // AC-001 — behavior (switching to Script renders the JS editor + saved-script doc tabs)
   it("should render the Script panel when the Script sub-tab is clicked", async () => {
     const user = userEvent.setup();
     renderCard("db-app");
 
     await user.click(screen.getByRole("tab", { name: "Script" }));
-    expect(screen.getByText(/VACUUM ANALYZE users/)).toBeInTheDocument();
+    // The Script tab mounts a JS editor (the SQL pane also stays mounted hidden with its own
+    // "Saved scripts" tablist, so target the JS editor by its aria-label).
+    expect(
+      screen.getByRole("textbox", { name: /javascript editor/i }),
+    ).toBeInTheDocument();
   });
 
   // AC-008, AC-014, TC-006 — behavior (switching to Settings)
@@ -159,7 +163,7 @@ function mongoNode(): DatabaseNode {
     views: [],
     sql: "",
     savedScripts: [],
-    script: "",
+    savedJsScripts: [],
     result: {
       status: "success",
       timeMs: 0,
@@ -196,13 +200,13 @@ function renderMongoCard() {
 }
 
 describe("DatabaseCard MongoDB engine (TC-012)", () => {
-  // TC-012, AC-010 - behavior (a mongodb database card shows only Query + Settings)
-  it("should expose only Query and Settings tabs for a mongodb database", () => {
+  // TC-012, AC-001 - behavior (a mongodb card shows Query + Script + Settings; no SQL/Views)
+  it("should expose Query, Script and Settings tabs for a mongodb database", () => {
     renderMongoCard();
     expect(screen.getByRole("tab", { name: "Query" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Script" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Settings" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Views" })).toBeNull();
-    expect(screen.queryByRole("tab", { name: "Script" })).toBeNull();
     expect(screen.queryByRole("tab", { name: "SQL" })).toBeNull();
   });
 

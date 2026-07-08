@@ -69,7 +69,7 @@ const connectedTree: TreeNode[] = [
     views: [],
     sql: "",
     savedScripts: [],
-    script: "",
+    savedJsScripts: [],
     result: {
       status: "success",
       timeMs: 0,
@@ -1099,7 +1099,7 @@ describe("TableCard schema-qualified addressing", () => {
       views: [],
       sql: "",
       savedScripts: [],
-      script: "",
+      savedJsScripts: [],
       result: {
         status: "success",
         timeMs: 0,

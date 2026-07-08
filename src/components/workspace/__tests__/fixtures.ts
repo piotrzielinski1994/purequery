@@ -146,7 +146,7 @@ export const appDb: DatabaseNode = {
     { name: "active_users_script", sql: "SELECT 1" },
     { name: "revenue", sql: "SELECT 2" },
   ],
-  script: "-- nightly\nVACUUM ANALYZE users;",
+  savedJsScripts: [{ name: "nightly", code: "return await db.tables();" }],
   result: appUsersResult,
   // uncolored database (accent-border feature): plain border everywhere.
   accentColor: null,
@@ -167,7 +167,7 @@ export const adminDb: DatabaseNode = {
   views: [{ name: "recent_admins" }],
   sql: "SELECT id, role FROM accounts",
   savedScripts: [{ name: "recent", sql: "SELECT 3" }],
-  script: "",
+  savedJsScripts: [],
   result: adminResult,
   // colored database (accent-border feature): the red "prod" preset (50% alpha) its tables inherit.
   accentColor: "#dc262680",
@@ -188,7 +188,7 @@ export const scratchDb: DatabaseNode = {
   views: [],
   sql: "SELECT 1 WHERE false",
   savedScripts: [],
-  script: "",
+  savedJsScripts: [],
   result: emptyResult,
   // uncolored database (accent-border feature): plain border everywhere.
   accentColor: null,

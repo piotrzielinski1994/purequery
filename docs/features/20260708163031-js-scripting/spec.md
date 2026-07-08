@@ -2,7 +2,7 @@
 
 **Version:** 0.1.0
 **Created:** 2026-07-08
-**Status:** Draft (spec)
+**Status:** Implemented (branch `20260708163031-js-scripting`; tsc/eslint/vitest 951 green, verifier PASS; live PG/Mongo smoke pending user)
 **Source:** `.pzielinski/todos.md` F7.
 
 ## 1. Overview

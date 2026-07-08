@@ -42,7 +42,10 @@ export function WorkspaceLayout() {
   const shortcuts =
     useSettingsOptional()?.settings.shortcuts ?? DEFAULT_SETTINGS.shortcuts;
   const isSplitView =
-    activeNode?.kind === "database" && activeDatabaseTab === "sql";
+    activeNode?.kind === "database" &&
+    (activeDatabaseTab === "sql" ||
+      activeDatabaseTab === "query" ||
+      activeDatabaseTab === "script");
   // The accent recolours the existing 1px borders by overriding the --border token (every divider/
   // input/grid border resolves from it). The hex is used verbatim, so the user controls how loud
   // the borders are via the hex's own alpha pair (#rrggbbaa). Only --border is overridden; --input

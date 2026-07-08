@@ -93,8 +93,16 @@ The dev server runs on port 1431 (set in both `vite.config.ts` and `src-tauri/ta
 > an `untitled`. Saved scripts persist per database in `workspace.json` and a duplicate name is
 > rejected. The editor|results split flips between side-by-side and stacked via `Cmd/Ctrl+\` (or the
 > "Toggle split layout" palette command).
-> The **Views** tab lists the connected database's real views (queried on connect); the Script tab
-> remains mock. An open table also has a read-only **Structure** view (`Mod/Ctrl+Shift+I` or the
+> The **Views** tab lists the connected database's real views (queried on connect). The **Script**
+> tab is a **read-only JavaScript scratchpad**: write JS in the editor, press **Run** (or
+> `Cmd/Ctrl+Enter`), and it executes in an isolated Web Worker with an injected async `db` API
+> (`db.query(sql)` for SQL; `db.find`/`db.aggregate` for MongoDB; plus `db.tables`/`db.schema`) that
+> reads from the connected database. `console.log`/`print` stream to the bottom **Console** panel; a
+> `return { header, rows }` renders in the shared data grid. Scripts are saved per database as their
+> own document tabs (same `+` / `Cmd/Ctrl+S` / untitled UX as the SQL tab). Scripts cannot write - a
+> write-shaped `db.query` is blocked with a sticky warning toast; **Run** flips to **Cancel** (which
+> terminates the worker) and a run over ~5s raises a sticky warning. An open table also has a
+> read-only **Structure** view (`Mod/Ctrl+Shift+I` or the
 > "View table structure" palette command) showing its columns, indexes, foreign keys, and
 > constraints (MongoDB: collection indexes only). The sidebar tree + its connection configs persist in
 > `workspace.json`; UI/layout state (panel toggles, split orientation, expanded nodes, open

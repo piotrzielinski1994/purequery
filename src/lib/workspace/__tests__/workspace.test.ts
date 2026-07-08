@@ -323,7 +323,7 @@ describe("hydrate", () => {
     expect(db.views).toEqual([]);
     expect(db.sql).toBe("");
     expect(db.savedScripts).toEqual([]);
-    expect(db.script).toBe("");
+    expect(db.savedJsScripts).toEqual([]);
   });
 
   // AC-003 - behavior

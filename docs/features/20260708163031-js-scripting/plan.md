@@ -127,23 +127,31 @@ Decision Log.
 8. **Gates:** `npm run lint && npm run typecheck && npm test` (no Rust change). Live smoke: run a real
    `db.query` script against the docker PG/Mongo stack in `tauri dev`.
 
-## AC -> test mapping (to fill after verifier)
+## AC -> test mapping (verified, verifier PASS)
 
 | AC | Test |
 |----|------|
-| AC-001 | `script-tab.test.tsx`: renders editor + saved tabs (SQL + Mongo cards) |
-| AC-002 | `runner`/`script-tab` fake-runner run; worker isolation asserted structurally (port used) |
-| AC-003 | `script-tab.test.tsx`: RPC round-trip via fake runner reaches `executeSql`/`executeMongo` |
-| AC-004 | dispatch/`script-tab`: `query`/`tables`/`schema` (SQL) + `find`/`aggregate`/`collections` (Mongo) |
-| AC-005 | `script-tab.test.tsx`: `console.log` line appears live in Console; error line distinct |
-| AC-006 | `dispatch.test.ts` `isWriteSql` cases + `script-tab.test.tsx` write-SQL -> toast + no execute |
-| AC-007 | `result.test.ts` `parseGridReturn` + `script-tab.test.tsx` grid only on `{header,rows}` |
-| AC-008 | `script-tab.test.tsx`: Run/Cancel flip, selection-or-all, disabled when disconnected |
-| AC-009 | `script-tab.test.tsx`: Ready/Running/Done/Cancelled/error statuses |
-| AC-010 | `workspace.test.ts`: `savedJsScripts` round-trip; `script-tab.test.tsx`: doc-tab CRUD |
-| AC-011 | `script-tab.test.tsx`: sticky toast on the >Ns timer (fake timers), cleared on done |
-| AC-012 | `dispatch.test.ts` / `result.test.ts` / protocol test (pure, no Tauri) |
-| AC-013 | lint / typecheck / vitest all green |
+| AC-001 | `database-card.test.tsx` "should render the Script panel when the Script sub-tab is clicked" + "should expose Query, Script and Settings tabs for a mongodb database"; `script-doc-tabs.test.tsx` "should expose a Script tab on a mongodb database card" |
+| AC-002 | `runner.test.ts` (noop port shape); `script-run.test.tsx` "should invoke the injected runner's run..." (fake `ScriptRunner` port - jsdom can't run a real Worker) |
+| AC-003 | `script-run.test.tsx` "should route a read db.query to executeSql and reply with row objects" (RPC -> tauri wrapper -> array-of-objects reply) |
+| AC-004 | `script-run.test.tsx` "should route a read db.query to executeSql..." (SQL) + "should build a db.<coll>.find(filter) command for executeMongo on db.find" (Mongo, filter carried) |
+| AC-005 | `script-run.test.tsx` "should show a console.log line..." + "should keep prior console lines and append (not clear on Run)"; error color + log-tab focus in `console.tsx` |
+| AC-006 | `dispatch.test.ts` (all 11 keywords, case, comment-stripping, trailing-comment false-positive, `updated_at`/`WITH..SELECT` reads) + `script-run.test.tsx` "should reject a write-shaped db.query, log a read-only error, and not execute it" |
+| AC-007 | `result.test.ts` (valid/empty/coercion/ragged/wrong-type) + `script-run.test.tsx` grid on `{header,rows}` / no grid on other / "should log a validation error... for an ill-shaped header/rows return" |
+| AC-008 | `script-run.test.tsx` Run drives runner / Ctrl+Enter / Cancel->terminate+Cancelled / disabled+hint disconnected / enabled connected |
+| AC-009 | `script-run.test.tsx` error (red, not stuck Running) / Done (no grid) / Cancelled statuses |
+| AC-010 | `saved-js-scripts.test.ts` (9 cases: round-trip, drop-malformed, separate arrays); `script-doc-tabs.test.tsx` (auto-untitled, +, untitled-2, delete, Cmd/Ctrl+S dialog) |
+| AC-011 | `script-run.test.tsx` "should raise a sticky warning toast when a run exceeds the warn threshold" (fake timers, `duration: Infinity`) |
+| AC-012 | `dispatch.test.ts` / `result.test.ts` / `runner.test.ts` (pure, no Tauri) |
+| AC-013 | tsc 0 errors, eslint 0 errors (19 pre-existing warnings), vitest 951 pass / 0 fail |
+
+## Deviations from plan (during impl)
+
+- The dead `script-tab.test.tsx` (pinned the old mock `<pre>`) was deleted; `database-card` + `scrollbar-wrapped-regions` tests were updated to the new behavior (JS editor, no bare-overflow wrapper), not weakened.
+- `handleRpc` also serves `tables`/`schema`/`collections` via `fetchSchema` (completes the AC-004 API surface end-to-end, not just the worker stub).
+- Console log-tab rising-edge focus + `[error]`-line red coloring added to satisfy AC-005 "focus the Console tab" + "visually distinct" (caught by the verifier).
+- `db.find`/`db.aggregate` build the full `db.<coll>.<op>(<json>)` command string the backend `parse_command` expects (initial cut dropped the filter - caught + fixed via the verifier, now covered by a test).
+- The JS editor is a new small `JsEditor` (not wrapped in a bare overflow scroller - owns its CodeMirror scroller, mirroring the JSON view), so the "consistent scrollbars" rule holds.
 
 ## Decision Log
 

@@ -127,6 +127,8 @@ export type ConnectCatalog = {
 
 export type SavedScript = { name: string; sql: string };
 
+export type SavedJsScript = { name: string; code: string };
+
 export type TableNode = {
   kind: "table";
   id: string;
@@ -149,7 +151,7 @@ type DatabaseNodeBase = {
   views: ViewObject[];
   sql: string;
   savedScripts: SavedScript[];
-  script: string;
+  savedJsScripts: SavedJsScript[];
   result: QueryResult;
 };
 

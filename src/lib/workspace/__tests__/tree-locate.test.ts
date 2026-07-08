@@ -34,7 +34,7 @@ const database = (id: string, name = id): DatabaseNode => ({
   views: [],
   sql: "",
   savedScripts: [],
-  script: "",
+  savedJsScripts: [],
   result: {
     status: "success",
     timeMs: 0,

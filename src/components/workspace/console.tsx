@@ -7,12 +7,12 @@ import { useWorkspace } from "@/components/workspace/workspace-context";
 
 type ConsoleTab = "log" | "changes" | "history";
 
-// Whether the active tab has clearable content (History entries / pending edits). The Console log
-// is prop-fed (no in-memory store yet), so it has nothing to clear.
+// Whether the active tab has clearable content (History entries / pending edits / Console log lines).
 function clearTarget(
   tab: ConsoleTab,
   historyCount: number,
   pendingCount: number,
+  logCount: number,
 ): boolean {
   if (tab === "history") {
     return historyCount > 0;
@@ -20,7 +20,26 @@ function clearTarget(
   if (tab === "changes") {
     return pendingCount > 0;
   }
-  return false;
+  return logCount > 0;
+}
+
+// The Clear action for the active tab: History clears history, Changes discards all pending edits,
+// Console (log) clears the script-output lines.
+function clearForTab(
+  tab: ConsoleTab,
+  actions: {
+    clearHistory: () => void;
+    discardAllPendingEdits: () => void;
+    clearConsole: () => void;
+  },
+): () => void {
+  if (tab === "history") {
+    return actions.clearHistory;
+  }
+  if (tab === "changes") {
+    return actions.discardAllPendingEdits;
+  }
+  return actions.clearConsole;
 }
 
 export function Console() {
@@ -31,6 +50,7 @@ export function Console() {
     discardAllPendingEdits,
     history,
     clearHistory,
+    clearConsole,
   } = useWorkspace();
   const pendingCount = pendingEdits.length;
   const [tab, setTab] = useState<ConsoleTab>("log");
@@ -50,6 +70,15 @@ export function Console() {
     }
     setPrevHistory(history.length);
   }
+  // Focus the Console (log) tab when a script run emits its first line, so output is visible even if
+  // the user was on History/Changes (mirrors the history/changes rising-edge focus).
+  const [prevLog, setPrevLog] = useState(consoleLines.length);
+  if (prevLog !== consoleLines.length) {
+    if (consoleLines.length > prevLog) {
+      setTab("log");
+    }
+    setPrevLog(consoleLines.length);
+  }
 
   return (
     <section
@@ -60,10 +89,14 @@ export function Console() {
         ariaLabel="Console panels"
         className="h-7"
         trailing={
-          clearTarget(tab, history.length, pendingCount) ? (
+          clearTarget(tab, history.length, pendingCount, consoleLines.length) ? (
             <button
               type="button"
-              onClick={tab === "history" ? clearHistory : discardAllPendingEdits}
+              onClick={clearForTab(tab, {
+                clearHistory,
+                discardAllPendingEdits,
+                clearConsole,
+              })}
               className="ml-auto px-3 py-1.5 tracking-wide text-muted-foreground uppercase hover:text-foreground"
             >
               Clear
@@ -97,7 +130,15 @@ export function Console() {
         <ScrollArea key="log" className="min-h-0 flex-1">
           <ul className="p-2">
             {consoleLines.map((line, index) => (
-              <li key={index} className="py-0.5 text-muted-foreground">
+              <li
+                key={index}
+                className={cn(
+                  "py-0.5",
+                  line.startsWith("[error]")
+                    ? "text-red-600 dark:text-red-400"
+                    : "text-muted-foreground",
+                )}
+              >
                 {line}
               </li>
             ))}

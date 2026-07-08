@@ -85,7 +85,7 @@ function databaseNode(overrides: Partial<DatabaseNode>): DatabaseNode {
     views: [],
     sql: "SELECT 1",
     savedScripts: [],
-    script: "",
+    savedJsScripts: [],
     result: {
       status: "success",
       timeMs: 0,

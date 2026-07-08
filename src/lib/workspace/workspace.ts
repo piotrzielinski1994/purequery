@@ -2,6 +2,7 @@ import type {
   DbEngine,
   NetworkEngine,
   QueryResult,
+  SavedJsScript,
   SavedScript,
   TreeNode,
 } from "@/lib/workspace/model";
@@ -18,6 +19,7 @@ export type PersistedNetworkDatabase = {
   password: string;
   accentColor?: string;
   savedScripts?: SavedScript[];
+  savedJsScripts?: SavedJsScript[];
 };
 
 export type PersistedSqliteDatabase = {
@@ -28,6 +30,7 @@ export type PersistedSqliteDatabase = {
   file: string;
   accentColor?: string;
   savedScripts?: SavedScript[];
+  savedJsScripts?: SavedJsScript[];
 };
 
 export type PersistedMongoDatabase = {
@@ -43,6 +46,7 @@ export type PersistedMongoDatabase = {
   uri?: string;
   accentColor?: string;
   savedScripts?: SavedScript[];
+  savedJsScripts?: SavedJsScript[];
 };
 
 export type PersistedDatabase =
@@ -119,6 +123,23 @@ function mergeSavedScripts(
   return scripts.length > 0 ? { savedScripts: scripts } : undefined;
 }
 
+// Same as mergeSavedScripts for the JS document tabs (F7): keeps only `{ name, code }` records,
+// drops anything else, and omits the field when the cleaned list is empty.
+function mergeSavedJsScripts(
+  value: unknown,
+): { savedJsScripts: SavedJsScript[] } | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const scripts = value.filter(
+    (entry): entry is SavedJsScript =>
+      isRecord(entry) &&
+      typeof entry.name === "string" &&
+      typeof entry.code === "string",
+  );
+  return scripts.length > 0 ? { savedJsScripts: scripts } : undefined;
+}
+
 function mergeDatabase(value: Record<string, unknown>): PersistedDatabase | null {
   const { id, name, engine } = value;
   if (typeof id !== "string" || typeof name !== "string") {
@@ -126,6 +147,7 @@ function mergeDatabase(value: Record<string, unknown>): PersistedDatabase | null
   }
   const accent = mergeAccentColor(value.accentColor);
   const scripts = mergeSavedScripts(value.savedScripts);
+  const jsScripts = mergeSavedJsScripts(value.savedJsScripts);
   if (engine === "sqlite") {
     return typeof value.file === "string"
       ? {
@@ -136,6 +158,7 @@ function mergeDatabase(value: Record<string, unknown>): PersistedDatabase | null
           file: value.file,
           ...accent,
           ...scripts,
+          ...jsScripts,
         }
       : null;
   }
@@ -164,6 +187,7 @@ function mergeDatabase(value: Record<string, unknown>): PersistedDatabase | null
       ...uri,
       ...accent,
       ...scripts,
+      ...jsScripts,
     };
   }
   if (
@@ -189,6 +213,7 @@ function mergeDatabase(value: Record<string, unknown>): PersistedDatabase | null
     password,
     ...accent,
     ...scripts,
+    ...jsScripts,
   };
 }
 
@@ -253,7 +278,7 @@ function hydrateNode(node: PersistedNode): TreeNode {
     views: [],
     sql: "",
     savedScripts: node.savedScripts ?? [],
-    script: "",
+    savedJsScripts: node.savedJsScripts ?? [],
     result: { ...EMPTY_RESULT },
   };
   if (node.engine === "sqlite") {
@@ -306,6 +331,10 @@ function dehydrateNode(node: TreeNode): PersistedNode[] {
     node.savedScripts.length > 0
       ? { savedScripts: node.savedScripts }
       : undefined;
+  const jsScripts =
+    node.savedJsScripts.length > 0
+      ? { savedJsScripts: node.savedJsScripts }
+      : undefined;
   if (node.engine === "sqlite") {
     return [
       {
@@ -316,6 +345,7 @@ function dehydrateNode(node: TreeNode): PersistedNode[] {
         file: node.file,
         ...accent,
         ...scripts,
+        ...jsScripts,
       },
     ];
   }
@@ -334,6 +364,7 @@ function dehydrateNode(node: TreeNode): PersistedNode[] {
         ...(node.uri !== undefined ? { uri: node.uri } : {}),
         ...accent,
         ...scripts,
+        ...jsScripts,
       },
     ];
   }
@@ -350,6 +381,7 @@ function dehydrateNode(node: TreeNode): PersistedNode[] {
       password: node.password,
       ...accent,
       ...scripts,
+      ...jsScripts,
     },
   ];
 }

@@ -76,7 +76,7 @@ const connectedTree: TreeNode[] = [
     views: [],
     sql: "",
     savedScripts: [],
-    script: "",
+    savedJsScripts: [],
     result: {
       status: "success",
       timeMs: 0,

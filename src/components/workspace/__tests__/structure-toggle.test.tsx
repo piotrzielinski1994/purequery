@@ -70,7 +70,7 @@ const tree: TreeNode[] = [
     views: [],
     sql: "",
     savedScripts: [],
-    script: "",
+    savedJsScripts: [],
     result: {
       status: "success",
       timeMs: 0,

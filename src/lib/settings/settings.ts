@@ -7,7 +7,7 @@ import { safeNormalize } from "@/lib/shortcuts/resolve";
 
 export type PanelLayout = Record<string, number>;
 
-export type PanelGroupKey = "workspace" | "main" | "sql";
+export type PanelGroupKey = "workspace" | "main" | "sql" | "script";
 
 export type ThemeMode = "light" | "dark" | "system";
 
@@ -163,7 +163,7 @@ const EDITOR_TOKEN_NAMES = new Set<string>([
   "invalid",
 ]);
 
-const GROUP_KEYS: PanelGroupKey[] = ["workspace", "main", "sql"];
+const GROUP_KEYS: PanelGroupKey[] = ["workspace", "main", "sql", "script"];
 
 const SPLIT_ORIENTATIONS = new Set<SplitOrientation>([
   "horizontal",
