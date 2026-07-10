@@ -2,6 +2,7 @@ import { formatForDisplay } from "@tanstack/react-hotkeys";
 import {
   useChrome,
   useJsonView,
+  useMockData,
   useStructureView,
   useWorkspace,
 } from "@/components/workspace/workspace-context";
@@ -51,6 +52,7 @@ export function CommandPalette({
   const { toggleSidebar, toggleConsole } = useChrome();
   const { toggleJsonView } = useJsonView();
   const { toggleStructureView } = useStructureView();
+  const { openMockData } = useMockData();
   const toggleTheme = useThemeToggle();
 
   const cycleTab = (step: number) => {
@@ -86,6 +88,7 @@ export function CommandPalette({
     "next-tab": () => cycleTab(1),
     "prev-tab": () => cycleTab(-1),
     "new-tab": newTab,
+    "generate-mock-data": openMockData,
     "toggle-split-orientation": toggleSplitOrientation,
     "toggle-sidebar": toggleSidebar,
     "toggle-console": toggleConsole,

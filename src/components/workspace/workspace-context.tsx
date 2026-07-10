@@ -256,6 +256,17 @@ const StructureViewContext = createContext<StructureViewContextValue | null>(
   null,
 );
 
+// The mock-data dialog's open flag (F17), isolated exactly like the JSON / Structure view toggles:
+// only LiveTable reads it and only the palette command flips it on, so keeping it out of the
+// workspace value means opening the dialog never churns the heavy TableCard subtree.
+type MockDataContextValue = {
+  isMockDataOpen: boolean;
+  openMockData: () => void;
+  closeMockData: () => void;
+};
+
+const MockDataContext = createContext<MockDataContextValue | null>(null);
+
 function indexNodes(nodes: TreeNode[]): Map<string, OpenNode> {
   const flatten = (node: TreeNode): OpenNode[] => {
     if (node.kind === "folder") {
@@ -718,6 +729,7 @@ type WorkspaceProviderProps = {
   initialSidebarHidden?: boolean;
   initialConsoleHidden?: boolean;
   initialJsonView?: boolean;
+  initialMockDataOpen?: boolean;
   initialSplitOrientation?: SplitOrientation;
   initialLayouts?: Settings["layouts"];
   // The workspace persists only the UI-chrome slice of Settings; the theme is owned by the
@@ -738,6 +750,7 @@ export function WorkspaceProvider({
   initialSidebarHidden = false,
   initialConsoleHidden = false,
   initialJsonView = false,
+  initialMockDataOpen = false,
   initialSplitOrientation = "horizontal",
   initialLayouts = {},
   onPersist,
@@ -815,6 +828,7 @@ export function WorkspaceProvider({
   const [isConsoleVisible, setIsConsoleVisible] = useState(!initialConsoleHidden);
   const [isJsonView, setIsJsonView] = useState(initialJsonView);
   const [isStructureView, setIsStructureView] = useState(false);
+  const [isMockDataOpen, setIsMockDataOpen] = useState(initialMockDataOpen);
 
   // These actions are consumed by the heavy, memoized DataGrid (via table-card's commitEdit). They
   // use functional setters only, so they have no reactive deps - pinning their identity with
@@ -1357,6 +1371,15 @@ export function WorkspaceProvider({
     [isStructureView],
   );
 
+  const mockDataValue = useMemo<MockDataContextValue>(
+    () => ({
+      isMockDataOpen,
+      openMockData: () => setIsMockDataOpen(true),
+      closeMockData: () => setIsMockDataOpen(false),
+    }),
+    [isMockDataOpen],
+  );
+
   // The current chrome payload, minus layouts (which saveLayout owns via layoutsRef). Kept in a ref
   // so saveLayout can re-persist with the latest chrome without being a reactive dep.
   const chromePayload = useMemo(
@@ -1402,7 +1425,9 @@ export function WorkspaceProvider({
       <ChromeContext.Provider value={chromeValue}>
         <JsonViewContext.Provider value={jsonViewValue}>
           <StructureViewContext.Provider value={structureViewValue}>
-            {children}
+            <MockDataContext.Provider value={mockDataValue}>
+              {children}
+            </MockDataContext.Provider>
           </StructureViewContext.Provider>
         </JsonViewContext.Provider>
       </ChromeContext.Provider>
@@ -1444,6 +1469,18 @@ export function useStructureView(): StructureViewContextValue {
     useContext(StructureViewContext) ?? {
       isStructureView: false,
       toggleStructureView: () => {},
+    }
+  );
+}
+
+// Optional (like useStructureView) so a component rendered outside the provider still works; the
+// mock-data dialog is only meaningful inside the workspace.
+export function useMockData(): MockDataContextValue {
+  return (
+    useContext(MockDataContext) ?? {
+      isMockDataOpen: false,
+      openMockData: () => {},
+      closeMockData: () => {},
     }
   );
 }

@@ -7,6 +7,7 @@ export type PaletteCommandId =
   | "next-tab"
   | "prev-tab"
   | "new-tab"
+  | "generate-mock-data"
   | "toggle-split-orientation"
   | "toggle-sidebar"
   | "toggle-console"
@@ -61,6 +62,12 @@ export const PALETTE_COMMANDS: readonly PaletteCommandDef[] = [
     when: () => true,
   },
   { id: "new-tab", name: "New tab", group: "Create", when: () => true },
+  {
+    id: "generate-mock-data",
+    name: "Generate mock data",
+    group: "Create",
+    when: (state) => state.isTableActive,
+  },
   {
     id: "next-tab",
     name: "Next tab",
