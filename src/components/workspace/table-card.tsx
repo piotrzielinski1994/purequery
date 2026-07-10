@@ -43,10 +43,15 @@ import {
 } from "@/lib/workspace/row-select";
 import {
   useJsonView,
+  useMockData,
   useStructureView,
   useWorkspace,
   type PendingMutation,
 } from "@/components/workspace/workspace-context";
+import {
+  MockDataDialog,
+  type MockColumnMeta,
+} from "@/components/workspace/mock-data-dialog";
 import {
   fkFilter,
   queryPreview,
@@ -438,6 +443,7 @@ function LiveTable({
     nodesById,
   } = useWorkspace();
   const { isStructureView, toggleStructureView } = useStructureView();
+  const { isMockDataOpen, closeMockData } = useMockData();
   // The structure toggle listener lives HERE, not in TableView, because turning the view on
   // unmounts TableView (StructureBranch replaces it) - a listener there would toggle one-way. Only
   // a live table has a Structure view, so LiveTable is the right always-mounted home for it.
@@ -798,6 +804,36 @@ function LiveTable({
     });
   }, [tableId, tableName, preview, upsertPendingEdit]);
 
+  // Mock data generator (F17): the columns the dialog offers (uniform SQL+Mongo metadata from the
+  // fetched rows) and the staging callback. Each generated row stages as a draft insert exactly like
+  // addRow/cloneRow, so it's reversible via the Changes tab and commits through the one Save gate.
+  const mockColumns = useMemo<MockColumnMeta[]>(
+    () =>
+      (columns ?? []).map((column) => ({
+        name: column.name,
+        dataType: column.dataType,
+        isPrimaryKey: column.isPrimaryKey,
+      })),
+    [columns],
+  );
+  const stageMockInserts = useCallback(
+    (generated: Record<string, string | null>[]) => {
+      generated.forEach((values) => {
+        const draftId = crypto.randomUUID();
+        upsertPendingEdit({
+          kind: "insert",
+          id: `${tableId}:insert:${draftId}`,
+          draftId,
+          tableId,
+          tableName,
+          values,
+          sql: preview.insert(tableName, values),
+        });
+      });
+    },
+    [tableId, tableName, preview, upsertPendingEdit],
+  );
+
   const cloneRow = useCallback(
     (rowIndex: number) => {
       const source = rows[rowIndex];
@@ -1149,6 +1185,20 @@ function LiveTable({
         }
         onClose={() => setEditingDoc(null)}
         onSave={saveDocEditor}
+      />
+      <MockDataDialog
+        open={isMockDataOpen}
+        columns={mockColumns}
+        canGenerate={editable}
+        disabledReason={
+          readOnly
+            ? "This database is read-only."
+            : primaryKey === null
+              ? "This table has no primary key."
+              : undefined
+        }
+        onStageInserts={stageMockInserts}
+        onClose={closeMockData}
       />
       <div className="flex h-9 shrink-0 items-stretch border-t bg-muted/30">
         <span className="flex items-center px-3 text-xs text-muted-foreground">
