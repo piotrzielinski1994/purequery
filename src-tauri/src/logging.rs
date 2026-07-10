@@ -40,13 +40,17 @@ pub fn init<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     let log_name = current_launch_log_name();
     // `targets` REPLACES the builder's seeded defaults ([Stdout, LogDir{None}]);
     // `target` would push, leaving a stray app-name `DbUI.log` + a duplicate
-    // Stdout. We want exactly Stdout + our single per-launch file.
+    // Stdout. We want exactly Stdout + our single per-launch file + the Webview
+    // target, which forwards every record to the frontend as a `log://log` event
+    // (F18 Session Logs tab, via attachLogger). Webview is ADDITIVE - the file
+    // still receives each line exactly once.
     let plugin = tauri_plugin_log::Builder::new()
         .targets([
             Target::new(TargetKind::Stdout),
             Target::new(TargetKind::LogDir {
                 file_name: Some(log_name.clone()),
             }),
+            Target::new(TargetKind::Webview),
         ])
         .level(log::LevelFilter::Info)
         .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)

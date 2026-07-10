@@ -36,6 +36,11 @@ import {
   rangeBetween,
 } from "@/lib/workspace/tree-select";
 import { insertNode } from "@/lib/workspace/tree-edit";
+import { parseLogLine, type LogLine } from "@/lib/workspace/log-line";
+import {
+  createNoopLogStream,
+  type LogStream,
+} from "@/lib/logging/log-stream";
 import {
   EMPTY_NAV,
   pushNavigation,
@@ -266,6 +271,18 @@ type MockDataContextValue = {
 };
 
 const MockDataContext = createContext<MockDataContextValue | null>(null);
+
+// The application file-log stream (F18). Lines are pushed from tauri-plugin-log's Webview target
+// and can arrive on every query/mutation, so - like the chrome/view toggles above - this lives in
+// its OWN context: an append must NOT rebuild the workspace value (which the heavy TableCard reads),
+// only this tiny value + the Console subtree.
+type LogLinesContextValue = {
+  logLines: LogLine[];
+  appendLogLine: (raw: string, level?: number) => void;
+  clearLogLines: () => void;
+};
+
+const LogLinesContext = createContext<LogLinesContextValue | null>(null);
 
 function indexNodes(nodes: TreeNode[]): Map<string, OpenNode> {
   const flatten = (node: TreeNode): OpenNode[] => {
@@ -721,6 +738,9 @@ type WorkspaceProviderProps = {
   children: ReactNode;
   tree?: TreeNode[];
   consoleLines?: string[];
+  // The application log stream (F18). Defaults to the noop so tests/browser mount without a webview;
+  // the real Tauri stream is injected by the route.
+  logStream?: LogStream;
   initialExpandedIds?: string[];
   initialActiveTabId?: string;
   initialOpenTabIds?: string[];
@@ -742,6 +762,7 @@ export function WorkspaceProvider({
   children,
   tree: initialTree = [],
   consoleLines = [],
+  logStream,
   initialExpandedIds = [],
   initialActiveTabId,
   initialOpenTabIds,
@@ -811,6 +832,9 @@ export function WorkspaceProvider({
   // Console Clear button wipes it (F7). Prod feeds no prop; tests may seed prior lines.
   const [consoleLinesState, setConsoleLinesState] =
     useState<string[]>(consoleLines);
+  // Application file-log lines (F18), parsed on append. Prod feeds none (the log stream pushes at
+  // runtime); tests seed via appendLogLine like the console lines.
+  const [logLines, setLogLines] = useState<LogLine[]>([]);
   const [splitOrientation, setSplitOrientation] = useState<SplitOrientation>(
     initialSplitOrientation,
   );
@@ -914,6 +938,12 @@ export function WorkspaceProvider({
     [],
   );
   const clearConsole = useCallback(() => setConsoleLinesState([]), []);
+  const appendLogLine = useCallback(
+    (raw: string, level?: number) =>
+      setLogLines((current) => [...current, parseLogLine(raw, level)]),
+    [],
+  );
+  const clearLogLines = useCallback(() => setLogLines([]), []);
   // saveLayout persists a panel-group layout WITHOUT setState (layouts are read only as the
   // defaultLayout seed). It writes the ref and re-persists the full chrome payload, which it reads
   // from persistPayloadRef (kept current by the render below) so this stays a stable useCallback
@@ -1380,6 +1410,11 @@ export function WorkspaceProvider({
     [isMockDataOpen],
   );
 
+  const logLinesValue = useMemo<LogLinesContextValue>(
+    () => ({ logLines, appendLogLine, clearLogLines }),
+    [logLines, appendLogLine, clearLogLines],
+  );
+
   // The current chrome payload, minus layouts (which saveLayout owns via layoutsRef). Kept in a ref
   // so saveLayout can re-persist with the latest chrome without being a reactive dep.
   const chromePayload = useMemo(
@@ -1420,13 +1455,37 @@ export function WorkspaceProvider({
     }
   }, [onTreeChange, tree]);
 
+  // Subscribe the injected log stream to appendLogLine once on mount (appendLogLine has stable
+  // identity). The subscribe resolves async, so an unsubscribe that lands after unmount is called
+  // immediately via the disposed flag. Defaults to the noop stream (browser/test).
+  useEffect(() => {
+    const stream = logStream ?? createNoopLogStream();
+    let disposed = false;
+    let unsubscribe: (() => void) | null = null;
+    stream.subscribe(appendLogLine).then((fn) => {
+      if (disposed) {
+        fn();
+        return;
+      }
+      unsubscribe = fn;
+    });
+    return () => {
+      disposed = true;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [logStream, appendLogLine]);
+
   return (
     <WorkspaceContext.Provider value={value}>
       <ChromeContext.Provider value={chromeValue}>
         <JsonViewContext.Provider value={jsonViewValue}>
           <StructureViewContext.Provider value={structureViewValue}>
             <MockDataContext.Provider value={mockDataValue}>
-              {children}
+              <LogLinesContext.Provider value={logLinesValue}>
+                {children}
+              </LogLinesContext.Provider>
             </MockDataContext.Provider>
           </StructureViewContext.Provider>
         </JsonViewContext.Provider>
@@ -1481,6 +1540,18 @@ export function useMockData(): MockDataContextValue {
       isMockDataOpen: false,
       openMockData: () => {},
       closeMockData: () => {},
+    }
+  );
+}
+
+// Optional (like the other isolated hooks) so a component rendered outside the provider still
+// works; the application log stream is only meaningful inside the workspace.
+export function useLogLines(): LogLinesContextValue {
+  return (
+    useContext(LogLinesContext) ?? {
+      logLines: [],
+      appendLogLine: () => {},
+      clearLogLines: () => {},
     }
   );
 }

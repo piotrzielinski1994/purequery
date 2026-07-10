@@ -1,15 +1,27 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { createRoute } from "@tanstack/react-router";
+import { isTauri } from "@tauri-apps/api/core";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { useSettings } from "@/lib/settings/settings-context";
 import type { Settings } from "@/lib/settings/settings";
 import { useWorkspaceStore } from "@/lib/workspace/workspace-store-context";
+import {
+  createNoopLogStream,
+  createTauriLogStream,
+} from "@/lib/logging/log-stream";
 import { rootRoute } from "@/routes/__root";
+
+// Only the real Tauri host forwards backend log records to the webview; the dev-browser + jsdom
+// get the noop (attachLogger would have no plugin to talk to).
+function createLogStreamForEnv() {
+  return isTauri() ? createTauriLogStream() : createNoopLogStream();
+}
 
 export function HomePage() {
   const { settings, saveChrome } = useSettings();
   const { tree, persistTree } = useWorkspaceStore();
+  const [logStream] = useState(createLogStreamForEnv);
 
   // The workspace persists only the UI-chrome slice of Settings. saveChrome is a WRITE-ONLY store
   // save (no setSettings), so a sidebar/console toggle never re-renders the settings tree - it
@@ -25,6 +37,7 @@ export function HomePage() {
   return (
     <WorkspaceProvider
       tree={tree}
+      logStream={logStream}
       onTreeChange={persistTree}
       initialExpandedIds={settings.expandedIds}
       initialOpenTabIds={settings.openTabIds}
