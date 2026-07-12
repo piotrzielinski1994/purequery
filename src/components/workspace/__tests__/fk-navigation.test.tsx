@@ -99,6 +99,7 @@ const pgTree: TreeNode[] = [
     sql: "",
     savedScripts: [],
     savedJsScripts: [],
+    variables: [],
     result: {
       status: "success",
       timeMs: 0,
@@ -138,6 +139,7 @@ const mongoTree: TreeNode[] = [
     sql: "",
     savedScripts: [],
     savedJsScripts: [],
+    variables: [],
     result: {
       status: "success",
       timeMs: 0,

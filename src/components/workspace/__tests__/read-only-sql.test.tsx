@@ -53,6 +53,7 @@ function mongoTree(readOnly: boolean): TreeNode[] {
       sql: "db.users.find({})",
       savedScripts: [],
       savedJsScripts: [],
+      variables: [],
       result: {
         status: "success",
         timeMs: 0,
@@ -113,6 +114,7 @@ function tree(readOnly: boolean): TreeNode[] {
       sql: "SELECT 1",
       savedScripts: [],
       savedJsScripts: [],
+      variables: [],
       result: {
         status: "success",
         timeMs: 0,

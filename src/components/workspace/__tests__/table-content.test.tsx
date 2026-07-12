@@ -75,6 +75,7 @@ const connectedTree: TreeNode[] = [
     sql: "",
     savedScripts: [],
     savedJsScripts: [],
+    variables: [],
     result: {
       status: "success",
       timeMs: 0,
@@ -1166,6 +1167,7 @@ describe("TableCard filter persistence across tab switch", () => {
       sql: "",
       savedScripts: [],
       savedJsScripts: [],
+      variables: [],
       result: {
         status: "success",
         timeMs: 0,
@@ -1305,6 +1307,7 @@ describe("TableCard schema-qualified addressing", () => {
       sql: "",
       savedScripts: [],
       savedJsScripts: [],
+      variables: [],
       result: {
         status: "success",
         timeMs: 0,

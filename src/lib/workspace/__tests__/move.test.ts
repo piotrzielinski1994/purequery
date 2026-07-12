@@ -27,6 +27,7 @@ const database = (id: string, name = id): DatabaseNode => ({
   sql: "",
   savedScripts: [],
   savedJsScripts: [],
+  variables: [],
   result: {
     status: "success",
     timeMs: 0,

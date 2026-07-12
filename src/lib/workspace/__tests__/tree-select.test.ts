@@ -30,6 +30,7 @@ const database = (id: string, tables: TableNode[] = []): DatabaseNode => ({
   sql: "",
   savedScripts: [],
   savedJsScripts: [],
+  variables: [],
   result: {
     status: "success",
     timeMs: 0,

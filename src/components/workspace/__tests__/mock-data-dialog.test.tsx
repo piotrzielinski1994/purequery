@@ -84,6 +84,7 @@ function tree(engine: "postgres" | "mongodb", readOnly: boolean): TreeNode[] {
       sql: "",
       savedScripts: [],
       savedJsScripts: [],
+      variables: [],
       result: {
         status: "success",
         timeMs: 0,

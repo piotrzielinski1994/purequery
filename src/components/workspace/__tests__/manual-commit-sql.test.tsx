@@ -59,6 +59,7 @@ function tree(manualCommit: boolean): TreeNode[] {
       sql: "SELECT 1",
       savedScripts: [],
       savedJsScripts: [],
+      variables: [],
       result: {
         status: "success",
         timeMs: 0,

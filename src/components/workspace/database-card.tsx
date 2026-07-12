@@ -4,6 +4,7 @@ import { Tab, TabBar } from "@/components/workspace/tab-bar";
 import { SqlTab } from "@/components/workspace/sql-tab";
 import { ViewsTab } from "@/components/workspace/views-tab";
 import { ScriptTab } from "@/components/workspace/script-tab";
+import { VariablesTab } from "@/components/workspace/variables-tab";
 import { SettingsTab } from "@/components/workspace/settings-tab";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -17,13 +18,15 @@ const SQL_SECTIONS: { id: DatabaseTab; label: string }[] = [
   { id: "sql", label: "SQL" },
   { id: "views", label: "Views" },
   { id: "script", label: "Script" },
+  { id: "variables", label: "Variables" },
   { id: "settings", label: "Settings" },
 ];
 
-// MongoDB has no SQL/views: its card is the JSON Query tab + a JS Script tab + Settings.
+// MongoDB has no SQL/views: its card is the JSON Query tab + a JS Script tab + Variables + Settings.
 const MONGO_SECTIONS: { id: DatabaseTab; label: string }[] = [
   { id: "query", label: "Query" },
   { id: "script", label: "Script" },
+  { id: "variables", label: "Variables" },
   { id: "settings", label: "Settings" },
 ];
 
@@ -81,6 +84,11 @@ export function DatabaseCard() {
         <div className="min-h-0 flex-1">
           <ScriptTab />
         </div>
+      ) : null}
+      {activeId === "variables" ? (
+        <ScrollArea className="min-h-0 flex-1">
+          <VariablesTab />
+        </ScrollArea>
       ) : null}
       {activeId === "settings" ? (
         <ScrollArea className="min-h-0 flex-1">
