@@ -5,6 +5,7 @@ import type {
   SavedJsScript,
   SavedScript,
   TreeNode,
+  Variable,
 } from "@/lib/workspace/model";
 
 export type PersistedNetworkDatabase = {
@@ -22,6 +23,7 @@ export type PersistedNetworkDatabase = {
   manualCommit?: boolean;
   savedScripts?: SavedScript[];
   savedJsScripts?: SavedJsScript[];
+  variables?: Variable[];
 };
 
 export type PersistedSqliteDatabase = {
@@ -35,6 +37,7 @@ export type PersistedSqliteDatabase = {
   manualCommit?: boolean;
   savedScripts?: SavedScript[];
   savedJsScripts?: SavedJsScript[];
+  variables?: Variable[];
 };
 
 export type PersistedMongoDatabase = {
@@ -53,6 +56,7 @@ export type PersistedMongoDatabase = {
   manualCommit?: boolean;
   savedScripts?: SavedScript[];
   savedJsScripts?: SavedJsScript[];
+  variables?: Variable[];
 };
 
 export type PersistedDatabase =
@@ -159,6 +163,24 @@ function mergeSavedJsScripts(
   return scripts.length > 0 ? { savedJsScripts: scripts } : undefined;
 }
 
+// Keeps only the `{ name, value }` string records; drops anything else. Returns the field only when
+// the cleaned list is non-empty, so an empty list is omitted from the persisted shape (mirrors
+// mergeSavedScripts). Guards a hand-edited/garbage workspace.json.
+function mergeVariables(
+  value: unknown,
+): { variables: Variable[] } | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const variables = value.filter(
+    (entry): entry is Variable =>
+      isRecord(entry) &&
+      typeof entry.name === "string" &&
+      typeof entry.value === "string",
+  );
+  return variables.length > 0 ? { variables } : undefined;
+}
+
 function mergeDatabase(value: Record<string, unknown>): PersistedDatabase | null {
   const { id, name, engine } = value;
   if (typeof id !== "string" || typeof name !== "string") {
@@ -169,6 +191,7 @@ function mergeDatabase(value: Record<string, unknown>): PersistedDatabase | null
   const manualCommit = mergeManualCommit(value.manualCommit);
   const scripts = mergeSavedScripts(value.savedScripts);
   const jsScripts = mergeSavedJsScripts(value.savedJsScripts);
+  const variables = mergeVariables(value.variables);
   if (engine === "sqlite") {
     return typeof value.file === "string"
       ? {
@@ -182,6 +205,7 @@ function mergeDatabase(value: Record<string, unknown>): PersistedDatabase | null
           ...manualCommit,
           ...scripts,
           ...jsScripts,
+          ...variables,
         }
       : null;
   }
@@ -213,6 +237,7 @@ function mergeDatabase(value: Record<string, unknown>): PersistedDatabase | null
       ...manualCommit,
       ...scripts,
       ...jsScripts,
+      ...variables,
     };
   }
   if (
@@ -241,6 +266,7 @@ function mergeDatabase(value: Record<string, unknown>): PersistedDatabase | null
     ...manualCommit,
     ...scripts,
     ...jsScripts,
+    ...variables,
   };
 }
 
@@ -308,6 +334,7 @@ function hydrateNode(node: PersistedNode): TreeNode {
     sql: "",
     savedScripts: node.savedScripts ?? [],
     savedJsScripts: node.savedJsScripts ?? [],
+    variables: node.variables ?? [],
     result: { ...EMPTY_RESULT },
   };
   if (node.engine === "sqlite") {
@@ -368,6 +395,8 @@ function dehydrateNode(node: TreeNode): PersistedNode[] {
     node.savedJsScripts.length > 0
       ? { savedJsScripts: node.savedJsScripts }
       : undefined;
+  const variables =
+    node.variables.length > 0 ? { variables: node.variables } : undefined;
   if (node.engine === "sqlite") {
     return [
       {
@@ -381,6 +410,7 @@ function dehydrateNode(node: TreeNode): PersistedNode[] {
         ...manualCommit,
         ...scripts,
         ...jsScripts,
+        ...variables,
       },
     ];
   }
@@ -402,6 +432,7 @@ function dehydrateNode(node: TreeNode): PersistedNode[] {
         ...manualCommit,
         ...scripts,
         ...jsScripts,
+        ...variables,
       },
     ];
   }
@@ -421,6 +452,7 @@ function dehydrateNode(node: TreeNode): PersistedNode[] {
       ...manualCommit,
       ...scripts,
       ...jsScripts,
+      ...variables,
     },
   ];
 }

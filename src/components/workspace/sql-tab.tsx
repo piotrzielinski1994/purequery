@@ -25,6 +25,7 @@ import {
 } from "@/components/workspace/sql-editor";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { isWriteSql, isWriteMongo } from "@/lib/script/dispatch";
+import { substituteVariables } from "@/lib/workspace/variables";
 import { useSettingsOptional } from "@/lib/settings/settings-context";
 import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
 import {
@@ -39,6 +40,7 @@ import type {
   SavedScript,
   Sort,
   TableSchema,
+  Variable,
 } from "@/lib/workspace/model";
 
 const noop = () => {};
@@ -315,6 +317,7 @@ export function SqlTab() {
       engine={activeNode.engine}
       schema={databaseSchemas.get(activeNode.id) ?? EMPTY_SCHEMA}
       savedScripts={activeNode.savedScripts}
+      variables={activeNode.variables}
       collections={collections}
       key={activeNode.id}
     />
@@ -337,6 +340,7 @@ function SqlPane({
   engine,
   schema,
   savedScripts,
+  variables,
   collections,
 }: {
   node: { id: string; sql: string; readOnly: boolean; manualCommit: boolean };
@@ -345,6 +349,7 @@ function SqlPane({
   engine: DbEngine;
   schema: TableSchema[];
   savedScripts: SavedScript[];
+  variables: Variable[];
   collections?: string[];
 }) {
   const {
@@ -352,6 +357,7 @@ function SqlPane({
     splitOrientation,
     layouts,
     saveLayout,
+    setDatabaseTab,
     saveScript,
     updateScript,
     renameScript,
@@ -452,7 +458,27 @@ function SqlPane({
       return;
     }
     const query = selectedOrAllSql(editorRef.current);
-    const effective = query.trim().length > 0 ? query : sql;
+    const raw = query.trim().length > 0 ? query : sql;
+    // Query variables (F18): expand `{{name}}` from the database's variables BEFORE any downstream
+    // gate, so the read-only write-block, the manual-commit begin/record, and the sent statement all
+    // see the substituted text. An undefined variable blocks the Run (nothing sent) with a sticky
+    // warning toast naming the missing names + a History error line - same UX as the read-only block.
+    const substitution = substituteVariables(raw, variables);
+    if (!substitution.ok) {
+      toast.warning(
+        `Undefined variable(s): ${substitution.missing.join(", ")}`,
+        { duration: Infinity },
+      );
+      addHistoryEntry({
+        id: `undefined-var-${raw}-${Date.now()}`,
+        sql: raw,
+        status: "error",
+        message: `undefined variable(s): ${substitution.missing.join(", ")}`,
+        at: new Date().toLocaleTimeString(),
+      });
+      return;
+    }
+    const effective = substitution.sql;
     // Read-only database: block a write-shaped statement before it reaches the backend. SQL uses the
     // leading-keyword `isWriteSql`; MongoDB uses `isWriteMongo` (the `.op(` after `db.<coll>.` -
     // updateOne/insertOne/... now that the Query tab runs writes too). Same block UX the Script tab
@@ -648,6 +674,8 @@ function SqlPane({
               engine={engine}
               schema={schema}
               collections={collections}
+              variables={variables}
+              onEditVariable={() => setDatabaseTab("variables")}
               onSubmit={submit}
               onSave={save}
               onCreateEditor={(view) => {

@@ -24,6 +24,7 @@ import type {
   TableRef,
   TableSchema,
   TreeNode,
+  Variable,
   ViewObject,
 } from "@/lib/workspace/model";
 import {
@@ -57,7 +58,13 @@ import {
 // anchor to the clicked row over the visible (expanded) rows.
 export type SelectMode = "replace" | "toggle" | "range";
 
-export type DatabaseTab = "sql" | "views" | "script" | "settings" | "query";
+export type DatabaseTab =
+  | "sql"
+  | "views"
+  | "script"
+  | "settings"
+  | "query"
+  | "variables";
 
 export type SplitOrientation = "horizontal" | "vertical";
 
@@ -162,6 +169,7 @@ type WorkspaceContextValue = {
   setDatabaseAccent: (id: string, color: string | null) => void;
   setDatabaseReadOnly: (id: string, readOnly: boolean) => void;
   setDatabaseManualCommit: (id: string, manualCommit: boolean) => void;
+  setDatabaseVariables: (id: string, variables: Variable[]) => void;
   saveScript: (databaseId: string, name: string, sql: string) => boolean;
   // Overwrite the sql of an EXISTING saved script (matched by name). Used when Cmd/Ctrl+S is pressed
   // while a named script is the active document - it saves in place, no name prompt.
@@ -392,6 +400,7 @@ function applyDatabaseConfig(
         sql,
         savedScripts,
         savedJsScripts,
+        variables,
         result,
       } = node;
       return {
@@ -406,6 +415,7 @@ function applyDatabaseConfig(
         sql,
         savedScripts,
         savedJsScripts,
+        variables,
         result,
         ...config,
       };
@@ -433,6 +443,7 @@ function newDatabaseNode(id: string): DatabaseNode {
     sql: "",
     savedScripts: [],
     savedJsScripts: [],
+    variables: [],
     result: {
       status: "success",
       timeMs: 0,
@@ -556,6 +567,25 @@ function setManualCommit(
     }
     if (node.kind === "database" && node.id === databaseId) {
       return { ...node, manualCommit };
+    }
+    return node;
+  });
+}
+
+function setVariables(
+  nodes: TreeNode[],
+  databaseId: string,
+  variables: Variable[],
+): TreeNode[] {
+  return nodes.map((node) => {
+    if (node.kind === "folder") {
+      return {
+        ...node,
+        children: setVariables(node.children, databaseId, variables),
+      };
+    }
+    if (node.kind === "database" && node.id === databaseId) {
+      return { ...node, variables };
     }
     return node;
   });
@@ -1187,6 +1217,8 @@ export function WorkspaceProvider({
         setTree((current) => setReadOnly(current, id, readOnly)),
       setDatabaseManualCommit: (id, manualCommit) =>
         setTree((current) => setManualCommit(current, id, manualCommit)),
+      setDatabaseVariables: (id, variables) =>
+        setTree((current) => setVariables(current, id, variables)),
       saveScript: (databaseId, name, sql) => {
         const trimmed = name.trim();
         const node = nodesById.get(databaseId);

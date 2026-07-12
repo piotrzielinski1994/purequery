@@ -147,6 +147,7 @@ export const appDb: DatabaseNode = {
     { name: "revenue", sql: "SELECT 2" },
   ],
   savedJsScripts: [{ name: "nightly", code: "return await db.tables();" }],
+  variables: [],
   result: appUsersResult,
   // uncolored database (accent-border feature): plain border everywhere.
   accentColor: null,
@@ -170,6 +171,7 @@ export const adminDb: DatabaseNode = {
   sql: "SELECT id, role FROM accounts",
   savedScripts: [{ name: "recent", sql: "SELECT 3" }],
   savedJsScripts: [],
+  variables: [],
   result: adminResult,
   // colored database (accent-border feature): the red "prod" preset (50% alpha) its tables inherit.
   accentColor: "#dc262680",
@@ -193,6 +195,7 @@ export const scratchDb: DatabaseNode = {
   sql: "SELECT 1 WHERE false",
   savedScripts: [],
   savedJsScripts: [],
+  variables: [],
   result: emptyResult,
   // uncolored database (accent-border feature): plain border everywhere.
   accentColor: null,

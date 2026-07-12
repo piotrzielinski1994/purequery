@@ -132,6 +132,10 @@ export type SavedScript = { name: string; sql: string };
 
 export type SavedJsScript = { name: string; code: string };
 
+// A query variable: a name and its verbatim substitution value. Per-database, flat (no scopes).
+// Referenced in the SQL/Query editor as `{{name}}` and substituted on Run.
+export type Variable = { name: string; value: string };
+
 export type TableNode = {
   kind: "table";
   id: string;
@@ -162,6 +166,9 @@ type DatabaseNodeBase = {
   sql: string;
   savedScripts: SavedScript[];
   savedJsScripts: SavedJsScript[];
+  // Per-database query variables, referenced as `{{name}}` in the editor and substituted on Run.
+  // Default []. Persisted in workspace.json (mirrors savedScripts).
+  variables: Variable[];
   result: QueryResult;
 };
 

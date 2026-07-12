@@ -425,6 +425,7 @@ function sqliteNode(file: string): DatabaseNode {
     sql: "",
     savedScripts: [],
     savedJsScripts: [],
+    variables: [],
     result: sqliteResult,
   };
 }
@@ -635,6 +636,7 @@ function mongoNode(uri?: string): DatabaseNode {
     sql: "",
     savedScripts: [],
     savedJsScripts: [],
+    variables: [],
     result: sqliteResult,
   };
 }

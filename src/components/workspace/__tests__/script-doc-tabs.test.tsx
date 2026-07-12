@@ -58,6 +58,7 @@ function databaseNode(overrides: Partial<DatabaseNode>): DatabaseNode {
     sql: "",
     savedScripts: [],
     savedJsScripts: [],
+    variables: [],
     result: {
       status: "success",
       timeMs: 0,

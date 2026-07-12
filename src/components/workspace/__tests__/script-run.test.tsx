@@ -82,6 +82,7 @@ function databaseNode(overrides: Partial<DatabaseNode>): DatabaseNode {
     sql: "SELECT 1",
     savedScripts: [],
     savedJsScripts: [{ name: "s1", code: "return 1;" }],
+    variables: [],
     result: {
       status: "success",
       timeMs: 0,

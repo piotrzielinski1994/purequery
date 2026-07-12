@@ -69,6 +69,7 @@ function connectedTree(readOnly: boolean): TreeNode[] {
       sql: "",
       savedScripts: [],
       savedJsScripts: [],
+      variables: [],
       result: {
         status: "success",
         timeMs: 0,

@@ -52,7 +52,7 @@ The dev server runs on port 1431 (set in both `vite.config.ts` and `src-tauri/ta
 > dialog; deleting a folder removes the databases inside it). The `+` button beside the tabs also
 > adds a database. Each database expands
 > (chevron) to list its tables once connected. Clicking a
-> database name opens a **database card** (sub-tabs SQL / Views / Script / Settings - the
+> database name opens a **database card** (sub-tabs SQL / Views / Script / Variables / Settings - the
 > SQL tab is an editable editor with a Run button, beside the result grid with its own status
 > header). Clicking a table opens a **table card** (a
 > filter row - the same CodeMirror SQL editor as the SQL tab, single-line, with highlighting +
@@ -101,7 +101,10 @@ The dev server runs on port 1431 (set in both `vite.config.ts` and `src-tauri/ta
 > `return { header, rows }` renders in the shared data grid. Scripts are saved per database as their
 > own document tabs (same `+` / `Cmd/Ctrl+S` / untitled UX as the SQL tab). Scripts cannot write - a
 > write-shaped `db.query` is blocked with a sticky warning toast; **Run** flips to **Cancel** (which
-> terminates the worker) and a run over ~5s raises a sticky warning. An open table also has a
+> terminates the worker) and a run over ~5s raises a sticky warning. The **Variables** tab holds
+> per-database `name`/`value` query variables: reference one as `{{name}}` in the SQL/Query editor and
+> its value is substituted verbatim on Run (all engines); an undefined `{{name}}` blocks the Run with
+> a warning. An open table also has a
 > read-only **Structure** view (`Mod/Ctrl+Shift+I` or the
 > "View table structure" palette command) showing its columns, indexes, foreign keys, and
 > constraints (MongoDB: collection indexes only). Right-clicking a SQL table row offers a **Go to
