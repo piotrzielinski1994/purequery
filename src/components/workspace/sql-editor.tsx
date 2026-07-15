@@ -534,8 +534,9 @@ export function SqlEditor({
   const effectiveShortcuts = resolveShortcuts(shortcuts);
   const runKey = singleLine
     ? "Enter"
-    : (toCodeMirrorKey(effectiveShortcuts["run-query"]) ?? "Mod-Enter");
-  const saveKey = toCodeMirrorKey(effectiveShortcuts["save-script"]) ?? "Mod-s";
+    : (toCodeMirrorKey(effectiveShortcuts["run-query"][0]) ?? "Mod-Enter");
+  const saveKey =
+    toCodeMirrorKey(effectiveShortcuts["save-script"][0]) ?? "Mod-s";
 
   // A stable key for the collection list so a same-content array doesn't rebuild the language; a
   // real collection change does. Kept as a simple expression for the deps lint.

@@ -244,11 +244,20 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 // workspace value on purpose: toggling it must NOT rebuild the workspace value (which every
 // content consumer - the heavy 200-row TableCard among them - subscribes to). A toggle rebuilds
 // only this tiny value, so the table subtree never re-renders on Cmd+B / Cmd+J.
+// Which panel should grab keyboard focus after a toggle: the just-shown panel, or
+// "content" when a panel was hidden (so focus never sticks on an unmounted panel).
+// A consume-once flag (not a nonce) - a freshly-mounted panel consumer focuses then
+// clears it.
+export type PanelFocusTarget = "sidebar" | "console" | "content" | null;
+
 type ChromeContextValue = {
   isSidebarVisible: boolean;
   toggleSidebar: () => void;
   isConsoleVisible: boolean;
   toggleConsole: () => void;
+  pendingPanelFocus: PanelFocusTarget;
+  requestPanelFocus: (target: PanelFocusTarget) => void;
+  consumePanelFocus: () => void;
 };
 
 const ChromeContext = createContext<ChromeContextValue | null>(null);
@@ -928,6 +937,8 @@ export function WorkspaceProvider({
     !initialSidebarHidden,
   );
   const [isConsoleVisible, setIsConsoleVisible] = useState(!initialConsoleHidden);
+  const [pendingPanelFocus, setPendingPanelFocus] =
+    useState<PanelFocusTarget>(null);
   const [isJsonView, setIsJsonView] = useState(initialJsonView);
   const [isStructureView, setIsStructureView] = useState(false);
   const [isMockDataOpen, setIsMockDataOpen] = useState(initialMockDataOpen);
@@ -1492,11 +1503,25 @@ export function WorkspaceProvider({
   const chromeValue = useMemo<ChromeContextValue>(
     () => ({
       isSidebarVisible,
-      toggleSidebar: () => setIsSidebarVisible((current) => !current),
+      // Toggling visible moves focus into the panel (arrows work immediately);
+      // toggling hidden returns focus to the content area so it never sticks on the
+      // unmounted panel.
+      toggleSidebar: () =>
+        setIsSidebarVisible((current) => {
+          setPendingPanelFocus(current ? "content" : "sidebar");
+          return !current;
+        }),
       isConsoleVisible,
-      toggleConsole: () => setIsConsoleVisible((current) => !current),
+      toggleConsole: () =>
+        setIsConsoleVisible((current) => {
+          setPendingPanelFocus(current ? "content" : "console");
+          return !current;
+        }),
+      pendingPanelFocus,
+      requestPanelFocus: (target) => setPendingPanelFocus(target),
+      consumePanelFocus: () => setPendingPanelFocus(null),
     }),
-    [isSidebarVisible, isConsoleVisible],
+    [isSidebarVisible, isConsoleVisible, pendingPanelFocus],
   );
 
   const jsonViewValue = useMemo<JsonViewContextValue>(

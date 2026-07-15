@@ -126,8 +126,10 @@ export function JsEditor({
   const shortcuts =
     useSettingsOptional()?.settings.shortcuts ?? DEFAULT_SETTINGS.shortcuts;
   const effectiveShortcuts = resolveShortcuts(shortcuts);
-  const runKey = toCodeMirrorKey(effectiveShortcuts["run-query"]) ?? "Mod-Enter";
-  const saveKey = toCodeMirrorKey(effectiveShortcuts["save-script"]) ?? "Mod-s";
+  const runKey =
+    toCodeMirrorKey(effectiveShortcuts["run-query"][0]) ?? "Mod-Enter";
+  const saveKey =
+    toCodeMirrorKey(effectiveShortcuts["save-script"][0]) ?? "Mod-s";
 
   // Stable dep key for the completion inputs (names only) so an equal-content render reuses the
   // language instead of rebuilding it.

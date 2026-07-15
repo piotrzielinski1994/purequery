@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,6 @@ import {
 } from "@/lib/workspace/mock-data";
 import { useSettingsOptional } from "@/lib/settings/settings-context";
 import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
-import { resolveShortcuts } from "@/lib/shortcuts/resolve";
 
 // Every strategy the picker offers, in menu order.
 const STRATEGY_OPTIONS: { value: MockStrategyKind; label: string }[] = [
@@ -78,10 +77,6 @@ export function MockDataDialog({
 }) {
   const shortcuts =
     useSettingsOptional()?.settings.shortcuts ?? DEFAULT_SETTINGS.shortcuts;
-  const resolvedShortcuts = useMemo(
-    () => resolveShortcuts(shortcuts),
-    [shortcuts],
-  );
 
   const [configs, setConfigs] = useState<MockColumnConfig[]>([]);
   const [seedForColumns, setSeedForColumns] = useState<string>("");
@@ -288,7 +283,7 @@ export function MockDataDialog({
               }
               isDirtyAt={alwaysFalse}
               onCommitEdit={noop}
-              shortcuts={resolvedShortcuts}
+              shortcuts={shortcuts}
             />
           </div>
         ) : null}

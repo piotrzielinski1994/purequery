@@ -139,9 +139,9 @@ export function CommandPalette({
                   }}
                 >
                   <span>{def.name}</span>
-                  {def.actionId && (
+                  {def.actionId && effective[def.actionId][0] && (
                     <CommandShortcut>
-                      {formatForDisplay(effective[def.actionId])}
+                      {formatForDisplay(effective[def.actionId][0])}
                     </CommandShortcut>
                   )}
                 </CommandItem>

@@ -40,3 +40,10 @@ export function matchesHotkey(event: ModifierEvent, hotkey: string): boolean {
   }
   return event.ctrlKey === wantCtrl && event.metaKey === wantMeta;
 }
+
+// True if the event matches ANY hotkey in the list. An action now carries a LIST
+// of bindings (multi-binding); an empty list means the action is disabled, so no
+// event matches it.
+export function matchesAny(event: ModifierEvent, hotkeys: string[]): boolean {
+  return hotkeys.some((hotkey) => matchesHotkey(event, hotkey));
+}

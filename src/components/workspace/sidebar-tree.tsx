@@ -38,7 +38,7 @@ import { dragOverlayLabel } from "@/lib/workspace/drag-overlay-label";
 import { useSettingsOptional } from "@/lib/settings/settings-context";
 import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
 import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import { matchesHotkey } from "@/lib/shortcuts/match-hotkey";
+import { matchesAny } from "@/lib/shortcuts/match-hotkey";
 import type { TreeNode } from "@/lib/workspace/model";
 
 function pointerY(event: DragOverEvent): number | null {
@@ -115,7 +115,7 @@ export function SidebarTree() {
   useEffect(() => {
     const deleteBinding = resolveShortcuts(shortcuts)["delete-nodes"];
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Delete" && !matchesHotkey(event, deleteBinding)) {
+      if (event.key !== "Delete" && !matchesAny(event, deleteBinding)) {
         return;
       }
       if (isEditableTarget(event.target) || selectedIds.size === 0) {

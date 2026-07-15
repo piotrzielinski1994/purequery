@@ -23,7 +23,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { useSettingsOptional } from "@/lib/settings/settings-context";
 import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
 import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import { matchesHotkey } from "@/lib/shortcuts/match-hotkey";
+import { matchesAny } from "@/lib/shortcuts/match-hotkey";
 import type { ShortcutActionId } from "@/lib/shortcuts/registry";
 import { useConnectionActions } from "@/components/workspace/use-connection";
 import { connectionOf } from "@/lib/workspace/model";
@@ -138,7 +138,7 @@ export function WorkspaceLayout() {
     };
     const onKeyDown = (event: KeyboardEvent) => {
       const hit = (Object.keys(dispatch) as ShortcutActionId[]).find((id) =>
-        matchesHotkey(event, effective[id]),
+        matchesAny(event, effective[id]),
       );
       if (hit === undefined) {
         return;

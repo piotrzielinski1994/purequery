@@ -15,6 +15,7 @@ import {
   type ThemeMode,
 } from "@/lib/settings/settings";
 import type { ShortcutActionId } from "@/lib/shortcuts/registry";
+import { resolveShortcuts, safeNormalize } from "@/lib/shortcuts/resolve";
 
 type SettingsContextValue = {
   settings: Settings;
@@ -30,7 +31,18 @@ type SettingsContextValue = {
   ) => void;
   saveThemeMode: (mode: ThemeMode) => void;
   saveThemeColors: (colors: ThemeColors) => void;
-  saveShortcut: (id: ShortcutActionId, hotkey: string) => void;
+  // Append a binding to an action's list (dedup; a no-op if the hotkey is
+  // invalid or already present). Multi-binding: an action can carry several.
+  addShortcut: (id: ShortcutActionId, hotkey: string) => void;
+  // Remove one binding; removing the last leaves an empty list (disabled).
+  removeShortcut: (id: ShortcutActionId, hotkey: string) => void;
+  // Swap a binding in place (a no-op if `oldHotkey` is not in the list).
+  replaceShortcut: (
+    id: ShortcutActionId,
+    oldHotkey: string,
+    newHotkey: string,
+  ) => void;
+  // Delete the override key entirely -> the action reverts to its registry default.
   resetShortcut: (id: ShortcutActionId) => void;
   saveWindowFullscreen: (fullscreen: boolean) => void;
 };
@@ -98,12 +110,68 @@ export function SettingsProvider({ store, children }: SettingsProviderProps) {
     [update],
   );
 
-  const saveShortcut = useCallback(
+  // Seed from the RESOLVED list (not the raw override) so the first edit to an
+  // action still on its default carries that default forward instead of dropping it.
+  const addShortcut = useCallback(
     (id: ShortcutActionId, hotkey: string) =>
-      update((base) => ({
-        ...base,
-        shortcuts: { ...base.shortcuts, [id]: hotkey },
-      })),
+      update((base) => {
+        const normalized = safeNormalize(hotkey);
+        if (normalized === null) {
+          return base;
+        }
+        const current = resolveShortcuts(base.shortcuts)[id];
+        if (current.includes(normalized)) {
+          return base;
+        }
+        return {
+          ...base,
+          shortcuts: { ...base.shortcuts, [id]: [...current, normalized] },
+        };
+      }),
+    [update],
+  );
+
+  const removeShortcut = useCallback(
+    (id: ShortcutActionId, hotkey: string) =>
+      update((base) => {
+        const normalized = safeNormalize(hotkey) ?? hotkey;
+        const current = resolveShortcuts(base.shortcuts)[id];
+        return {
+          ...base,
+          shortcuts: {
+            ...base.shortcuts,
+            [id]: current.filter((binding) => binding !== normalized),
+          },
+        };
+      }),
+    [update],
+  );
+
+  const replaceShortcut = useCallback(
+    (id: ShortcutActionId, oldHotkey: string, newHotkey: string) =>
+      update((base) => {
+        const normalizedNew = safeNormalize(newHotkey);
+        if (normalizedNew === null) {
+          return base;
+        }
+        const normalizedOld = safeNormalize(oldHotkey) ?? oldHotkey;
+        const current = resolveShortcuts(base.shortcuts)[id];
+        if (!current.includes(normalizedOld)) {
+          return base;
+        }
+        const swapped = current.map((binding) =>
+          binding === normalizedOld ? normalizedNew : binding,
+        );
+        return {
+          ...base,
+          shortcuts: {
+            ...base.shortcuts,
+            [id]: swapped.filter(
+              (binding, index) => swapped.indexOf(binding) === index,
+            ),
+          },
+        };
+      }),
     [update],
   );
 
@@ -134,7 +202,9 @@ export function SettingsProvider({ store, children }: SettingsProviderProps) {
             saveChrome,
             saveThemeMode,
             saveThemeColors,
-            saveShortcut,
+            addShortcut,
+            removeShortcut,
+            replaceShortcut,
             resetShortcut,
             saveWindowFullscreen,
           },
@@ -144,7 +214,9 @@ export function SettingsProvider({ store, children }: SettingsProviderProps) {
       saveChrome,
       saveThemeMode,
       saveThemeColors,
-      saveShortcut,
+      addShortcut,
+      removeShortcut,
+      replaceShortcut,
       resetShortcut,
       saveWindowFullscreen,
     ],
