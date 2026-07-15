@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import {
   DndContext,
   DragOverlay,
@@ -17,8 +24,16 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { useWorkspace } from "@/components/workspace/workspace-context";
+import {
+  useChrome,
+  useWorkspace,
+} from "@/components/workspace/workspace-context";
 import { TreeRow } from "@/components/workspace/tree-row";
+import { TreeNavProvider } from "@/components/workspace/tree-nav";
+import {
+  flattenVisible,
+  resolveTreeKey,
+} from "@/lib/workspace/tree-navigate";
 import {
   TreeDndProvider,
   type DropIndicator,
@@ -38,7 +53,7 @@ import { dragOverlayLabel } from "@/lib/workspace/drag-overlay-label";
 import { useSettingsOptional } from "@/lib/settings/settings-context";
 import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
 import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import { matchesHotkey } from "@/lib/shortcuts/match-hotkey";
+import { matchesAny } from "@/lib/shortcuts/match-hotkey";
 import type { TreeNode } from "@/lib/workspace/model";
 
 function pointerY(event: DragOverEvent): number | null {
@@ -76,12 +91,16 @@ export function SidebarTree() {
     moveNodes,
     removeNodes,
     selectedIds,
+    selectInTree,
     clearSelection,
     expandedIds,
     toggleExpand,
+    openNode,
+    activeTabId,
     addDatabase,
     createFolder,
   } = useWorkspace();
+  const { pendingPanelFocus, consumePanelFocus } = useChrome();
   const shortcuts =
     useSettingsOptional()?.settings.shortcuts ?? DEFAULT_SETTINGS.shortcuts;
   // The nodes the confirm dialog is about to delete (a right-click target or the live selection).
@@ -115,7 +134,7 @@ export function SidebarTree() {
   useEffect(() => {
     const deleteBinding = resolveShortcuts(shortcuts)["delete-nodes"];
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Delete" && !matchesHotkey(event, deleteBinding)) {
+      if (event.key !== "Delete" && !matchesAny(event, deleteBinding)) {
         return;
       }
       if (isEditableTarget(event.target) || selectedIds.size === 0) {
@@ -133,6 +152,95 @@ export function SidebarTree() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedIds, tree, shortcuts]);
+
+  // Roving tabIndex: exactly one row is Tab-focusable - the active tab if it is a visible row, else
+  // the first selected visible row, else the first visible row. The rest carry tabIndex=-1.
+  const visibleIds = useMemo(
+    () => flattenVisible(tree, expandedIds),
+    [tree, expandedIds],
+  );
+  const selectedVisible = visibleIds.find((id) => selectedIds.has(id));
+  const rovingId =
+    (activeTabId !== null && visibleIds.includes(activeTabId)
+      ? activeTabId
+      : null) ??
+    selectedVisible ??
+    visibleIds[0] ??
+    null;
+
+  // A row registers its element here so a nav command can move DOM focus to it imperatively after
+  // the state change lands (a layout-less effect below drains pendingFocusId).
+  const rowRefs = useRef(new Map<string, HTMLElement>());
+  const pendingFocusId = useRef<string | null>(null);
+  const registerRow = useCallback((id: string, element: HTMLElement | null) => {
+    if (element) {
+      rowRefs.current.set(id, element);
+      return;
+    }
+    rowRefs.current.delete(id);
+  }, []);
+
+  useEffect(() => {
+    const id = pendingFocusId.current;
+    if (id === null) {
+      return;
+    }
+    pendingFocusId.current = null;
+    rowRefs.current.get(id)?.focus();
+  });
+
+  // The sidebar panel-focus consumer (Slice C's deferred "sidebar" branch): when the sidebar is
+  // toggled visible, move focus to the roving row so arrows navigate immediately.
+  useEffect(() => {
+    if (pendingPanelFocus !== "sidebar") {
+      return;
+    }
+    if (rovingId !== null) {
+      rowRefs.current.get(rovingId)?.focus();
+    }
+    consumePanelFocus();
+  }, [pendingPanelFocus, rovingId, consumePanelFocus]);
+
+  const handleKeyDown = useCallback(
+    (focusedId: string, event: ReactKeyboardEvent) => {
+      const bindings = resolveShortcuts(shortcuts);
+      const command = resolveTreeKey({
+        tree,
+        expandedIds,
+        focusedId,
+        event: event.nativeEvent,
+        bindings,
+      });
+      if (command.type === "none") {
+        return;
+      }
+      event.preventDefault();
+      if (command.type === "focus") {
+        selectInTree(command.id, "replace");
+        pendingFocusId.current = command.id;
+        return;
+      }
+      if (command.type === "extend") {
+        selectInTree(command.id, "range");
+        pendingFocusId.current = command.id;
+        return;
+      }
+      if (command.type === "activate") {
+        openNode(command.id);
+        return;
+      }
+      if (command.type === "toggle" || command.type === "expand" || command.type === "collapse") {
+        toggleExpand(command.id);
+        return;
+      }
+      // move: reorder/reparent, then keep focus on the moved row.
+      moveNode(command.id, command.target);
+      pendingFocusId.current = command.id;
+    },
+    [tree, expandedIds, shortcuts, selectInTree, openNode, toggleExpand, moveNode],
+  );
+
+  const contextMenuBindings = resolveShortcuts(shortcuts)["open-context-menu"];
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(String(event.active.id));
@@ -219,6 +327,9 @@ export function SidebarTree() {
           }}
         >
           <TreeDndProvider value={{ activeId, indicator }}>
+            <TreeNavProvider
+              value={{ rovingId, contextMenuBindings, registerRow, handleKeyDown }}
+            >
             <ContextMenu>
               {/* Right-clicking the empty sidebar area opens this root menu; a row's own menu (nested
                   trigger) takes precedence when the click lands on a row. min-h keeps the empty-area
@@ -269,6 +380,7 @@ export function SidebarTree() {
                 </div>
               ) : null}
             </DragOverlay>
+            </TreeNavProvider>
           </TreeDndProvider>
         </DndContext>
         {tree.length === 0 && (

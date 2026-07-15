@@ -7,23 +7,38 @@ import {
 import { Sidebar } from "@/components/workspace/sidebar";
 import { Main } from "@/components/workspace/main";
 import { CommandPalette } from "@/components/workspace/command-palette";
+import { TableQuickOpen } from "@/components/workspace/table-quick-open";
 import { NewFolderDialog } from "@/components/workspace/new-folder-dialog";
 import {
   useChrome,
+  useQuickOpen,
   useWorkspace,
 } from "@/components/workspace/workspace-context";
+import {
+  buildQuickOpenEntries,
+  quickOpenTarget,
+} from "@/lib/workspace/quick-open";
 import { useThemeToggle } from "@/lib/theme/theme-context";
 import { Toaster } from "@/components/ui/sonner";
 import { useSettingsOptional } from "@/lib/settings/settings-context";
 import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
 import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import { matchesHotkey } from "@/lib/shortcuts/match-hotkey";
+import { matchesAny } from "@/lib/shortcuts/match-hotkey";
 import type { ShortcutActionId } from "@/lib/shortcuts/registry";
+import { useConnectionActions } from "@/components/workspace/use-connection";
+import { connectionOf } from "@/lib/workspace/model";
 
 export function WorkspaceLayout() {
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false);
   const {
+    tree,
+    nodesById,
+    expandedIds,
+    connections,
+    toggleExpand,
+    openNode,
+    selectInTree,
     activeNode,
     activeTabId,
     activeDatabaseTab,
@@ -40,6 +55,31 @@ export function WorkspaceLayout() {
     goForward,
   } = useWorkspace();
   const { isSidebarVisible, toggleSidebar, toggleConsole } = useChrome();
+  const { isQuickOpenOpen, openQuickOpen, closeQuickOpen } = useQuickOpen();
+  const { connect } = useConnectionActions();
+  const quickOpenEntries = buildQuickOpenEntries(
+    tree,
+    new Set(connections.keys()),
+  );
+  // Quick-open navigation, decided by the pure quickOpenTarget: a table/connected-database opens its
+  // tab; a disconnected database connects + expands (its tables then populate); a folder (absent from
+  // nodesById, which indexes only databases + tables) is revealed (selected + expanded).
+  const selectQuickOpen = (id: string) => {
+    const node = nodesById.get(id) ?? null;
+    const target = quickOpenTarget(node, connections.has(id));
+    if (target.kind === "open") {
+      openNode(id);
+      return;
+    }
+    if (target.kind === "connect" && node?.kind === "database") {
+      connect(id, connectionOf(node));
+    } else {
+      selectInTree(id, "replace");
+    }
+    if (!expandedIds.has(id)) {
+      toggleExpand(id);
+    }
+  };
   const toggleTheme = useThemeToggle();
   const shortcuts =
     useSettingsOptional()?.settings.shortcuts ?? DEFAULT_SETTINGS.shortcuts;
@@ -70,6 +110,7 @@ export function WorkspaceLayout() {
     // callbacks self-guard (split only in split view, close only with an active tab).
     const dispatch: Partial<Record<ShortcutActionId, () => void>> = {
       "open-command-palette": () => setIsPaletteOpen(true),
+      "open-quick-open": openQuickOpen,
       "toggle-sidebar": toggleSidebar,
       "toggle-console": toggleConsole,
       "toggle-theme": toggleTheme,
@@ -97,7 +138,7 @@ export function WorkspaceLayout() {
     };
     const onKeyDown = (event: KeyboardEvent) => {
       const hit = (Object.keys(dispatch) as ShortcutActionId[]).find((id) =>
-        matchesHotkey(event, effective[id]),
+        matchesAny(event, effective[id]),
       );
       if (hit === undefined) {
         return;
@@ -122,6 +163,7 @@ export function WorkspaceLayout() {
     closeOtherTabs,
     goBack,
     goForward,
+    openQuickOpen,
   ]);
 
   return (
@@ -163,6 +205,12 @@ export function WorkspaceLayout() {
         open={isPaletteOpen}
         onOpenChange={setIsPaletteOpen}
         onNewFolder={() => setIsFolderDialogOpen(true)}
+      />
+      <TableQuickOpen
+        open={isQuickOpenOpen}
+        onOpenChange={(open) => (open ? openQuickOpen() : closeQuickOpen())}
+        entries={quickOpenEntries}
+        onSelect={selectQuickOpen}
       />
       <NewFolderDialog
         open={isFolderDialogOpen}

@@ -1,4 +1,5 @@
 export type PaletteCommandId =
+  | "quick-open"
   | "new-database"
   | "new-folder"
   | "close-tab"
@@ -47,6 +48,13 @@ const hasTabs = (state: PaletteState) => state.openTabCount >= 1;
 const hasMultipleTabs = (state: PaletteState) => state.openTabCount >= 2;
 
 export const PALETTE_COMMANDS: readonly PaletteCommandDef[] = [
+  {
+    id: "quick-open",
+    name: "Quick open table",
+    group: "View",
+    actionId: "open-quick-open",
+    when: () => true,
+  },
   {
     id: "new-database",
     name: "New database",

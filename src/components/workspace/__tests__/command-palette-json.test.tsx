@@ -19,7 +19,7 @@ function openPalette() {
 
 // Render with a table tab active (tbl-accounts), since the JSON-view command is only offered
 // for a table tab, gated on the same SettingsProvider load as the hints test.
-function renderLayout(overrides: Record<string, string> = {}) {
+function renderLayout(overrides: Record<string, string[]> = {}) {
   const seeded = {
     ...DEFAULT_SETTINGS,
     shortcuts: overrides,
@@ -54,9 +54,9 @@ function hintFor(commandName: string): string | null {
 }
 
 describe("CommandPalette JSON view command", () => {
-  // AC-008, TC-011 - behavior: the palette offers the JSON-view command for a table tab,
-  // with the hint derived from the default toggle-json-view binding.
-  it("should offer the View rows as JSON command with the default-binding hint", async () => {
+  // C-08, TC-C8 - behavior: the palette offers the JSON-view command for a table tab,
+  // with the hint derived from the FIRST default toggle-json-view binding.
+  it("should offer the View rows as JSON command with the first default-binding hint", async () => {
     renderLayout();
     // SettingsProvider gates children on store.load(); wait for the active table tab to mount.
     await screen.findByRole("tab", { name: "accounts" });
@@ -64,20 +64,22 @@ describe("CommandPalette JSON view command", () => {
     openPalette();
 
     expect(screen.getByText(JSON_COMMAND)).toBeInTheDocument();
-    const expected = formatForDisplay(resolveShortcuts({})["toggle-json-view"]);
+    const expected = formatForDisplay(
+      resolveShortcuts({})["toggle-json-view"][0],
+    );
     expect(hintFor(JSON_COMMAND)).toBe(expected);
   });
 
-  // AC-008, TC-011 - behavior: the hint reflects an override when settings provide one.
-  it("should show the JSON-view hint derived from an override binding", async () => {
-    const overrides = { "toggle-json-view": "Mod+Alt+J" };
+  // C-08, TC-C8 - behavior: the hint reflects the first override binding when set.
+  it("should show the JSON-view hint derived from the first override binding", async () => {
+    const overrides = { "toggle-json-view": ["Mod+Alt+J"] };
     renderLayout(overrides);
     await screen.findByRole("tab", { name: "accounts" });
 
     openPalette();
 
     const expected = formatForDisplay(
-      resolveShortcuts(overrides)["toggle-json-view"],
+      resolveShortcuts(overrides)["toggle-json-view"][0],
     );
     expect(hintFor(JSON_COMMAND)).toBe(expected);
   });

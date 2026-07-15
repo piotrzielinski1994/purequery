@@ -1,4 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { ChevronDown, ChevronRight, Table } from "lucide-react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { EngineIcon } from "@/components/workspace/engine-icon";
@@ -7,6 +12,7 @@ import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useConnectionActions } from "@/components/workspace/use-connection";
 import { useRequestDelete } from "@/components/workspace/delete-request-context";
 import { useTreeDnd } from "@/components/workspace/tree-dnd";
+import { useTreeNav, openContextMenuOnKey } from "@/components/workspace/tree-nav";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -161,6 +167,8 @@ function FolderRow({ node, depth }: { node: FolderNode; depth: number }) {
     beginRename,
   } = useWorkspace();
   const { activeId } = useTreeDnd();
+  const { rovingId, contextMenuBindings, registerRow, handleKeyDown } =
+    useTreeNav();
   const requestDelete = useRequestDelete();
   const {
     attributes,
@@ -177,6 +185,19 @@ function FolderRow({ node, depth }: { node: FolderNode; depth: number }) {
   const isDragActive = activeId !== null && activeId !== node.id;
   const isSelected = selectedIds.has(node.id);
   const isRenaming = renamingNodeId === node.id;
+  const rowRef = (element: HTMLElement | null) => {
+    setNodeRef(element);
+    registerRow(node.id, element);
+  };
+  const onRowKeyDown = (event: ReactKeyboardEvent) => {
+    if (isRenaming) {
+      return;
+    }
+    if (openContextMenuOnKey(event, contextMenuBindings)) {
+      return;
+    }
+    handleKeyDown(node.id, event);
+  };
 
   return (
     <li className="relative">
@@ -184,13 +205,14 @@ function FolderRow({ node, depth }: { node: FolderNode; depth: number }) {
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div
-            ref={setNodeRef}
+            ref={rowRef}
             {...attributes}
             {...listeners}
             role="treeitem"
             aria-expanded={isExpanded}
             aria-selected={isSelected}
-            tabIndex={0}
+            tabIndex={rovingId === node.id ? 0 : -1}
+            onKeyDown={onRowKeyDown}
             onClick={(event) => {
               const mode = selectModeOf(event);
               selectInTree(node.id, mode);
@@ -321,6 +343,8 @@ function DatabaseRow({ node, depth }: { node: DatabaseNode; depth: number }) {
     connections,
   } = useWorkspace();
   const { connect, disconnect, abortConnect } = useConnectionActions();
+  const { rovingId, contextMenuBindings, registerRow, handleKeyDown } =
+    useTreeNav();
   const requestDelete = useRequestDelete();
   const {
     attributes,
@@ -341,6 +365,19 @@ function DatabaseRow({ node, depth }: { node: DatabaseNode; depth: number }) {
   const isConnecting = status === "connecting";
   const hasConnection = connections.has(node.id);
   const isRenaming = renamingNodeId === node.id;
+  const rowRef = (element: HTMLElement | null) => {
+    setNodeRef(element);
+    registerRow(node.id, element);
+  };
+  const onRowKeyDown = (event: ReactKeyboardEvent) => {
+    if (isRenaming) {
+      return;
+    }
+    if (openContextMenuOnKey(event, contextMenuBindings)) {
+      return;
+    }
+    handleKeyDown(node.id, event);
+  };
 
   const toggleConnection = () => {
     if (hasConnection) {
@@ -405,14 +442,15 @@ function DatabaseRow({ node, depth }: { node: DatabaseNode; depth: number }) {
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div
-            ref={setNodeRef}
+            ref={rowRef}
             {...attributes}
             {...listeners}
             role="treeitem"
             aria-expanded={isExpanded}
             aria-selected={isSelected}
             aria-label={node.name}
-            tabIndex={0}
+            tabIndex={rovingId === node.id ? 0 : -1}
+            onKeyDown={onRowKeyDown}
             onClick={(event) => {
               const mode = selectModeOf(event);
               selectInTree(node.id, mode);
@@ -519,15 +557,25 @@ function TableRow({
   label?: string;
 }) {
   const { activeTabId, openNode } = useWorkspace();
+  const { rovingId, contextMenuBindings, registerRow, handleKeyDown } =
+    useTreeNav();
   const isSelected = activeTabId === node.id;
+  const onRowKeyDown = (event: ReactKeyboardEvent) => {
+    if (openContextMenuOnKey(event, contextMenuBindings)) {
+      return;
+    }
+    handleKeyDown(node.id, event);
+  };
 
   return (
     <li>
       <div
+        ref={(element) => registerRow(node.id, element)}
         role="treeitem"
         aria-selected={isSelected}
         aria-label={label}
-        tabIndex={0}
+        tabIndex={rovingId === node.id ? 0 : -1}
+        onKeyDown={onRowKeyDown}
         onClick={() => openNode(node.id)}
         style={{ paddingLeft: `${depth * 14 + 10}px` }}
         className={cn(

@@ -2,6 +2,7 @@ export type ShortcutScope = "global" | "tab" | "grid" | "tree" | "editor";
 
 export type ShortcutActionId =
   | "open-command-palette"
+  | "open-quick-open"
   | "new-database"
   | "new-folder"
   | "toggle-sidebar"
@@ -21,7 +22,21 @@ export type ShortcutActionId =
   | "delete-rows"
   | "delete-nodes"
   | "run-query"
-  | "save-script";
+  | "save-script"
+  | "tree-nav-up"
+  | "tree-nav-down"
+  | "tree-nav-first"
+  | "tree-nav-last"
+  | "tree-expand"
+  | "tree-collapse"
+  | "tree-activate"
+  | "tree-extend-up"
+  | "tree-extend-down"
+  | "tree-move-up"
+  | "tree-move-down"
+  | "tree-outdent"
+  | "tree-nest"
+  | "open-context-menu";
 
 export type ShortcutAction = {
   id: ShortcutActionId;
@@ -31,7 +46,9 @@ export type ShortcutAction = {
   scope: ShortcutScope;
 };
 
-export type ShortcutOverrides = Partial<Record<ShortcutActionId, string>>;
+// A per-action LIST of hotkeys: an action can carry several bindings. An absent
+// id means "use the registry default"; an explicit empty list means "disabled".
+export type ShortcutOverrides = Partial<Record<ShortcutActionId, string[]>>;
 
 export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
   {
@@ -39,6 +56,13 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
     name: "Open command palette",
     description: "Search and run any action from a command list.",
     defaultHotkey: "Mod+K",
+    scope: "global",
+  },
+  {
+    id: "open-quick-open",
+    name: "Quick open table",
+    description: "Fuzzy-jump to any table, database, or folder by name.",
+    defaultHotkey: "Mod+P",
     scope: "global",
   },
   {
@@ -181,5 +205,103 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
     description: "Save the active editor's script.",
     defaultHotkey: "Mod+S",
     scope: "editor",
+  },
+  {
+    id: "tree-nav-up",
+    name: "Focus previous row",
+    description: "Move focus to the previous visible sidebar row.",
+    defaultHotkey: "ArrowUp",
+    scope: "tree",
+  },
+  {
+    id: "tree-nav-down",
+    name: "Focus next row",
+    description: "Move focus to the next visible sidebar row.",
+    defaultHotkey: "ArrowDown",
+    scope: "tree",
+  },
+  {
+    id: "tree-nav-first",
+    name: "Focus first row",
+    description: "Move focus to the first visible sidebar row.",
+    defaultHotkey: "Home",
+    scope: "tree",
+  },
+  {
+    id: "tree-nav-last",
+    name: "Focus last row",
+    description: "Move focus to the last visible sidebar row.",
+    defaultHotkey: "End",
+    scope: "tree",
+  },
+  {
+    id: "tree-expand",
+    name: "Expand row",
+    description: "Expand a folder/database, or descend into its first child.",
+    defaultHotkey: "ArrowRight",
+    scope: "tree",
+  },
+  {
+    id: "tree-collapse",
+    name: "Collapse row",
+    description: "Collapse a folder/database, or move focus to its parent.",
+    defaultHotkey: "ArrowLeft",
+    scope: "tree",
+  },
+  {
+    id: "tree-activate",
+    name: "Activate row",
+    description: "Open a table's tab, or toggle a folder/database.",
+    defaultHotkey: "Enter",
+    scope: "tree",
+  },
+  {
+    id: "tree-extend-up",
+    name: "Extend selection up",
+    description: "Extend the sidebar selection to the previous row.",
+    defaultHotkey: "Shift+ArrowUp",
+    scope: "tree",
+  },
+  {
+    id: "tree-extend-down",
+    name: "Extend selection down",
+    description: "Extend the sidebar selection to the next row.",
+    defaultHotkey: "Shift+ArrowDown",
+    scope: "tree",
+  },
+  {
+    id: "tree-move-up",
+    name: "Move row up",
+    description: "Reorder the focused folder/database above its sibling.",
+    defaultHotkey: "Alt+ArrowUp",
+    scope: "tree",
+  },
+  {
+    id: "tree-move-down",
+    name: "Move row down",
+    description: "Reorder the focused folder/database below its sibling.",
+    defaultHotkey: "Alt+ArrowDown",
+    scope: "tree",
+  },
+  {
+    id: "tree-outdent",
+    name: "Outdent row",
+    description: "Move the focused folder/database out to its grandparent.",
+    defaultHotkey: "Alt+ArrowLeft",
+    scope: "tree",
+  },
+  {
+    id: "tree-nest",
+    name: "Nest row",
+    description: "Move the focused folder/database into the preceding folder.",
+    defaultHotkey: "Alt+ArrowRight",
+    scope: "tree",
+  },
+  {
+    id: "open-context-menu",
+    name: "Open context menu",
+    description: "Open the context menu for the focused row or tab.",
+    defaultHotkey: "Shift+F10",
+    scope: "tree",
   },
 ];

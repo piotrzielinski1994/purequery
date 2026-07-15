@@ -3,6 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { Tab, TabBar } from "@/components/workspace/tab-bar";
+import { openContextMenuOnKey } from "@/components/workspace/tree-nav";
+import { useSettingsOptional } from "@/lib/settings/settings-context";
+import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
+import { resolveShortcuts } from "@/lib/shortcuts/resolve";
 import { EngineIcon } from "@/components/workspace/engine-icon";
 import { Button } from "@/components/ui/button";
 import {
@@ -141,6 +145,9 @@ export function ContentHeader() {
     canGoForward,
   } = useWorkspace();
   const hasMultipleTabs = openTabIds.length > 1;
+  const shortcuts =
+    useSettingsOptional()?.settings.shortcuts ?? DEFAULT_SETTINGS.shortcuts;
+  const contextMenuBindings = resolveShortcuts(shortcuts)["open-context-menu"];
 
   // The active database (the node itself, or the owning db when a table tab is active) - the
   // manual-commit toolbar is scoped to it. Only a manual-commit database shows the Commit/Rollback
@@ -211,6 +218,9 @@ export function ContentHeader() {
               <Tab
                 isActive={id === activeTabId}
                 onSelect={() => setActiveTab(id)}
+                onKeyDown={(event) =>
+                  openContextMenuOnKey(event, contextMenuBindings)
+                }
                 trailing={
                   <button
                     type="button"

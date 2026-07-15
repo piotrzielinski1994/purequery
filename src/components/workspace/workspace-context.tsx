@@ -244,11 +244,20 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 // workspace value on purpose: toggling it must NOT rebuild the workspace value (which every
 // content consumer - the heavy 200-row TableCard among them - subscribes to). A toggle rebuilds
 // only this tiny value, so the table subtree never re-renders on Cmd+B / Cmd+J.
+// Which panel should grab keyboard focus after a toggle: the just-shown panel, or
+// "content" when a panel was hidden (so focus never sticks on an unmounted panel).
+// A consume-once flag (not a nonce) - a freshly-mounted panel consumer focuses then
+// clears it.
+export type PanelFocusTarget = "sidebar" | "console" | "content" | null;
+
 type ChromeContextValue = {
   isSidebarVisible: boolean;
   toggleSidebar: () => void;
   isConsoleVisible: boolean;
   toggleConsole: () => void;
+  pendingPanelFocus: PanelFocusTarget;
+  requestPanelFocus: (target: PanelFocusTarget) => void;
+  consumePanelFocus: () => void;
 };
 
 const ChromeContext = createContext<ChromeContextValue | null>(null);
@@ -285,6 +294,17 @@ type MockDataContextValue = {
 };
 
 const MockDataContext = createContext<MockDataContextValue | null>(null);
+
+// The table quick-open (`Mod+P`) overlay's open flag. Isolated like MockData: opening it must not
+// rebuild the workspace value (which the heavy TableCard reads) - only this tiny value + the
+// overlay. The searchable entries are derived from `tree` at the call site, not stored here.
+type QuickOpenContextValue = {
+  isQuickOpenOpen: boolean;
+  openQuickOpen: () => void;
+  closeQuickOpen: () => void;
+};
+
+const QuickOpenContext = createContext<QuickOpenContextValue | null>(null);
 
 // The application file-log stream (F18). Lines are pushed from tauri-plugin-log's Webview target
 // and can arrive on every query/mutation, so - like the chrome/view toggles above - this lives in
@@ -808,6 +828,7 @@ type WorkspaceProviderProps = {
   initialConsoleHidden?: boolean;
   initialJsonView?: boolean;
   initialMockDataOpen?: boolean;
+  initialQuickOpenOpen?: boolean;
   initialSplitOrientation?: SplitOrientation;
   initialLayouts?: Settings["layouts"];
   // The workspace persists only the UI-chrome slice of Settings; the theme is owned by the
@@ -830,6 +851,7 @@ export function WorkspaceProvider({
   initialConsoleHidden = false,
   initialJsonView = false,
   initialMockDataOpen = false,
+  initialQuickOpenOpen = false,
   initialSplitOrientation = "horizontal",
   initialLayouts = {},
   onPersist,
@@ -915,9 +937,12 @@ export function WorkspaceProvider({
     !initialSidebarHidden,
   );
   const [isConsoleVisible, setIsConsoleVisible] = useState(!initialConsoleHidden);
+  const [pendingPanelFocus, setPendingPanelFocus] =
+    useState<PanelFocusTarget>(null);
   const [isJsonView, setIsJsonView] = useState(initialJsonView);
   const [isStructureView, setIsStructureView] = useState(false);
   const [isMockDataOpen, setIsMockDataOpen] = useState(initialMockDataOpen);
+  const [isQuickOpenOpen, setIsQuickOpenOpen] = useState(initialQuickOpenOpen);
 
   // These actions are consumed by the heavy, memoized DataGrid (via table-card's commitEdit). They
   // use functional setters only, so they have no reactive deps - pinning their identity with
@@ -1478,11 +1503,25 @@ export function WorkspaceProvider({
   const chromeValue = useMemo<ChromeContextValue>(
     () => ({
       isSidebarVisible,
-      toggleSidebar: () => setIsSidebarVisible((current) => !current),
+      // Toggling visible moves focus into the panel (arrows work immediately);
+      // toggling hidden returns focus to the content area so it never sticks on the
+      // unmounted panel.
+      toggleSidebar: () =>
+        setIsSidebarVisible((current) => {
+          setPendingPanelFocus(current ? "content" : "sidebar");
+          return !current;
+        }),
       isConsoleVisible,
-      toggleConsole: () => setIsConsoleVisible((current) => !current),
+      toggleConsole: () =>
+        setIsConsoleVisible((current) => {
+          setPendingPanelFocus(current ? "content" : "console");
+          return !current;
+        }),
+      pendingPanelFocus,
+      requestPanelFocus: (target) => setPendingPanelFocus(target),
+      consumePanelFocus: () => setPendingPanelFocus(null),
     }),
-    [isSidebarVisible, isConsoleVisible],
+    [isSidebarVisible, isConsoleVisible, pendingPanelFocus],
   );
 
   const jsonViewValue = useMemo<JsonViewContextValue>(
@@ -1508,6 +1547,15 @@ export function WorkspaceProvider({
       closeMockData: () => setIsMockDataOpen(false),
     }),
     [isMockDataOpen],
+  );
+
+  const quickOpenValue = useMemo<QuickOpenContextValue>(
+    () => ({
+      isQuickOpenOpen,
+      openQuickOpen: () => setIsQuickOpenOpen(true),
+      closeQuickOpen: () => setIsQuickOpenOpen(false),
+    }),
+    [isQuickOpenOpen],
   );
 
   const logLinesValue = useMemo<LogLinesContextValue>(
@@ -1583,9 +1631,11 @@ export function WorkspaceProvider({
         <JsonViewContext.Provider value={jsonViewValue}>
           <StructureViewContext.Provider value={structureViewValue}>
             <MockDataContext.Provider value={mockDataValue}>
-              <LogLinesContext.Provider value={logLinesValue}>
-                {children}
-              </LogLinesContext.Provider>
+              <QuickOpenContext.Provider value={quickOpenValue}>
+                <LogLinesContext.Provider value={logLinesValue}>
+                  {children}
+                </LogLinesContext.Provider>
+              </QuickOpenContext.Provider>
             </MockDataContext.Provider>
           </StructureViewContext.Provider>
         </JsonViewContext.Provider>
@@ -1640,6 +1690,17 @@ export function useMockData(): MockDataContextValue {
       isMockDataOpen: false,
       openMockData: () => {},
       closeMockData: () => {},
+    }
+  );
+}
+
+// Optional (like the other isolated hooks) so a component rendered outside the provider still works.
+export function useQuickOpen(): QuickOpenContextValue {
+  return (
+    useContext(QuickOpenContext) ?? {
+      isQuickOpenOpen: false,
+      openQuickOpen: () => {},
+      closeQuickOpen: () => {},
     }
   );
 }

@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tab, TabBar } from "@/components/workspace/tab-bar";
 import { SqlText } from "@/components/workspace/sql-text";
 import {
+  useChrome,
   useLogLines,
   useWorkspace,
 } from "@/components/workspace/workspace-context";
@@ -175,6 +176,17 @@ export function Console() {
     clearConsole,
   } = useWorkspace();
   const { logLines, clearLogLines } = useLogLines();
+  const { pendingPanelFocus, consumePanelFocus } = useChrome();
+  const sectionRef = useRef<HTMLElement>(null);
+  // Grab focus when the console is toggled visible so the region is keyboard-reachable
+  // immediately (mirrors the sidebar's roving-row focus).
+  useEffect(() => {
+    if (pendingPanelFocus !== "console") {
+      return;
+    }
+    sectionRef.current?.focus();
+    consumePanelFocus();
+  }, [pendingPanelFocus, consumePanelFocus]);
   const pendingCount = pendingEdits.length;
   const [tab, setTab] = useState<ConsoleTab>("log");
   const [logSearch, setLogSearch] = useState("");
@@ -217,8 +229,10 @@ export function Console() {
 
   return (
     <section
+      ref={sectionRef}
+      tabIndex={-1}
       aria-label="Console"
-      className="flex h-full min-h-0 flex-col overflow-hidden bg-muted/30 font-mono text-xs"
+      className="flex h-full min-h-0 flex-col overflow-hidden bg-muted/30 font-mono text-xs outline-none"
     >
       <TabBar
         ariaLabel="Console panels"

@@ -3,6 +3,7 @@ import {
   useChrome,
   useJsonView,
   useMockData,
+  useQuickOpen,
   useStructureView,
   useWorkspace,
 } from "@/components/workspace/workspace-context";
@@ -53,6 +54,7 @@ export function CommandPalette({
   const { toggleJsonView } = useJsonView();
   const { toggleStructureView } = useStructureView();
   const { openMockData } = useMockData();
+  const { openQuickOpen } = useQuickOpen();
   const toggleTheme = useThemeToggle();
 
   const cycleTab = (step: number) => {
@@ -80,6 +82,7 @@ export function CommandPalette({
   };
 
   const handlers: Record<PaletteCommandId, () => void> = {
+    "quick-open": openQuickOpen,
     "new-database": addDatabase,
     "new-folder": onNewFolder,
     "close-tab": closeActiveTab,
@@ -136,9 +139,9 @@ export function CommandPalette({
                   }}
                 >
                   <span>{def.name}</span>
-                  {def.actionId && (
+                  {def.actionId && effective[def.actionId][0] && (
                     <CommandShortcut>
-                      {formatForDisplay(effective[def.actionId])}
+                      {formatForDisplay(effective[def.actionId][0])}
                     </CommandShortcut>
                   )}
                 </CommandItem>

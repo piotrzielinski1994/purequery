@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { matchesHotkey } from "@/lib/shortcuts/match-hotkey";
+import { matchesHotkey, matchesAny } from "@/lib/shortcuts/match-hotkey";
 
 const ev = (over: Partial<Parameters<typeof matchesHotkey>[0]>) => ({
   key: "",
@@ -62,5 +62,33 @@ describe("matchesHotkey", () => {
   // AC-010 - behavior
   it("should not match an invalid hotkey string", () => {
     expect(matchesHotkey(ev({ key: "k", metaKey: true }), "###")).toBe(false);
+  });
+});
+
+describe("matchesAny", () => {
+  // C-02, TC-C2 - behavior: an event matching the FIRST binding fires.
+  it("should return true if the event matches the first binding in the list", () => {
+    expect(matchesAny(ev({ key: "j", metaKey: true }), ["Mod+J", "Mod+K"])).toBe(
+      true,
+    );
+  });
+
+  // C-02, TC-C2 - behavior: an event matching a LATER binding fires (proves the whole list scans).
+  it("should return true if the event matches a later binding in the list", () => {
+    expect(matchesAny(ev({ key: "k", ctrlKey: true }), ["Mod+J", "Mod+K"])).toBe(
+      true,
+    );
+  });
+
+  // C-02 - behavior: an event matching none of the bindings does not fire.
+  it("should return false if the event matches no binding in the list", () => {
+    expect(matchesAny(ev({ key: "q", metaKey: true }), ["Mod+J", "Mod+K"])).toBe(
+      false,
+    );
+  });
+
+  // C-04 - behavior: an empty list (disabled action) never fires.
+  it("should return false for an empty list", () => {
+    expect(matchesAny(ev({ key: "j", metaKey: true }), [])).toBe(false);
   });
 });

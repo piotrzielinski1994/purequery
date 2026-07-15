@@ -70,7 +70,7 @@ import { isEditableTarget } from "@/lib/workspace/is-editable-target";
 import { useSettingsOptional } from "@/lib/settings/settings-context";
 import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
 import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import { matchesHotkey } from "@/lib/shortcuts/match-hotkey";
+import { matchesAny } from "@/lib/shortcuts/match-hotkey";
 import type {
   ConnectionConfig,
   ForeignKey,
@@ -265,7 +265,7 @@ function TableView({
   useEffect(() => {
     const recordViewBinding = resolveShortcuts(shortcuts)["toggle-record-view"];
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!matchesHotkey(event, recordViewBinding)) {
+      if (!matchesAny(event, recordViewBinding)) {
         return;
       }
       const target = event.target as HTMLElement | null;
@@ -285,7 +285,7 @@ function TableView({
   useEffect(() => {
     const jsonViewBinding = resolveShortcuts(shortcuts)["toggle-json-view"];
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!matchesHotkey(event, jsonViewBinding)) {
+      if (!matchesAny(event, jsonViewBinding)) {
         return;
       }
       if (isEditableTarget(event.target)) {
@@ -351,7 +351,7 @@ function TableView({
   }
 
   return (
-    <ScrollArea className="min-h-0 flex-1">
+    <ScrollArea horizontal className="min-h-0 flex-1">
       <DataGrid
         columns={columns}
         rows={rows}
@@ -456,7 +456,7 @@ function LiveTable({
   useEffect(() => {
     const binding = resolveShortcuts(structureShortcuts)["toggle-structure-view"];
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!matchesHotkey(event, binding)) {
+      if (!matchesAny(event, binding)) {
         return;
       }
       if (isEditableTarget(event.target)) {
@@ -1434,7 +1434,7 @@ export function TableCard() {
     }
     const binding = resolveShortcuts(refreshShortcuts)["refresh-table"];
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!matchesHotkey(event, binding)) {
+      if (!matchesAny(event, binding)) {
         return;
       }
       if (isEditableTarget(event.target)) {

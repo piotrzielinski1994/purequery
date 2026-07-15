@@ -25,7 +25,7 @@ import {
 import { toCsv, toJson } from "@/lib/export";
 import { isEditableTarget } from "@/lib/workspace/is-editable-target";
 import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import { matchesHotkey } from "@/lib/shortcuts/match-hotkey";
+import { matchesAny } from "@/lib/shortcuts/match-hotkey";
 import type { ShortcutOverrides } from "@/lib/shortcuts/registry";
 import type { RowSelectMode } from "@/lib/workspace/row-select";
 import {
@@ -232,7 +232,7 @@ function DataGridImpl({
     }
     const deleteBinding = resolveShortcuts(shortcuts)["delete-rows"];
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Delete" && !matchesHotkey(event, deleteBinding)) {
+      if (event.key !== "Delete" && !matchesAny(event, deleteBinding)) {
         return;
       }
       if (isEditableTarget(event.target) || selectedRows.size === 0) {

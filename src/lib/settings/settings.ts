@@ -113,18 +113,35 @@ const SHORTCUT_ACTION_IDS = new Set<string>(
   SHORTCUT_ACTIONS.map((action) => action.id),
 );
 
+// A stored override value is either a legacy single string (migrated to a
+// one-element list), an array (kept, invalid entries dropped, an empty array
+// preserved as "disabled"), or anything else -> null (the key is then absent, so
+// the action falls back to its registry default).
+function mergeShortcutValue(value: unknown): string[] | null {
+  if (typeof value === "string") {
+    const normalized = safeNormalize(value);
+    return normalized === null ? null : [normalized];
+  }
+  if (!Array.isArray(value)) {
+    return null;
+  }
+  return value
+    .map((entry) => (typeof entry === "string" ? safeNormalize(entry) : null))
+    .filter((entry): entry is string => entry !== null);
+}
+
 function mergeShortcuts(value: unknown): ShortcutOverrides {
   if (!isRecord(value)) {
     return {};
   }
   return Object.entries(value).reduce<ShortcutOverrides>((acc, [id, raw]) => {
-    if (!SHORTCUT_ACTION_IDS.has(id) || typeof raw !== "string") {
+    if (!SHORTCUT_ACTION_IDS.has(id)) {
       return acc;
     }
-    const normalized = safeNormalize(raw);
-    return normalized === null
+    const merged = mergeShortcutValue(raw);
+    return merged === null
       ? acc
-      : { ...acc, [id as keyof ShortcutOverrides]: normalized };
+      : { ...acc, [id as keyof ShortcutOverrides]: merged };
   }, {});
 }
 

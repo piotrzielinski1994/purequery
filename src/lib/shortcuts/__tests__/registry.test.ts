@@ -10,6 +10,7 @@ import {
 const EXPECTED_BY_SCOPE: Record<ShortcutScope, ShortcutActionId[]> = {
   global: [
     "open-command-palette",
+    "open-quick-open",
     "new-database",
     "new-folder",
     "toggle-sidebar",
@@ -27,7 +28,23 @@ const EXPECTED_BY_SCOPE: Record<ShortcutScope, ShortcutActionId[]> = {
     "toggle-structure-view",
     "refresh-table",
   ],
-  tree: ["delete-nodes"],
+  tree: [
+    "delete-nodes",
+    "tree-nav-up",
+    "tree-nav-down",
+    "tree-nav-first",
+    "tree-nav-last",
+    "tree-expand",
+    "tree-collapse",
+    "tree-activate",
+    "tree-extend-up",
+    "tree-extend-down",
+    "tree-move-up",
+    "tree-move-down",
+    "tree-outdent",
+    "tree-nest",
+    "open-context-menu",
+  ],
   editor: ["run-query", "save-script"],
 };
 
