@@ -82,6 +82,8 @@ export type Settings = {
   activeTabId: string | null;
   // Whether the native window was fullscreen at last exit - restored on next launch.
   windowFullscreen: boolean;
+  // Default page size a freshly opened table's grid seeds from (positive integer).
+  rowLimit: number;
   theme: ThemeSettings;
   shortcuts: ShortcutOverrides;
 };
@@ -105,6 +107,7 @@ export const DEFAULT_SETTINGS: Settings = {
   openTabIds: [],
   activeTabId: null,
   windowFullscreen: false,
+  rowLimit: 200,
   theme: { mode: "system", colors: emptyThemeColors() },
   shortcuts: {},
 };
@@ -308,6 +311,12 @@ export function mergeSettings(defaults: Settings, partial: unknown): Settings {
       typeof partial.windowFullscreen === "boolean"
         ? partial.windowFullscreen
         : defaults.windowFullscreen,
+    rowLimit:
+      typeof partial.rowLimit === "number" &&
+      Number.isInteger(partial.rowLimit) &&
+      partial.rowLimit > 0
+        ? partial.rowLimit
+        : defaults.rowLimit,
     theme: mergeTheme(defaults.theme, partial.theme),
     shortcuts: mergeShortcuts(partial.shortcuts),
   };

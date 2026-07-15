@@ -451,8 +451,9 @@ function LiveTable({
   // The structure toggle listener lives HERE, not in TableView, because turning the view on
   // unmounts TableView (StructureBranch replaces it) - a listener there would toggle one-way. Only
   // a live table has a Structure view, so LiveTable is the right always-mounted home for it.
-  const structureShortcuts =
-    useSettingsOptional()?.settings.shortcuts ?? DEFAULT_SETTINGS.shortcuts;
+  const settings = useSettingsOptional()?.settings;
+  const structureShortcuts = settings?.shortcuts ?? DEFAULT_SETTINGS.shortcuts;
+  const rowLimit = settings?.rowLimit ?? ROW_LIMIT;
   useEffect(() => {
     const binding = resolveShortcuts(structureShortcuts)["toggle-structure-view"];
     const onKeyDown = (event: KeyboardEvent) => {
@@ -480,7 +481,9 @@ function LiveTable({
   });
   const [isSaving, setIsSaving] = useState(false);
   const [sort, setSort] = useState<Sort | null>(null);
-  const [pageSize, setPageSize] = useState(ROW_LIMIT);
+  // Seed the grid page size from the configurable Settings.rowLimit (falls back to ROW_LIMIT when
+  // no SettingsProvider is present, e.g. tests). Read once at mount, then user-adjustable per table.
+  const [pageSize, setPageSize] = useState(rowLimit);
   // The row whose full document is open in the JSON editor dialog (MongoDB only), or null.
   const [editingDoc, setEditingDoc] = useState<{
     rowIndex: number;

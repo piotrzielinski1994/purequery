@@ -29,7 +29,7 @@ export function HomePage() {
   // ([saveChrome] only), so it never re-fires the provider's persist effect. (Chrome is only ever
   // read as the initial seed.)
   const persistChrome = useCallback(
-    (next: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen">) =>
+    (next: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen" | "rowLimit">) =>
       saveChrome(next),
     [saveChrome],
   );

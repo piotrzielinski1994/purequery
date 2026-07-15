@@ -24,10 +24,11 @@ type SettingsContextValue = {
   // the store but does NOT setSettings, so it never re-renders settings consumers - chrome is only
   // ever READ as the initial seed, never reactively, so a re-render would be pure waste (and it was
   // driving a persist feedback loop that made sidebar/console toggles laggy with a big table open).
-  // `windowFullscreen` is excluded like theme/shortcuts: it is written separately (by the window
-  // fullscreen sync) and must survive a chrome write, so saveChrome merges it from current settings.
+  // `windowFullscreen`/`rowLimit` are excluded like theme/shortcuts: they are written separately
+  // (fullscreen sync / the settings page) and must survive a chrome write, so saveChrome merges
+  // them from current settings.
   saveChrome: (
-    chrome: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen">,
+    chrome: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen" | "rowLimit">,
   ) => void;
   saveThemeMode: (mode: ThemeMode) => void;
   saveThemeColors: (colors: ThemeColors) => void;
@@ -45,6 +46,7 @@ type SettingsContextValue = {
   // Delete the override key entirely -> the action reverts to its registry default.
   resetShortcut: (id: ShortcutActionId) => void;
   saveWindowFullscreen: (fullscreen: boolean) => void;
+  saveRowLimit: (rowLimit: number) => void;
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -81,7 +83,7 @@ export function SettingsProvider({ store, children }: SettingsProviderProps) {
   // Closing over `settings` is stable across chrome toggles (saveChrome never setState's, and theme/
   // shortcut edits - the only writers - are rare), so a toggle never re-renders settings consumers.
   const saveChrome = useCallback(
-    (chrome: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen">) => {
+    (chrome: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen" | "rowLimit">) => {
       store.save({ ...(settings ?? DEFAULT_SETTINGS), ...chrome });
     },
     [store, settings],
@@ -192,6 +194,16 @@ export function SettingsProvider({ store, children }: SettingsProviderProps) {
     [update],
   );
 
+  const saveRowLimit = useCallback(
+    (rowLimit: number) =>
+      update((base) =>
+        Number.isInteger(rowLimit) && rowLimit > 0
+          ? { ...base, rowLimit }
+          : base,
+      ),
+    [update],
+  );
+
   const value = useMemo<SettingsContextValue | null>(
     () =>
       settings === null
@@ -207,6 +219,7 @@ export function SettingsProvider({ store, children }: SettingsProviderProps) {
             replaceShortcut,
             resetShortcut,
             saveWindowFullscreen,
+            saveRowLimit,
           },
     [
       settings,
@@ -219,6 +232,7 @@ export function SettingsProvider({ store, children }: SettingsProviderProps) {
       replaceShortcut,
       resetShortcut,
       saveWindowFullscreen,
+      saveRowLimit,
     ],
   );
 

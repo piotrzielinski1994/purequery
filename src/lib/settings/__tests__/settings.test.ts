@@ -19,6 +19,7 @@ describe("DEFAULT_SETTINGS", () => {
       openTabIds: [],
       activeTabId: null,
       windowFullscreen: false,
+      rowLimit: 200,
       theme: {
         mode: "system",
         colors: {
@@ -48,6 +49,7 @@ describe("mergeSettings", () => {
       openTabIds: ["db-admin", "tbl-accounts"],
       activeTabId: "tbl-accounts",
       windowFullscreen: true,
+      rowLimit: 500,
       theme: {
         mode: "dark",
         colors: {
@@ -92,6 +94,7 @@ describe("mergeSettings", () => {
       openTabIds: [],
       activeTabId: null,
       windowFullscreen: false,
+      rowLimit: 200,
       theme: {
         mode: "system",
         colors: {
@@ -133,6 +136,25 @@ describe("mergeSettings", () => {
       mergeSettings(DEFAULT_SETTINGS, { windowFullscreen: "yes" })
         .windowFullscreen,
     ).toBe(false);
+  });
+
+  // behavior: rowLimit round-trips a positive integer
+  it("should keep a persisted positive-integer rowLimit", () => {
+    expect(mergeSettings(DEFAULT_SETTINGS, { rowLimit: 500 }).rowLimit).toBe(
+      500,
+    );
+  });
+
+  // behavior: a non-integer / non-positive rowLimit falls back to the default (200)
+  it("should fall back to the default rowLimit if it is not a positive integer", () => {
+    expect(mergeSettings(DEFAULT_SETTINGS, { rowLimit: 0 }).rowLimit).toBe(200);
+    expect(mergeSettings(DEFAULT_SETTINGS, { rowLimit: -5 }).rowLimit).toBe(200);
+    expect(mergeSettings(DEFAULT_SETTINGS, { rowLimit: 1.5 }).rowLimit).toBe(
+      200,
+    );
+    expect(mergeSettings(DEFAULT_SETTINGS, { rowLimit: "100" }).rowLimit).toBe(
+      200,
+    );
   });
 
   // AC-002, E-2 - behavior

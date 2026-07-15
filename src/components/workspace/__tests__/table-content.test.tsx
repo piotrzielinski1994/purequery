@@ -10,6 +10,9 @@ import {
 } from "@/components/workspace/workspace-context";
 import { TableCard } from "@/components/workspace/table-card";
 import { Console } from "@/components/workspace/console";
+import { SettingsProvider } from "@/lib/settings/settings-context";
+import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
+import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
 import { toast } from "sonner";
 import { fetchTable, countTable, applyRowMutations } from "@/lib/tauri";
 import type {
@@ -626,6 +629,42 @@ describe("TableCard pagination", () => {
         expect.objectContaining({ limit: 500, offset: 0 }),
       );
     });
+  });
+
+  // behavior (a fresh table seeds its page size from Settings.rowLimit, not the hardcoded default)
+  it("should seed the grid page size from Settings.rowLimit", async () => {
+    mockFetch.mockResolvedValue(rowsResult(["id"], [["1"]]));
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const store = createInMemorySettingsStore({
+      ...DEFAULT_SETTINGS,
+      rowLimit: 42,
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SettingsProvider store={store}>
+          <WorkspaceProvider
+            tree={connectedTree}
+            initialActiveTabId="db-ppp::product"
+            initialConnections={[["db-ppp", config]]}
+          >
+            <TableCard />
+          </WorkspaceProvider>
+        </SettingsProvider>
+      </QueryClientProvider>,
+    );
+
+    await screen.findByText("1");
+    expect(mockFetch).toHaveBeenCalledWith(
+      "db-ppp",
+      "product",
+      expect.objectContaining({ limit: 42, offset: 0 }),
+    );
+    const pageSize = screen.getByRole<HTMLInputElement>("spinbutton", {
+      name: /page size/i,
+    });
+    expect(pageSize.value).toBe("42");
   });
 
   // behavior: Copy CSV lives in the row context menu and copies the SELECTED rows (no footer button).

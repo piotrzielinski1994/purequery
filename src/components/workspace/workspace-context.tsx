@@ -833,7 +833,7 @@ type WorkspaceProviderProps = {
   initialLayouts?: Settings["layouts"];
   // The workspace persists only the UI-chrome slice of Settings; the theme is owned by the
   // ThemeProvider, so it is not part of this payload (the route folds it back in).
-  onPersist?: (settings: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen">) => void;
+  onPersist?: (settings: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen" | "rowLimit">) => void;
   onTreeChange?: (tree: TreeNode[]) => void;
 };
 
@@ -1063,7 +1063,7 @@ export function WorkspaceProvider({
   // defaultLayout seed). It writes the ref and re-persists the full chrome payload, which it reads
   // from persistPayloadRef (kept current by the render below) so this stays a stable useCallback
   // with no reactive deps - a layout write never rebuilds the workspace value.
-  const persistPayloadRef = useRef<Omit<Settings, "theme" | "shortcuts" | "windowFullscreen"> | null>(
+  const persistPayloadRef = useRef<Omit<Settings, "theme" | "shortcuts" | "windowFullscreen" | "rowLimit"> | null>(
     null,
   );
   const onPersistRef = useRef(onPersist);

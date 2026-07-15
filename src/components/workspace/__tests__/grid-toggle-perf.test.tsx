@@ -107,7 +107,7 @@ function Harness({
   const theme = settings.theme;
   const shortcuts = settings.shortcuts;
   const onPersist = useCallback(
-    (next: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen">) =>
+    (next: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen" | "rowLimit">) =>
       persist({ ...next, theme, shortcuts } as Settings),
     [persist, theme, shortcuts],
   );

@@ -19,6 +19,7 @@ const nonDefaultSettings: Settings = {
   openTabIds: ["db-admin", "tbl-accounts"],
   activeTabId: "tbl-accounts",
   windowFullscreen: true,
+  rowLimit: 500,
   theme: {
     mode: "dark",
     colors: {
@@ -32,17 +33,24 @@ const nonDefaultSettings: Settings = {
 // Renders the live settings as JSON and exposes a button to persist a target
 // Settings object - mirrors requi's probe style (assert on observable DOM).
 function SettingsProbe({ persistTarget }: { persistTarget?: Settings }) {
-  const { settings, persist } = useSettings();
+  const { settings, persist, saveRowLimit } = useSettings();
 
   return (
     <div>
       <span data-testid="settings-json">{JSON.stringify(settings)}</span>
       <span data-testid="sidebar-hidden">{String(settings.sidebarHidden)}</span>
+      <span data-testid="row-limit">{String(settings.rowLimit)}</span>
       <button
         type="button"
         onClick={() => persist(persistTarget ?? nonDefaultSettings)}
       >
         persist
+      </button>
+      <button type="button" onClick={() => saveRowLimit(500)}>
+        set row limit
+      </button>
+      <button type="button" onClick={() => saveRowLimit(0)}>
+        set bad row limit
       </button>
     </div>
   );
@@ -120,6 +128,46 @@ describe("SettingsProvider", () => {
     await waitFor(() => {
       expect(screen.getByTestId("sidebar-hidden")).toHaveTextContent("true");
     });
+  });
+
+  // behavior: saveRowLimit updates the live context with a positive integer
+  it("should update rowLimit when saveRowLimit is called with a positive integer", async () => {
+    const user = userEvent.setup();
+    const store = createInMemorySettingsStore();
+
+    render(
+      <SettingsProvider store={store}>
+        <SettingsProbe />
+      </SettingsProvider>,
+    );
+
+    await screen.findByTestId("row-limit");
+    expect(screen.getByTestId("row-limit")).toHaveTextContent("200");
+
+    await user.click(screen.getByRole("button", { name: /^set row limit$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("row-limit")).toHaveTextContent("500");
+    });
+  });
+
+  // behavior: saveRowLimit ignores a non-positive value (keeps the current one)
+  it("should ignore saveRowLimit if the value is not a positive integer", async () => {
+    const user = userEvent.setup();
+    const store = createInMemorySettingsStore();
+
+    render(
+      <SettingsProvider store={store}>
+        <SettingsProbe />
+      </SettingsProvider>,
+    );
+
+    await screen.findByTestId("row-limit");
+    await user.click(
+      screen.getByRole("button", { name: /^set bad row limit$/i }),
+    );
+
+    expect(screen.getByTestId("row-limit")).toHaveTextContent("200");
   });
 
   // AC-006 - side-effect-contract (persist writes through store.save)

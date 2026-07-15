@@ -187,7 +187,7 @@ describe("WorkspaceProvider onPersist side-effect contract", () => {
   // AC-008 - side-effect-contract
   it("should call onPersist with sidebarHidden true when toggleSidebar flips it off", async () => {
     const user = userEvent.setup();
-    const onPersist = vi.fn<(settings: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen">) => void>();
+    const onPersist = vi.fn<(settings: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen" | "rowLimit">) => void>();
 
     render(
       <WorkspaceProvider tree={fixtureTree} onPersist={onPersist}>
@@ -206,7 +206,7 @@ describe("WorkspaceProvider onPersist side-effect contract", () => {
   // AC-008 - side-effect-contract
   it("should call onPersist with consoleHidden true when toggleConsole flips it off", async () => {
     const user = userEvent.setup();
-    const onPersist = vi.fn<(settings: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen">) => void>();
+    const onPersist = vi.fn<(settings: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen" | "rowLimit">) => void>();
 
     render(
       <WorkspaceProvider tree={fixtureTree} onPersist={onPersist}>
@@ -225,7 +225,7 @@ describe("WorkspaceProvider onPersist side-effect contract", () => {
   // AC-008 - side-effect-contract
   it("should call onPersist with splitOrientation vertical when toggleSplitOrientation fires", async () => {
     const user = userEvent.setup();
-    const onPersist = vi.fn<(settings: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen">) => void>();
+    const onPersist = vi.fn<(settings: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen" | "rowLimit">) => void>();
 
     render(
       <WorkspaceProvider tree={fixtureTree} onPersist={onPersist}>
@@ -244,7 +244,7 @@ describe("WorkspaceProvider onPersist side-effect contract", () => {
   // AC-008 - side-effect-contract
   it("should call onPersist with the saved panel layout when saveLayout fires", async () => {
     const user = userEvent.setup();
-    const onPersist = vi.fn<(settings: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen">) => void>();
+    const onPersist = vi.fn<(settings: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen" | "rowLimit">) => void>();
 
     render(
       <WorkspaceProvider tree={fixtureTree} onPersist={onPersist}>
@@ -263,7 +263,7 @@ describe("WorkspaceProvider onPersist side-effect contract", () => {
   // AC-008 - side-effect-contract
   it("should call onPersist with the changed expandedIds when toggleExpand fires", async () => {
     const user = userEvent.setup();
-    const onPersist = vi.fn<(settings: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen">) => void>();
+    const onPersist = vi.fn<(settings: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen" | "rowLimit">) => void>();
 
     render(
       <WorkspaceProvider tree={fixtureTree} onPersist={onPersist}>
@@ -282,7 +282,7 @@ describe("WorkspaceProvider onPersist side-effect contract", () => {
   // AC-008 - side-effect-contract
   it("should call onPersist with the opened tab in openTabIds and activeTabId when a tab opens", async () => {
     const user = userEvent.setup();
-    const onPersist = vi.fn<(settings: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen">) => void>();
+    const onPersist = vi.fn<(settings: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen" | "rowLimit">) => void>();
 
     render(
       <WorkspaceProvider tree={fixtureTree} onPersist={onPersist}>

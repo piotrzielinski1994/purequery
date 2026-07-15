@@ -111,7 +111,8 @@ The dev server runs on port 1431 (set in both `vite.config.ts` and `src-tauri/ta
 > `<table>`** item per outbound foreign key with a non-null value, jumping to the referenced row (opens
 > that table's tab, filtered to the referenced key); FK columns are marked `FK` in the grid header. The sidebar tree + its connection configs persist in
 > `workspace.json`; UI/layout state (panel toggles, split orientation, expanded nodes, open
-> tabs, and whether the window was fullscreen at exit - restored on next launch) persists in
+> tabs, whether the window was fullscreen at exit - restored on next launch, and the default
+> **row limit** a freshly opened table's grid loads per page, set in `/settings`) persists in
 > `settings.json`; the theme **mode** also lives in `settings.json` while the
 > per-mode **color overrides** persist in a separate `theme.json`, and the **keyboard-shortcut
 > overrides** persist in a separate `keymap.json` - all JSON files in the OS app-config dir (via
