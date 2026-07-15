@@ -59,6 +59,45 @@ describe("ScrollArea thumb styling (AC-001)", () => {
   });
 });
 
+describe("ScrollArea horizontal opt-in", () => {
+  // A wide data grid needs a horizontal scrollbar; Radix only scrolls (and mounts a
+  // scrollbar for) an axis when a ScrollBar for it is present. Default = vertical only.
+  it("should mount only a vertical scrollbar slot by default", () => {
+    const { container } = render(
+      <ScrollArea type="always" className="h-10 w-10">
+        <div style={{ height: "1000px", width: "1000px" }}>content</div>
+      </ScrollArea>,
+    );
+
+    const bars = container.querySelectorAll<HTMLElement>(
+      '[data-slot="scroll-area-scrollbar"]',
+    );
+    const orientations = [...bars].map((el) =>
+      el.getAttribute("data-orientation"),
+    );
+    expect(orientations).toContain("vertical");
+    expect(orientations).not.toContain("horizontal");
+  });
+
+  // With `horizontal`, a horizontal scrollbar slot mounts too, so a wider-than-viewport
+  // grid can scroll to its off-screen columns.
+  it("should mount a horizontal scrollbar slot if horizontal is set", () => {
+    const { container } = render(
+      <ScrollArea type="always" horizontal className="h-10 w-10">
+        <div style={{ height: "1000px", width: "1000px" }}>content</div>
+      </ScrollArea>,
+    );
+
+    const orientations = [
+      ...container.querySelectorAll<HTMLElement>(
+        '[data-slot="scroll-area-scrollbar"]',
+      ),
+    ].map((el) => el.getAttribute("data-orientation"));
+    expect(orientations).toContain("vertical");
+    expect(orientations).toContain("horizontal");
+  });
+});
+
 describe("ScrollArea auto-hide configuration (AC-001)", () => {
   // TC-002 - the root wires Radix type="hover" for auto-hide intent. jsdom won't
   // toggle the runtime fade, so we assert the configuration is passed in source.

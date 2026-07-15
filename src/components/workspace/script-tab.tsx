@@ -483,7 +483,7 @@ function ScriptPane({
           </div>
           <div className="min-h-0 flex-1 overflow-hidden">
             {grid ? (
-              <ScrollArea className="h-full">
+              <ScrollArea horizontal className="h-full">
                 <DataGrid
                   columns={grid.header}
                   rows={grid.rows as Cell[][]}
