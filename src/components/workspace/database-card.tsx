@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { Tab, TabBar } from "@/components/workspace/tab-bar";
 import { SqlTab } from "@/components/workspace/sql-tab";
 import { ViewsTab } from "@/components/workspace/views-tab";
+import { ObjectTab } from "@/components/workspace/object-tab";
 import { ScriptTab } from "@/components/workspace/script-tab";
 import { VariablesTab } from "@/components/workspace/variables-tab";
 import { SettingsTab } from "@/components/workspace/settings-tab";
@@ -12,26 +13,50 @@ import {
   type DatabaseTab,
 } from "@/components/workspace/workspace-context";
 import { useConnectionActions } from "@/components/workspace/use-connection";
-import { connectionOf, type DbEngine } from "@/lib/workspace/model";
+import { objectTabsFor } from "@/lib/workspace/object-tabs";
+import {
+  connectionOf,
+  type DbEngine,
+  type ObjectKind,
+} from "@/lib/workspace/model";
 
-const SQL_SECTIONS: { id: DatabaseTab; label: string }[] = [
-  { id: "sql", label: "SQL" },
-  { id: "views", label: "Views" },
-  { id: "script", label: "Script" },
-  { id: "variables", label: "Variables" },
-  { id: "settings", label: "Settings" },
-];
+type Section = { id: DatabaseTab; label: string; objectKind?: ObjectKind };
 
-// MongoDB has no SQL/views: its card is the JSON Query tab + a JS Script tab + Variables + Settings.
-const MONGO_SECTIONS: { id: DatabaseTab; label: string }[] = [
+// The DatabaseTab id for an object tab is the lowercased plural label ("procedures"/"functions"/...).
+const OBJECT_TAB_ID: Record<ObjectKind, DatabaseTab> = {
+  procedure: "procedures",
+  function: "functions",
+  trigger: "triggers",
+  sequence: "sequences",
+};
+
+// SQL card: SQL | Views | <object tabs per engine> | Script | Variables | Settings. The object tabs
+// (F14) are interleaved after Views from the engine's availability table (Postgres all four; MySQL
+// no sequences; SQLite triggers only), before Script.
+const MONGO_SECTIONS: Section[] = [
   { id: "query", label: "Query" },
   { id: "script", label: "Script" },
   { id: "variables", label: "Variables" },
   { id: "settings", label: "Settings" },
 ];
 
-function sectionsFor(engine: DbEngine) {
-  return engine === "mongodb" ? MONGO_SECTIONS : SQL_SECTIONS;
+function sectionsFor(engine: DbEngine): Section[] {
+  if (engine === "mongodb") {
+    return MONGO_SECTIONS;
+  }
+  const objectSections = objectTabsFor(engine).map((tab) => ({
+    id: OBJECT_TAB_ID[tab.kind],
+    label: tab.label,
+    objectKind: tab.kind,
+  }));
+  return [
+    { id: "sql", label: "SQL" },
+    { id: "views", label: "Views" },
+    ...objectSections,
+    { id: "script", label: "Script" },
+    { id: "variables", label: "Variables" },
+    { id: "settings", label: "Settings" },
+  ];
 }
 
 export function DatabaseCard() {
@@ -49,6 +74,9 @@ export function DatabaseCard() {
   const activeId = sections.some((section) => section.id === activeDatabaseTab)
     ? activeDatabaseTab
     : sections[0].id;
+  const activeObjectKind = sections.find(
+    (section) => section.id === activeId,
+  )?.objectKind;
 
   return (
     <div className="flex h-full flex-col">
@@ -79,6 +107,11 @@ export function DatabaseCard() {
         <ScrollArea className="min-h-0 flex-1">
           <ViewsTab />
         </ScrollArea>
+      ) : null}
+      {activeObjectKind ? (
+        <div className="min-h-0 flex-1">
+          <ObjectTab key={activeObjectKind} kind={activeObjectKind} />
+        </div>
       ) : null}
       {activeId === "script" ? (
         <div className="min-h-0 flex-1">

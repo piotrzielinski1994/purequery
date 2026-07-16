@@ -52,7 +52,8 @@ The dev server runs on port 1431 (set in both `vite.config.ts` and `src-tauri/ta
 > dialog; deleting a folder removes the databases inside it). The `+` button beside the tabs also
 > adds a database. Each database expands
 > (chevron) to list its tables once connected. Clicking a
-> database name opens a **database card** (sub-tabs SQL / Views / Script / Variables / Settings - the
+> database name opens a **database card** (sub-tabs SQL / Views / per-engine object tabs
+> (Procedures / Functions / Triggers / Sequences, read-only DDL) / Script / Variables / Settings - the
 > SQL tab is an editable editor with a Run button, beside the result grid with its own status
 > header). Clicking a table opens a **table card** (a
 > filter row - the same CodeMirror SQL editor as the SQL tab, single-line, with highlighting +

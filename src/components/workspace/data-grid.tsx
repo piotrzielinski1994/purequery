@@ -1,5 +1,4 @@
 import {
-  Fragment,
   memo,
   useEffect,
   useMemo,
@@ -130,6 +129,16 @@ export async function copyRowsToClipboard(
   await writeToClipboard(text, `Copied ${rows.length} row(s) as ${format}`);
 }
 
+// Copies one cell's raw value (a NULL cell copies "" - the [NULL] glyph is render-only).
+async function copyCellToClipboard(value: Cell): Promise<void> {
+  await writeToClipboard(value ?? "", "Copied cell");
+}
+
+// Copies the exact text the user highlighted in the grid (native selection).
+async function copySelectionToClipboard(text: string): Promise<void> {
+  await writeToClipboard(text, "Copied selection");
+}
+
 // Copies pre-built SQL/insert statements (one per row) to the clipboard with a matching toast. The
 // text is built by the caller via `rowsToInsertSql`; this only owns the write + toast so the copy
 // UX stays identical to the CSV/JSON path.
@@ -228,6 +237,36 @@ function DataGridImpl({
   const [find, setFind] = useState<{ query: string; activeIndex: number } | null>(
     null,
   );
+  // The cell value the last right-click landed on (drives "Copy cell") + the text selected at that
+  // moment (drives "Copy selection", captured on contextMenu because opening the menu clears it).
+  const [contextCell, setContextCell] = useState<{
+    value: Cell;
+    selection: string;
+  } | null>(null);
+  // The DOM Range highlighted at right-click time. Opening the Radix menu takes focus and WebKit
+  // collapses the visible selection, so we stash the range and re-apply it once the menu is open -
+  // the user keeps seeing what "Copy selection" will copy.
+  const contextRangeRef = useRef<Range | null>(null);
+  // Re-apply the stashed range once the menu has opened (Radix moves focus, collapsing the native
+  // selection). Deferred so it runs after the menu-open focus lands, else it gets collapsed again.
+  const restoreSelectionOnOpen = (open: boolean) => {
+    if (!open || contextRangeRef.current === null) {
+      return;
+    }
+    const range = contextRangeRef.current;
+    requestAnimationFrame(() => {
+      const domSelection = window.getSelection?.();
+      if (
+        !domSelection ||
+        typeof domSelection.removeAllRanges !== "function" ||
+        typeof domSelection.addRange !== "function"
+      ) {
+        return;
+      }
+      domSelection.removeAllRanges();
+      domSelection.addRange(range);
+    });
+  };
   const containerRef = useRef<HTMLDivElement>(null);
   const activeCellRef = useRef<HTMLTableCellElement>(null);
   __dataGridRenderCount.value += 1;
@@ -441,28 +480,34 @@ function DataGridImpl({
           {grid.getRowModel().rows.map((row) => {
             const isDraft = isDraftRow?.(row.index) ?? false;
             const isDeleted = isDeletedRow?.(row.index) ?? false;
-            // A draft (staged-insert) row still gets a menu, but only the copy items - it can be
-            // copied to the clipboard like any row, while Delete/Clone/Edit/FK stay saved-row-only
-            // (a draft is discarded via the Changes tab, and cloning/deleting an unsaved row is
-            // meaningless). So the menu shows whenever a copy handler is wired, or - for a saved row -
-            // any of the mutation handlers.
-            const hasCopyItems = Boolean(onCopyRows || onCopySql);
-            const hasSavedRowItems = Boolean(
-              onDeleteRow || onEditDocument || onFollowForeignKey,
-            );
-            const hasRowMenu =
-              hasCopyItems || (hasSavedRowItems && !isDraft);
+            // Whether the menu has items BELOW the intrinsic Copy cell / Copy selection block - drives
+            // the separator between them (a read-only grid has none, so no dangling divider).
+            const hasMoreItems =
+              (!isDraft &&
+                Boolean(
+                  onEditDocument ||
+                    onCloneRow ||
+                    onFollowForeignKey ||
+                    onDeleteRow ||
+                    onDeleteRows,
+                )) ||
+              Boolean(onCopyRows || onCopySql);
             const rowElement = (
               <tr
                 aria-selected={selectedRows.has(row.index)}
+                onMouseDown={(event: MouseEvent) => {
+                  // Only a Shift-click (range-select) suppresses the native text highlight - it would
+                  // otherwise paint the range blue and fight row range-select. A plain click keeps
+                  // native selection so a (read-only) cell value can be selected and copied.
+                  if (event.shiftKey) {
+                    event.preventDefault();
+                  }
+                }}
                 onClick={(event: MouseEvent) =>
                   onSelectRow(row.index, rowSelectModeOf(event))
                 }
                 className={cn(
-                  // select-none: Shift-click range-select must not also trigger the browser's
-                  // native text selection (which highlights the cell text blue). An editing input
-                  // re-enables its own text selection, so inline edit is unaffected.
-                  "cursor-default select-none border-b aria-selected:bg-accent",
+                  "cursor-default border-b aria-selected:bg-accent",
                   isDraft && "bg-emerald-500/10",
                   isDeleted && "line-through opacity-50",
                 )}
@@ -485,6 +530,17 @@ function DataGridImpl({
                       key={cell.id}
                       ref={isActiveMatch ? activeCellRef : undefined}
                       style={{ width: cell.column.getSize() }}
+                      onContextMenu={() => {
+                        const domSelection = window.getSelection?.();
+                        contextRangeRef.current =
+                          domSelection && domSelection.rangeCount > 0
+                            ? domSelection.getRangeAt(0).cloneRange()
+                            : null;
+                        setContextCell({
+                          value: dirtyValue,
+                          selection: domSelection?.toString() ?? "",
+                        });
+                      }}
                       onDoubleClick={() => {
                         if (editable && !isDeleted) {
                           setEditing({ rowIndex: row.index, column });
@@ -579,20 +635,38 @@ function DataGridImpl({
               </tr>
             );
 
-            if (!hasRowMenu) {
-              return <Fragment key={row.id}>{rowElement}</Fragment>;
-            }
-
             return (
-              <ContextMenu key={row.id}>
+              <ContextMenu key={row.id} onOpenChange={restoreSelectionOnOpen}>
                 <ContextMenuTrigger asChild>{rowElement}</ContextMenuTrigger>
                 <ContextMenuContent>
-                  {isDeleted ? (
-                    <ContextMenuItem onSelect={() => onUndeleteRow?.(row.index)}>
-                      Undo delete
+                  <ContextMenuItem
+                    onSelect={() =>
+                      copyCellToClipboard(contextCell?.value ?? null)
+                    }
+                  >
+                    Copy cell
+                  </ContextMenuItem>
+                  {contextCell && contextCell.selection.length > 0 ? (
+                    <ContextMenuItem
+                      onSelect={() =>
+                        copySelectionToClipboard(contextCell.selection)
+                      }
+                    >
+                      Copy selection
                     </ContextMenuItem>
+                  ) : null}
+                  {isDeleted ? (
+                    <>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem
+                        onSelect={() => onUndeleteRow?.(row.index)}
+                      >
+                        Undo delete
+                      </ContextMenuItem>
+                    </>
                   ) : (
                     <>
+                      {hasMoreItems ? <ContextMenuSeparator /> : null}
                       {onEditDocument && !isDraft ? (
                         <ContextMenuItem
                           onSelect={() => onEditDocument(row.index)}

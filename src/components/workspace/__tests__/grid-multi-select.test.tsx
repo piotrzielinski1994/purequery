@@ -1,6 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { useState } from "react";
-import { render, screen, within, fireEvent } from "@testing-library/react";
+import {
+  render,
+  screen,
+  within,
+  fireEvent,
+  createEvent,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { DataGrid } from "@/components/workspace/data-grid";
@@ -124,6 +130,180 @@ describe("grid multi-select", () => {
     expect(isSelected("Grace")).toBe(true);
     expect(isSelected("Ada")).toBe(false);
     expect(isSelected("Linus")).toBe(false);
+  });
+});
+
+describe("grid cell text selection", () => {
+  // behavior: rows must allow native text selection so a read-only cell value can be
+  // selected/copied - the blanket select-none once blocked this.
+  it("should allow text selection on rows (no select-none on the row)", () => {
+    render(<MultiSelectGrid />);
+
+    const row = rowFor("Ada");
+    expect(row.className).not.toContain("select-none");
+  });
+
+  // behavior: a Shift-click still suppresses the native text highlight so range-select does not
+  // paint a blue selection over the cells.
+  it("should preventDefault on a Shift-click to suppress the native text highlight", async () => {
+    const user = userEvent.setup();
+    render(<MultiSelectGrid />);
+
+    await user.click(rowFor("Ada"));
+
+    const event = createEvent.mouseDown(rowFor("Grace"), { shiftKey: true });
+    fireEvent(rowFor("Grace"), event);
+    expect(event.defaultPrevented).toBe(true);
+
+    // A plain (non-shift) mousedown must NOT preventDefault - text selection stays usable.
+    const plain = createEvent.mouseDown(rowFor("Linus"));
+    fireEvent(rowFor("Linus"), plain);
+    expect(plain.defaultPrevented).toBe(false);
+  });
+});
+
+describe("grid cell / selection copy", () => {
+  const cellFor = (text: string) =>
+    screen.getByText(text).closest("td") as HTMLElement;
+
+  // behavior: right-clicking a cell offers a "Copy cell" item that copies THAT cell's value.
+  it("should copy the right-clicked cell's value via Copy cell", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.spyOn(navigator.clipboard, "writeText");
+    writeText.mockClear();
+    render(<MultiSelectGrid />);
+
+    fireEvent.contextMenu(cellFor("Linus"));
+    await user.click(
+      screen.queryByRole("menuitem", { name: /^copy cell$/i }) ??
+        screen.getByText("Copy cell"),
+    );
+
+    expect(writeText).toHaveBeenCalledWith("Linus");
+  });
+
+  // behavior: a NULL cell's Copy cell copies an empty string (the [NULL] glyph is render-only).
+  it("should copy an empty string for a NULL cell", async () => {
+    const user = userEvent.setup();
+    const columns = ["id", "name"];
+    const rows: (string | null)[][] = [["1", null]];
+    const writeText = vi.spyOn(navigator.clipboard, "writeText");
+    writeText.mockClear();
+    render(
+      <DataGrid
+        columns={columns}
+        rows={rows}
+        selectedRows={new Set()}
+        onSelectRow={noop}
+        editable={false}
+        editValueAt={(rowIndex, column) =>
+          rows[rowIndex]?.[columns.indexOf(column)] ?? null
+        }
+        isDirtyAt={alwaysFalse}
+        onCommitEdit={noop}
+        shortcuts={{}}
+      />,
+    );
+
+    fireEvent.contextMenu(screen.getByText("[NULL]").closest("td") as HTMLElement);
+    await user.click(
+      screen.queryByRole("menuitem", { name: /^copy cell$/i }) ??
+        screen.getByText("Copy cell"),
+    );
+
+    expect(writeText).toHaveBeenCalledWith("");
+  });
+
+  // behavior: a read-only grid (no copy/edit handlers) still shows the Copy cell item.
+  it("should show Copy cell even on a read-only grid with no handlers", () => {
+    const columns = ["id"];
+    const rows = [["42"]];
+    render(
+      <DataGrid
+        columns={columns}
+        rows={rows}
+        selectedRows={new Set()}
+        onSelectRow={noop}
+        editable={false}
+        editValueAt={() => "42"}
+        isDirtyAt={alwaysFalse}
+        onCommitEdit={noop}
+        shortcuts={{}}
+      />,
+    );
+
+    fireEvent.contextMenu(screen.getByText("42").closest("td") as HTMLElement);
+
+    expect(
+      screen.queryByRole("menuitem", { name: /^copy cell$/i }) ??
+        screen.getByText("Copy cell"),
+    ).toBeTruthy();
+  });
+
+  // behavior: with an active text selection, a "Copy selection" item copies the selected text.
+  it("should copy the current text selection via Copy selection", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.spyOn(navigator.clipboard, "writeText");
+    writeText.mockClear();
+    vi.spyOn(window, "getSelection").mockReturnValue({
+      toString: () => "Lin",
+    } as Selection);
+    render(<MultiSelectGrid />);
+
+    fireEvent.contextMenu(cellFor("Linus"));
+    await user.click(
+      screen.queryByRole("menuitem", { name: /^copy selection$/i }) ??
+        screen.getByText("Copy selection"),
+    );
+
+    expect(writeText).toHaveBeenCalledWith("Lin");
+    vi.mocked(window.getSelection).mockRestore();
+  });
+
+  // behavior: opening the menu re-applies the captured selection range so it stays visible (Radix
+  // focus otherwise collapses the native selection - copy works but nothing looks selected).
+  it("should re-apply the selection range after the context menu opens", () => {
+    const rangeClone = { CLONE: true } as unknown as Range;
+    const addRange = vi.fn();
+    const removeAllRanges = vi.fn();
+    vi.spyOn(window, "getSelection").mockReturnValue({
+      rangeCount: 1,
+      toString: () => "Linus",
+      getRangeAt: () => ({ cloneRange: () => rangeClone }) as unknown as Range,
+      addRange,
+      removeAllRanges,
+    } as unknown as Selection);
+    const raf = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((cb: FrameRequestCallback) => {
+        cb(0);
+        return 0;
+      });
+    render(<MultiSelectGrid />);
+
+    fireEvent.contextMenu(cellFor("Linus"));
+
+    // The menu opening re-applies the exact captured range.
+    expect(removeAllRanges).toHaveBeenCalled();
+    expect(addRange).toHaveBeenCalledWith(rangeClone);
+
+    raf.mockRestore();
+    vi.mocked(window.getSelection).mockRestore();
+  });
+
+  // behavior: with no text selection, the Copy selection item is not shown.
+  it("should not show Copy selection when nothing is selected", () => {
+    vi.spyOn(window, "getSelection").mockReturnValue({
+      toString: () => "",
+    } as Selection);
+    render(<MultiSelectGrid />);
+
+    fireEvent.contextMenu(cellFor("Linus"));
+
+    expect(
+      screen.queryByRole("menuitem", { name: /^copy selection$/i }),
+    ).toBeNull();
+    vi.mocked(window.getSelection).mockRestore();
   });
 });
 

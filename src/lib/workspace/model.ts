@@ -81,6 +81,16 @@ export type QueryResult = {
 
 export type ViewObject = { name: string };
 
+// A non-table database object browsed in the database-card object tabs (F14): schema (Postgres
+// only), name, and read-only DDL/source. Fetched lazily per (dbId, kind), NOT persisted on the node.
+export type ObjectKind = "procedure" | "function" | "trigger" | "sequence";
+
+export type DatabaseObject = {
+  schema: string | null;
+  name: string;
+  definition: string;
+};
+
 // The read-only Structure view (F6 #14). SQL engines populate all four sections; MongoDB fills
 // `indexes` only (documents have no columns / FKs / SQL constraints).
 export type StructureColumn = {
