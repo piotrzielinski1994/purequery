@@ -61,6 +61,10 @@ export type SelectMode = "replace" | "toggle" | "range";
 export type DatabaseTab =
   | "sql"
   | "views"
+  | "procedures"
+  | "functions"
+  | "triggers"
+  | "sequences"
   | "script"
   | "settings"
   | "query"

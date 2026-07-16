@@ -553,6 +553,28 @@ pub struct ConnectCatalog {
     pub views: Vec<TableRef>,
 }
 
+// A non-table database object browsed in the database-card object tabs (F14): its owning schema
+// (Postgres only, None for MySQL/SQLite), name, and read-only DDL/source. Same lazy live-catalog
+// shape as a Structure fetch - NOT persisted on the node.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DatabaseObject {
+    pub schema: Option<String>,
+    pub name: String,
+    pub definition: String,
+}
+
+// The object kinds the tabs expose. Serde matches the lowercase frontend tokens
+// ("procedure"/"function"/"trigger"/"sequence").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ObjectKind {
+    Procedure,
+    Function,
+    Trigger,
+    Sequence,
+}
+
 // One column's full metadata for the read-only Structure view (F6 #14): the grid header already
 // shows type/nullable/PK, this adds the default value + ordinal position.
 #[derive(Debug, Serialize)]
@@ -1872,6 +1894,34 @@ pub async fn fetch_table_structure(
     read_table_structure(handle.conn(), engine, schema.as_deref(), &table).await
 }
 
+// Lists one object kind's objects (name + read-only DDL) for the database-card object tabs (F14).
+// An unsupported (engine, kind) pair yields an empty list without touching the connection. Runs on
+// the held connection via the same `acquire_conn` seam as the Structure fetch (respects an open tx).
+pub async fn fetch_database_objects(
+    connection_id: String,
+    kind: ObjectKind,
+) -> Result<Vec<DatabaseObject>, String> {
+    let mut handle = acquire_conn(&connection_id).await?;
+    let engine = handle.engine();
+    let Some(query) = database_objects_query(engine, kind) else {
+        return Ok(Vec::new());
+    };
+    let rows = sqlx::query(&query)
+        .fetch_all(handle.conn())
+        .await
+        .map_err(|error| error.to_string())?;
+    Ok(rows
+        .iter()
+        .filter_map(|row| {
+            Some(DatabaseObject {
+                schema: row.try_get::<Option<String>, _>(0).unwrap_or(None),
+                name: read_text(row, 1)?,
+                definition: row.try_get::<Option<String>, _>(2).unwrap_or(None).unwrap_or_default(),
+            })
+        })
+        .collect())
+}
+
 // A batch of row-level changes the table card stages and applies on Save. Internally tagged by
 // `kind`; the frontend `PendingMutation` carries extra UI-only fields (id, tableName, sql, ...)
 // that serde ignores here.
@@ -1956,6 +2006,91 @@ pub fn views_query(engine: DbEngine) -> &'static str {
              WHERE type = 'view' AND name NOT LIKE 'sqlite_%' \
              ORDER BY name"
         }
+    }
+}
+
+// The per-engine, per-kind introspection query for a non-table object (F14). Each returns three
+// text columns in `(schema, name, definition)` order (schema NULL for MySQL/SQLite, definition
+// coalesced to '' where the engine exposes no source). `None` = unsupported (engine, kind): the
+// command returns an empty list without running a query. No binds - engine-scoped filters only.
+pub fn database_objects_query(engine: DbEngine, kind: ObjectKind) -> Option<String> {
+    match (engine, kind) {
+        // Postgres: functions and procedures share pg_proc, split by prokind; pg_get_functiondef
+        // gives the full CREATE ... source for both. System schemas excluded like the catalog query.
+        (DbEngine::Postgres, ObjectKind::Function | ObjectKind::Procedure) => {
+            let prokind = if matches!(kind, ObjectKind::Function) {
+                'f'
+            } else {
+                'p'
+            };
+            Some(format!(
+                "SELECT n.nspname::text AS schema, p.proname::text AS name, \
+                 pg_get_functiondef(p.oid)::text AS definition \
+                 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace \
+                 WHERE p.prokind = '{prokind}' \
+                 AND n.nspname NOT IN ('pg_catalog', 'information_schema') \
+                 ORDER BY n.nspname, p.proname"
+            ))
+        }
+        // Postgres triggers: pg_get_triggerdef gives the CREATE TRIGGER source; tgisinternal excludes
+        // the FK/constraint-enforcement triggers the user never wrote.
+        (DbEngine::Postgres, ObjectKind::Trigger) => Some(
+            "SELECT n.nspname::text AS schema, t.tgname::text AS name, \
+             pg_get_triggerdef(t.oid)::text AS definition \
+             FROM pg_trigger t \
+             JOIN pg_class c ON c.oid = t.tgrelid \
+             JOIN pg_namespace n ON n.oid = c.relnamespace \
+             WHERE NOT t.tgisinternal \
+             AND n.nspname NOT IN ('pg_catalog', 'information_schema') \
+             ORDER BY n.nspname, t.tgname"
+                .to_string(),
+        ),
+        // Postgres has no pg_get_sequencedef; synthesize a CREATE SEQUENCE skeleton from
+        // information_schema.sequences so the viewer is never empty (documented gap - not exact DDL).
+        (DbEngine::Postgres, ObjectKind::Sequence) => Some(
+            "SELECT sequence_schema::text AS schema, sequence_name::text AS name, \
+             ('CREATE SEQUENCE ' || quote_ident(sequence_schema) || '.' || quote_ident(sequence_name) \
+             || ' AS ' || data_type)::text AS definition \
+             FROM information_schema.sequences \
+             WHERE sequence_schema NOT IN ('pg_catalog', 'information_schema') \
+             ORDER BY sequence_schema, sequence_name"
+                .to_string(),
+        ),
+        // MySQL routines: routine_type splits PROCEDURE vs FUNCTION; routine_definition is the body
+        // (NULL without SHOW privilege - coalesced to ''). No schema level, so NULL schema.
+        (DbEngine::Mysql, ObjectKind::Function | ObjectKind::Procedure) => {
+            let routine_type = if matches!(kind, ObjectKind::Function) {
+                "FUNCTION"
+            } else {
+                "PROCEDURE"
+            };
+            Some(format!(
+                "SELECT NULL AS schema, routine_name AS name, \
+                 COALESCE(routine_definition, '') AS definition \
+                 FROM information_schema.routines \
+                 WHERE routine_schema = DATABASE() AND routine_type = '{routine_type}' \
+                 ORDER BY routine_name"
+            ))
+        }
+        // MySQL triggers: action_statement is the trigger body.
+        (DbEngine::Mysql, ObjectKind::Trigger) => Some(
+            "SELECT NULL AS schema, trigger_name AS name, \
+             COALESCE(action_statement, '') AS definition \
+             FROM information_schema.triggers \
+             WHERE trigger_schema = DATABASE() \
+             ORDER BY trigger_name"
+                .to_string(),
+        ),
+        // SQLite exposes only triggers (as their stored CREATE TRIGGER `sql`); no procedures,
+        // functions, or sequences.
+        (DbEngine::Sqlite, ObjectKind::Trigger) => Some(
+            "SELECT NULL AS schema, name, COALESCE(sql, '') AS definition \
+             FROM sqlite_master \
+             WHERE type = 'trigger' AND name NOT LIKE 'sqlite_%' \
+             ORDER BY name"
+                .to_string(),
+        ),
+        _ => None,
     }
 }
 
@@ -2306,11 +2441,12 @@ mod tests {
         assemble_columns, build_count_query, build_delete_query, build_insert_query,
         build_mutation, build_rows_query, build_update_query, build_update_query_value, build_url,
         cancel_query, catalog_query, column_types_query, columns_query, constraint_query,
-        fold_foreign_keys, fold_indexes, foreign_key_query, group_schema, index_query,
-        is_row_returning, is_subquery_wrappable, nullable_query, parse_json_rows, pk_regclass_bind,
-        primary_key_query, qualified_table, quote_identifier, schema_query, split_sql_statements,
-        structure_columns_query, views_query, with_pool, wrap_columns_probe, wrap_select_as_json,
-        wrap_select_as_text, ConnectionConfig, DbEngine, RowMutation, Sort, CANCELS, CANCEL_SENTINEL,
+        database_objects_query, fold_foreign_keys, fold_indexes, foreign_key_query, group_schema,
+        index_query, is_row_returning, is_subquery_wrappable, nullable_query, parse_json_rows,
+        pk_regclass_bind, primary_key_query, qualified_table, quote_identifier, schema_query,
+        split_sql_statements, structure_columns_query, views_query, with_pool, wrap_columns_probe,
+        wrap_select_as_json, wrap_select_as_text, ConnectionConfig, DbEngine, ObjectKind,
+        RowMutation, Sort, CANCELS, CANCEL_SENTINEL,
     };
     use std::collections::HashMap;
 
@@ -4108,6 +4244,126 @@ mod tests {
             catalog_query(DbEngine::Postgres)
         );
         assert_ne!(views_query(DbEngine::Sqlite), catalog_query(DbEngine::Sqlite));
+    }
+
+    // === F14 database_objects_query (AC-008, TC-008, TC-011) ===
+    // The per-engine, per-kind introspection query builder. `None` = unsupported (engine, kind).
+
+    // AC-008, TC-008 - behavior (Postgres FUNCTION uses pg_get_functiondef and prokind = 'f')
+    #[test]
+    fn should_select_postgres_functions_via_pg_get_functiondef_and_prokind_f() {
+        let query = database_objects_query(DbEngine::Postgres, ObjectKind::Function)
+            .expect("postgres function query must be supported");
+        assert!(
+            query.contains("pg_get_functiondef"),
+            "PG function DDL must come from pg_get_functiondef: {query}"
+        );
+        assert!(
+            query.contains("prokind = 'f'"),
+            "PG function query must filter prokind = 'f': {query}"
+        );
+    }
+
+    // AC-008 - behavior (Postgres PROCEDURE reuses pg_get_functiondef but filters prokind = 'p')
+    #[test]
+    fn should_select_postgres_procedures_via_prokind_p() {
+        let query = database_objects_query(DbEngine::Postgres, ObjectKind::Procedure)
+            .expect("postgres procedure query must be supported");
+        assert!(
+            query.contains("prokind = 'p'"),
+            "PG procedure query must filter prokind = 'p': {query}"
+        );
+    }
+
+    // TC-011 - behavior (Postgres TRIGGER uses pg_get_triggerdef and excludes internal triggers)
+    #[test]
+    fn should_select_postgres_triggers_via_pg_get_triggerdef_excluding_internal() {
+        let query = database_objects_query(DbEngine::Postgres, ObjectKind::Trigger)
+            .expect("postgres trigger query must be supported");
+        assert!(
+            query.contains("pg_get_triggerdef"),
+            "PG trigger DDL must come from pg_get_triggerdef: {query}"
+        );
+        assert!(
+            query.contains("tgisinternal"),
+            "PG trigger query must reference tgisinternal to exclude internal triggers: {query}"
+        );
+    }
+
+    // AC-008 - behavior (Postgres SEQUENCE lists from information_schema.sequences)
+    #[test]
+    fn should_select_postgres_sequences_from_information_schema_sequences() {
+        let query = database_objects_query(DbEngine::Postgres, ObjectKind::Sequence)
+            .expect("postgres sequence query must be supported");
+        assert!(
+            query.contains("information_schema.sequences"),
+            "PG sequence query must read information_schema.sequences: {query}"
+        );
+    }
+
+    // AC-002, AC-008 - behavior (MySQL PROCEDURE reads information_schema.routines, PROCEDURE type)
+    #[test]
+    fn should_select_mysql_procedures_from_information_schema_routines() {
+        let query = database_objects_query(DbEngine::Mysql, ObjectKind::Procedure)
+            .expect("mysql procedure query must be supported");
+        assert!(
+            query.contains("information_schema.routines"),
+            "MySQL procedure query must read information_schema.routines: {query}"
+        );
+        assert!(
+            query.contains("PROCEDURE"),
+            "MySQL procedure query must filter routine_type = 'PROCEDURE': {query}"
+        );
+    }
+
+    // AC-002, AC-008, TC-008 - behavior (MySQL has no sequences -> unsupported pair -> None)
+    #[test]
+    fn should_return_none_for_mysql_sequences() {
+        assert!(
+            database_objects_query(DbEngine::Mysql, ObjectKind::Sequence).is_none(),
+            "MySQL has no sequences; (Mysql, Sequence) must be None"
+        );
+    }
+
+    // AC-003, TC-011 - behavior (SQLite TRIGGER reads sqlite_master type='trigger', selecting sql)
+    #[test]
+    fn should_select_sqlite_triggers_from_sqlite_master_selecting_sql() {
+        let query = database_objects_query(DbEngine::Sqlite, ObjectKind::Trigger)
+            .expect("sqlite trigger query must be supported");
+        assert!(
+            query.contains("sqlite_master"),
+            "SQLite trigger query must read sqlite_master: {query}"
+        );
+        assert!(
+            query.contains("'trigger'"),
+            "SQLite trigger query must filter type = 'trigger': {query}"
+        );
+        assert!(
+            query.contains("sql"),
+            "SQLite trigger query must select the sql column as the definition: {query}"
+        );
+    }
+
+    // AC-003, AC-008, TC-008 - behavior (SQLite has no functions -> unsupported pair -> None)
+    #[test]
+    fn should_return_none_for_sqlite_functions() {
+        assert!(
+            database_objects_query(DbEngine::Sqlite, ObjectKind::Function).is_none(),
+            "SQLite has no user functions; (Sqlite, Function) must be None"
+        );
+    }
+
+    // AC-003 - behavior (SQLite has no procedures/sequences either -> None)
+    #[test]
+    fn should_return_none_for_sqlite_procedures_and_sequences() {
+        assert!(
+            database_objects_query(DbEngine::Sqlite, ObjectKind::Procedure).is_none(),
+            "(Sqlite, Procedure) must be None"
+        );
+        assert!(
+            database_objects_query(DbEngine::Sqlite, ObjectKind::Sequence).is_none(),
+            "(Sqlite, Sequence) must be None"
+        );
     }
 
     fn s(text: &str) -> String {

@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   ConnectCatalog,
   ConnectionConfig,
+  DatabaseObject,
+  ObjectKind,
   Sort,
   TableRows,
   TableSchema,
@@ -41,6 +43,19 @@ export function fetchTableStructure(
     connectionId,
     schema: schema ?? null,
     table,
+  });
+}
+
+// Lists one non-table object kind (procedures/functions/triggers/sequences) with its read-only DDL
+// for the database-card object tabs (F14). Fetched lazily when an object tab opens; an unsupported
+// (engine, kind) pair or MongoDB returns an empty list.
+export function fetchDatabaseObjects(
+  connectionId: string,
+  kind: ObjectKind,
+): Promise<DatabaseObject[]> {
+  return invoke<DatabaseObject[]>("fetch_database_objects", {
+    connectionId,
+    kind,
   });
 }
 

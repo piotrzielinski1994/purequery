@@ -6,10 +6,12 @@ use db::{
     apply_row_mutations, begin_transaction as begin_transaction_db, cancel_query as cancel_query_db,
     commit_transaction as commit_transaction_db, connect_database as connect_database_db,
     count_table_rows, disconnect_database as disconnect_database_db,
-    fetch_schema as fetch_schema_db, fetch_table_rows,
-    fetch_table_structure as fetch_table_structure_db, rollback_transaction as rollback_transaction_db,
-    run_query, transaction_state as transaction_state_db, ConnectCatalog, ConnectionConfig,
-    QueryOutcome, RowMutation, Sort, TableRows, TableSchema, TableStructure, DEFAULT_ROW_LIMIT,
+    fetch_database_objects as fetch_database_objects_db, fetch_schema as fetch_schema_db,
+    fetch_table_rows, fetch_table_structure as fetch_table_structure_db,
+    rollback_transaction as rollback_transaction_db, run_query,
+    transaction_state as transaction_state_db, ConnectCatalog, ConnectionConfig, DatabaseObject,
+    ObjectKind, QueryOutcome, RowMutation, Sort, TableRows, TableSchema, TableStructure,
+    DEFAULT_ROW_LIMIT,
 };
 use mongo::MongoConfig;
 
@@ -232,6 +234,20 @@ async fn fetch_table_structure(
     fetch_table_structure_db(connection_id, schema, table).await
 }
 
+// Lists one non-table object kind (procedures/functions/triggers/sequences) with its read-only DDL
+// for the database-card object tabs (F14). MongoDB has no such objects, so it returns an empty list;
+// SQL engines dispatch to the per-engine query builder (an unsupported kind also yields empty).
+#[tauri::command]
+async fn fetch_database_objects(
+    connection_id: String,
+    kind: ObjectKind,
+) -> Result<Vec<DatabaseObject>, String> {
+    if mongo::is_connected(&connection_id) {
+        return Ok(Vec::new());
+    }
+    fetch_database_objects_db(connection_id, kind).await
+}
+
 // Manual-commit transaction control (F12), SQL engines only. `begin_transaction` opens a tx on the
 // first write (idempotent); `commit`/`rollback` finish it; `transaction_state` reports whether one
 // is open (for the Commit/Rollback toolbar). MongoDB has no manual-commit (its NoSQL driver, like
@@ -317,6 +333,7 @@ pub fn run() {
             cancel_query,
             fetch_schema,
             fetch_table_structure,
+            fetch_database_objects,
             begin_transaction,
             commit_transaction,
             rollback_transaction,
