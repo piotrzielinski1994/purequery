@@ -17,6 +17,10 @@ sidebar drag-and-drop.
 If the Rust toolchain or system prerequisites are missing, `npm start` fails fast with
 a build error from Cargo.
 
+The per-database **Backup...** action needs no external tools - dbui generates the dump itself
+(Postgres/MySQL -> a data-only `.sql` INSERT script, SQLite -> a file copy, MongoDB -> a `.jsonl`
+Extended-JSON export).
+
 ## Setup
 
 ```bash

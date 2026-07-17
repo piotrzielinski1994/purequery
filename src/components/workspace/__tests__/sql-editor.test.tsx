@@ -227,6 +227,49 @@ describe("SqlEditor", () => {
     expect(labels).not.toContain("analytics_order_id");
   });
 
+  // behavior: a pinned defaultSchema (not "public") completes ITS tables unqualified after FROM, so
+  // a user need not type `schema.table` once a default schema is set (mirrors the sidebar pin).
+  it("should complete a non-public default schema's tables unqualified after FROM", async () => {
+    const enrichment: TableSchema[] = [
+      {
+        schema: "stock_image_enrichment",
+        name: "dealer_config",
+        columns: [{ name: "customer_id", dataType: "text" }],
+      },
+      {
+        schema: "quartz",
+        name: "qrtz_locks",
+        columns: [{ name: "lock_name", dataType: "text" }],
+      },
+    ];
+    const doc = "select * from ";
+    const { container } = render(
+      <SqlEditor
+        value={doc}
+        onChange={() => {}}
+        engine="postgres"
+        schema={enrichment}
+        defaultSchema="stock_image_enrichment"
+      />,
+    );
+
+    const state = liveView(container).state;
+    const sources = state.languageDataAt<
+      (ctx: CompletionContext) => unknown
+    >("autocomplete", doc.length);
+    const ctx = new CompletionContext(state, doc.length, true);
+    const results = (await Promise.all(
+      sources.map((source) => source(ctx)),
+    )) as ({ options: { label: string }[] } | null)[];
+    const labels = results.flatMap((result) =>
+      (result?.options ?? []).map((option) => option.label),
+    );
+
+    // The pinned schema's table completes unqualified; the other schema stays behind its qualifier.
+    expect(labels).toContain("dealer_config");
+    expect(labels).not.toContain("qrtz_locks");
+  });
+
   // TC-009 / AC-005 — behavior: with no schema, completion still offers SQL keywords.
   it("should complete SQL keywords when no schema is available", async () => {
     const doc = "SEL";

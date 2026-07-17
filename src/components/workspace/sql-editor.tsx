@@ -426,9 +426,13 @@ function buildSqlLanguage(
 }
 
 // Folds the flat per-table schema list into the namespace lang-sql wants. With Postgres schemas
-// present it nests `schema -> table -> columns` (and reports `public` as the default schema so its
-// tables also complete unqualified); without schemas it stays a flat `table -> columns` map.
-function buildNamespace(schema: TableSchema[]): {
+// present it nests `schema -> table -> columns` and reports a DEFAULT schema whose tables also
+// complete unqualified: the per-database `defaultSchema` pin if set (and present in the catalog),
+// else `public` when it exists; without schemas it stays a flat `table -> columns` map.
+function buildNamespace(
+  schema: TableSchema[],
+  pinnedSchema: string | undefined,
+): {
   namespace: SqlNamespace;
   defaultSchema: string | undefined;
 } {
@@ -446,7 +450,10 @@ function buildNamespace(schema: TableSchema[]): {
     const schemaName = table.schema ?? "public";
     (nested[schemaName] ??= {})[table.name] = table.columns.map((c) => c.name);
   }
-  return { namespace: nested, defaultSchema: "public" in nested ? "public" : undefined };
+  const preferred =
+    pinnedSchema && pinnedSchema in nested ? pinnedSchema : undefined;
+  const fallback = "public" in nested ? "public" : undefined;
+  return { namespace: nested, defaultSchema: preferred ?? fallback };
 }
 
 // Run the editor's current selection if it holds non-whitespace text, otherwise the whole buffer.
@@ -480,6 +487,9 @@ type SqlEditorProps = {
   // Scopes completion to ONE table's columns (the filter row's WHERE). Without it, completion
   // offers all tables + their columns (the SQL tab).
   defaultTable?: string;
+  // Per-database pinned schema (Postgres): when set, its tables complete UNQUALIFIED (no
+  // `schema.` prefix needed), mirroring the sidebar default-schema pin. Falls back to `public`.
+  defaultSchema?: string;
   // MongoDB only: the connected collection names, offered as completions after `db.`.
   collections?: string[];
   // Query variables (F18): `{{name}}` tokens are colored defined(green)/undefined(red) against this
@@ -508,6 +518,7 @@ export function SqlEditor({
   ariaLabel = "SQL editor",
   placeholder,
   defaultTable,
+  defaultSchema: pinnedSchema,
   collections,
   variables,
   onEditVariable,
@@ -551,7 +562,7 @@ export function SqlEditor({
     .map((variable) => `${variable.name}=${variable.value}`)
     .join(" ");
   const extensions = useMemo<Extension[]>(() => {
-    const { namespace, defaultSchema } = buildNamespace(schema);
+    const { namespace, defaultSchema } = buildNamespace(schema, pinnedSchema);
     // The filter row is a WHERE on ONE table: complete only that table's columns. Match by name
     // (the filter card already targets a single table; schema-qualified collisions don't surface
     // here since the editor is scoped to that one table's columns).
@@ -642,6 +653,7 @@ export function SqlEditor({
     ariaLabel,
     placeholder,
     defaultTable,
+    pinnedSchema,
     collectionsKey,
     variablesKey,
     onEditVariable,

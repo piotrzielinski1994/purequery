@@ -5,8 +5,16 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { ChevronDown, ChevronRight, Table } from "lucide-react";
+import { save } from "@tauri-apps/plugin-dialog";
+import { toast } from "sonner";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { EngineIcon } from "@/components/workspace/engine-icon";
+import { backupDatabase, estimateBackupRows } from "@/lib/tauri";
+import {
+  backupFilters,
+  defaultBackupFileName,
+  MAX_BACKUP_ROWS,
+} from "@/lib/workspace/backup";
 import { cn } from "@/lib/utils";
 import { visibleTables } from "@/lib/workspace/tree-schema";
 import { useWorkspace } from "@/components/workspace/workspace-context";
@@ -394,6 +402,49 @@ function DatabaseRow({ node, depth }: { node: DatabaseNode; depth: number }) {
     connect(node.id, connectionOf(node));
   };
 
+  // Export the database to a user-chosen file (native dump - no external tool: data-only INSERTs for
+  // Postgres/MySQL, a file copy for SQLite, Extended-JSON JSONL for MongoDB). Cancelling the save
+  // dialog is a no-op. Progress lands in the Logs tab (backend log stream); the outcome is a toast.
+  //
+  // Giant-DB guardrail: the native dump buffers the whole database in memory, so BEFORE the dialog
+  // we ask for a fast row estimate and hard-block a database over MAX_BACKUP_ROWS (no dialog, no
+  // dump). SQLite estimates 0 (its file-copy backup streams to disk, never gated).
+  const runBackup = async () => {
+    const config = connectionOf(node);
+    let estimate: number;
+    try {
+      estimate = await estimateBackupRows(config);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error), {
+        duration: Infinity,
+      });
+      return;
+    }
+    if (estimate > MAX_BACKUP_ROWS) {
+      toast.error(
+        `${node.name} is too large to back up (~${estimate.toLocaleString()} rows, limit ${MAX_BACKUP_ROWS.toLocaleString()}). In-app backup buffers the whole database in memory.`,
+        { duration: Infinity },
+      );
+      return;
+    }
+    const path = await save({
+      defaultPath: defaultBackupFileName(node, new Date()),
+      filters: backupFilters(node.engine),
+    });
+    if (path === null) {
+      return;
+    }
+    toast.info(`Backing up ${node.name}...`);
+    try {
+      const summary = await backupDatabase(config, path);
+      toast.success(`Backed up ${node.name} to ${summary.path}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error), {
+        duration: Infinity,
+      });
+    }
+  };
+
   // The chevron is first and foremost an expand/collapse toggle - it ALWAYS flips that. On top of
   // that, connection side effects keyed on the toggle DIRECTION:
   //  - expanding a database that isn't connected (idle/error) kicks off a connect so the live
@@ -513,6 +564,10 @@ function DatabaseRow({ node, depth }: { node: DatabaseNode; depth: number }) {
             {hasConnection ? "Disconnect" : "Connect"}
           </ContextMenuItem>
           <ContextMenuSeparator />
+          <ContextMenuItem onSelect={() => void runBackup()}>
+            Backup...
+          </ContextMenuItem>
+          <ContextMenuSeparator />
           <ContextMenuItem onSelect={() => beginRename(node.id)}>
             Rename
           </ContextMenuItem>
@@ -582,6 +637,14 @@ function TableRow({
         tabIndex={rovingId === node.id ? 0 : -1}
         onKeyDown={onRowKeyDown}
         onClick={() => openNode(node.id)}
+        // A table leaf has no own context menu, but a right-click must not fall through to the
+        // empty-area root menu (New database / New folder) - a table row is not empty sidebar space.
+        // Swallow it: preventDefault kills the native menu, stopPropagation keeps the root trigger
+        // from firing.
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
         style={{ paddingLeft: `${depth * 14 + 10}px` }}
         className={cn(
           "flex cursor-pointer items-center gap-2 py-1 pr-2 text-[13px] hover:bg-accent",

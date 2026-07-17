@@ -202,3 +202,24 @@ export function rollbackTransaction(connectionId: string): Promise<void> {
 export function transactionState(connectionId: string): Promise<boolean> {
   return invoke<boolean>("transaction_state", { connectionId });
 }
+
+// Summary of a completed backup (F16): the produced file path, its byte size, and elapsed ms.
+export type BackupSummary = { path: string; bytes: number; ms: number };
+
+// Approximate total row/document count for the giant-DB guardrail (fast catalog estimate, not
+// COUNT(*)). The caller compares it against a size limit BEFORE the save dialog and blocks an
+// over-limit backup. SQLite returns 0 (its file-copy backup is never gated).
+export function estimateBackupRows(config: ConnectionConfig): Promise<number> {
+  return invoke<number>("estimate_backup_rows", { config });
+}
+
+// Exports a database to `path` - a native data-only INSERT dump (Postgres/MySQL), a file copy
+// (SQLite), or an Extended-JSON JSONL export (MongoDB); dbui generates it over its own connection,
+// no external tool. Sends the raw connection config like connectDatabase (the pool holds no config);
+// no open connection is required. Progress surfaces in the Logs tab (backend log stream).
+export function backupDatabase(
+  config: ConnectionConfig,
+  path: string,
+): Promise<BackupSummary> {
+  return invoke<BackupSummary>("backup_database", { config, path });
+}

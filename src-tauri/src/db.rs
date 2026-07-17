@@ -1173,7 +1173,9 @@ async fn run_one_in_savepoint(
     match run_one_statement(engine, connection, statement, limit).await {
         Ok(outcome) => {
             // Best-effort release; a failed release does not invalidate the committed work.
-            let _ = (&mut *connection).execute("RELEASE SAVEPOINT dbui_stmt").await;
+            let _ = (&mut *connection)
+                .execute("RELEASE SAVEPOINT dbui_stmt")
+                .await;
             Ok(outcome)
         }
         Err(error) => {
@@ -1181,7 +1183,9 @@ async fn run_one_in_savepoint(
             (&mut *connection)
                 .execute("ROLLBACK TO SAVEPOINT dbui_stmt")
                 .await
-                .map_err(|rollback_error| format!("{error}; savepoint rollback failed: {rollback_error}"))?;
+                .map_err(|rollback_error| {
+                    format!("{error}; savepoint rollback failed: {rollback_error}")
+                })?;
             Err(error)
         }
     }
@@ -1441,7 +1445,10 @@ async fn open_and_catalog(
     // Postgres returns (schema, table) so the sidebar can group + every command can qualify;
     // MySQL/SQLite return the bare name only (no schema level). Views share the same shape.
     let has_schema_column = matches!(engine, DbEngine::Postgres);
-    let tables = table_refs(&table_rows.expect("error returned above"), has_schema_column)?;
+    let tables = table_refs(
+        &table_rows.expect("error returned above"),
+        has_schema_column,
+    )?;
     let views = view_rows
         .ok()
         .map(|rows| table_refs(&rows, has_schema_column))
@@ -1452,7 +1459,10 @@ async fn open_and_catalog(
 
 // Maps catalog rows (tables or views) to `TableRef`s. Postgres carries (schema, name); MySQL/SQLite
 // carry the bare name (schema None).
-fn table_refs(rows: &[sqlx::any::AnyRow], has_schema_column: bool) -> Result<Vec<TableRef>, String> {
+fn table_refs(
+    rows: &[sqlx::any::AnyRow],
+    has_schema_column: bool,
+) -> Result<Vec<TableRef>, String> {
     rows.iter()
         .map(|row| {
             if has_schema_column {
@@ -1505,7 +1515,8 @@ pub async fn fetch_schema(connection_id: String) -> Result<Vec<TableSchema>, Str
             };
             Ok((
                 schema,
-                row.try_get::<String, _>(offset).map_err(|e| e.to_string())?,
+                row.try_get::<String, _>(offset)
+                    .map_err(|e| e.to_string())?,
                 row.try_get::<String, _>(offset + 1)
                     .map_err(|e| e.to_string())?,
                 row.try_get::<String, _>(offset + 2)
@@ -1611,7 +1622,7 @@ async fn fetch_introspection(
         .map_err(|e| e.to_string())
 }
 
-async fn read_table_rows(
+pub(crate) async fn read_table_rows(
     connection: &mut sqlx::AnyConnection,
     engine: DbEngine,
     schema: Option<&str>,
@@ -1622,8 +1633,13 @@ async fn read_table_rows(
     sort: Option<&Sort>,
 ) -> Result<TableRows, String> {
     let has_schema = schema.is_some();
-    let column_rows =
-        fetch_introspection(connection, &columns_query(engine, has_schema), table, schema).await?;
+    let column_rows = fetch_introspection(
+        connection,
+        &columns_query(engine, has_schema),
+        table,
+        schema,
+    )
+    .await?;
 
     let names = column_rows
         .iter()
@@ -1654,9 +1670,13 @@ async fn read_table_rows(
         .first()
         .and_then(|row| row.try_get::<String, _>(0).ok());
 
-    let type_rows =
-        fetch_introspection(connection, &column_types_query(engine, has_schema), table, schema)
-            .await?;
+    let type_rows = fetch_introspection(
+        connection,
+        &column_types_query(engine, has_schema),
+        table,
+        schema,
+    )
+    .await?;
     let types: std::collections::HashMap<String, String> = type_rows
         .iter()
         .filter_map(|row| {
@@ -1667,8 +1687,13 @@ async fn read_table_rows(
         })
         .collect();
 
-    let nullable_rows =
-        fetch_introspection(connection, &nullable_query(engine, has_schema), table, schema).await?;
+    let nullable_rows = fetch_introspection(
+        connection,
+        &nullable_query(engine, has_schema),
+        table,
+        schema,
+    )
+    .await?;
     let nullable: std::collections::HashMap<String, bool> = nullable_rows
         .iter()
         .filter_map(|row| {
@@ -1726,7 +1751,9 @@ fn read_flag(row: &sqlx::any::AnyRow, index: usize) -> bool {
     if let Ok(flag) = row.try_get::<bool, _>(index) {
         return flag;
     }
-    row.try_get::<i64, _>(index).map(|value| value != 0).unwrap_or(false)
+    row.try_get::<i64, _>(index)
+        .map(|value| value != 0)
+        .unwrap_or(false)
 }
 
 // Folds one-row-per-column index metadata (already ordered by index name then column position) into
@@ -1750,9 +1777,7 @@ fn fold_indexes(rows: &[(String, String, bool, bool)]) -> Vec<IndexInfo> {
 
 // Folds one-row-per-column foreign-key metadata (ordered by constraint name then column position)
 // into grouped `ForeignKey`s. Pure over tuples so composite-FK grouping is unit-testable.
-fn fold_foreign_keys(
-    rows: &[(String, String, String, String, Option<String>)],
-) -> Vec<ForeignKey> {
+fn fold_foreign_keys(rows: &[(String, String, String, String, Option<String>)]) -> Vec<ForeignKey> {
     let mut keys: Vec<ForeignKey> = Vec::new();
     for (name, column, referenced_table, referenced_column, referenced_schema) in rows {
         match keys.iter_mut().find(|key| &key.name == name) {
@@ -1775,7 +1800,7 @@ fn fold_foreign_keys(
 // Assembles the read-only Structure view for one table: full columns (+ default/ordinal/PK), grouped
 // indexes, grouped foreign keys, and named check/unique constraints. Each section is one
 // introspection query on the held pool; a table with none of a section yields an empty vec.
-async fn read_table_structure(
+pub(crate) async fn read_table_structure(
     connection: &mut sqlx::AnyConnection,
     engine: DbEngine,
     schema: Option<&str>,
@@ -1796,9 +1821,13 @@ async fn read_table_structure(
         .filter_map(|row| row.try_get::<String, _>(0).ok())
         .collect();
 
-    let column_rows =
-        fetch_introspection(connection, &structure_columns_query(engine, has_schema), table, schema)
-            .await?;
+    let column_rows = fetch_introspection(
+        connection,
+        &structure_columns_query(engine, has_schema),
+        table,
+        schema,
+    )
+    .await?;
     let columns = column_rows
         .iter()
         .enumerate()
@@ -1807,9 +1836,7 @@ async fn read_table_structure(
             let data_type = row.try_get::<String, _>(1).unwrap_or_default();
             let nullable = read_nullable(engine, row);
             let default_value = row.try_get::<Option<String>, _>(3).unwrap_or(None);
-            let ordinal = row
-                .try_get::<i64, _>(4)
-                .unwrap_or((position + 1) as i64);
+            let ordinal = row.try_get::<i64, _>(4).unwrap_or((position + 1) as i64);
             StructureColumn {
                 is_primary_key: pk_columns.contains(&name),
                 name,
@@ -1836,8 +1863,13 @@ async fn read_table_structure(
         .collect::<Vec<_>>();
     let indexes = fold_indexes(&index_tuples);
 
-    let fk_rows =
-        fetch_introspection(connection, &foreign_key_query(engine, has_schema), table, schema).await?;
+    let fk_rows = fetch_introspection(
+        connection,
+        &foreign_key_query(engine, has_schema),
+        table,
+        schema,
+    )
+    .await?;
     let fk_tuples = fk_rows
         .iter()
         .filter_map(|row| {
@@ -1852,8 +1884,13 @@ async fn read_table_structure(
         .collect::<Vec<_>>();
     let foreign_keys = fold_foreign_keys(&fk_tuples);
 
-    let constraint_rows =
-        fetch_introspection(connection, &constraint_query(engine, has_schema), table, schema).await?;
+    let constraint_rows = fetch_introspection(
+        connection,
+        &constraint_query(engine, has_schema),
+        table,
+        schema,
+    )
+    .await?;
     let constraints = constraint_rows
         .iter()
         .filter_map(|row| {
@@ -1881,7 +1918,9 @@ fn read_text(row: &sqlx::any::AnyRow, index: usize) -> Option<String> {
     if let Ok(text) = row.try_get::<String, _>(index) {
         return Some(text);
     }
-    row.try_get::<i64, _>(index).ok().map(|value| value.to_string())
+    row.try_get::<i64, _>(index)
+        .ok()
+        .map(|value| value.to_string())
 }
 
 pub async fn fetch_table_structure(
@@ -1916,7 +1955,10 @@ pub async fn fetch_database_objects(
             Some(DatabaseObject {
                 schema: row.try_get::<Option<String>, _>(0).unwrap_or(None),
                 name: read_text(row, 1)?,
-                definition: row.try_get::<Option<String>, _>(2).unwrap_or(None).unwrap_or_default(),
+                definition: row
+                    .try_get::<Option<String>, _>(2)
+                    .unwrap_or(None)
+                    .unwrap_or_default(),
             })
         })
         .collect())
@@ -1929,7 +1971,11 @@ pub async fn fetch_database_objects(
 // `rename_all` renames only the variant tags (cell/insert/delete); `rename_all_fields` is what maps
 // the per-variant fields to the camelCase the frontend sends (pkValue/newValue) - without it serde
 // expects snake_case and rejects the payload with "missing field `pk_value`".
-#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum RowMutation {
     Cell {
         column: String,
@@ -2277,7 +2323,15 @@ pub async fn apply_row_mutations(
     let mut handle = acquire_conn(&connection_id).await?;
     let engine = handle.engine();
     let pinned = handle.is_pinned();
-    apply_mutations(handle.conn(), engine, schema.as_deref(), &table, &mutations, pinned).await
+    apply_mutations(
+        handle.conn(),
+        engine,
+        schema.as_deref(),
+        &table,
+        &mutations,
+        pinned,
+    )
+    .await
 }
 
 async fn apply_mutations(
@@ -2322,7 +2376,8 @@ async fn apply_mutations(
 
     let mut affected = 0;
     for mutation in mutations {
-        let (sql, binds) = build_mutation(engine, schema, table, pk_column, &column_types, mutation)?;
+        let (sql, binds) =
+            build_mutation(engine, schema, table, pk_column, &column_types, mutation)?;
         // Inside an open manual-commit transaction, wrap each mutation in a SAVEPOINT so a failure
         // (e.g. a constraint violation) rolls back only that mutation and leaves the transaction
         // usable, instead of poisoning it (mirrors run_query_batch + DBeaver). No savepoint on the
@@ -2351,7 +2406,9 @@ async fn execute_mutation_in_savepoint(
         .map_err(|error| error.to_string())?;
     match run_bound_mutation(connection, sql, binds).await {
         Ok(affected) => {
-            let _ = (&mut *connection).execute("RELEASE SAVEPOINT dbui_stmt").await;
+            let _ = (&mut *connection)
+                .execute("RELEASE SAVEPOINT dbui_stmt")
+                .await;
             Ok(affected)
         }
         Err(error) => {
@@ -2425,9 +2482,9 @@ fn build_mutation(
             let cells = values.values().map(Option::as_deref).collect::<Vec<_>>();
             Ok(build_insert_query(engine, schema, table, &columns, &cells))
         }
-        RowMutation::Delete { pk_value } => {
-            Ok(build_delete_query(engine, schema, table, pk_column, pk_value))
-        }
+        RowMutation::Delete { pk_value } => Ok(build_delete_query(
+            engine, schema, table, pk_column, pk_value,
+        )),
         // A full-document replace is a MongoDB-only mutation; no SQL engine can express it.
         RowMutation::Replace { .. } => {
             Err("replace is only supported for MongoDB collections".to_string())
@@ -2642,7 +2699,10 @@ mod tests {
     #[test]
     fn should_quote_the_bare_table_when_no_schema_is_supplied() {
         assert_eq!(qualified_table(DbEngine::Mysql, None, "users"), "`users`");
-        assert_eq!(qualified_table(DbEngine::Sqlite, None, "users"), "\"users\"");
+        assert_eq!(
+            qualified_table(DbEngine::Sqlite, None, "users"),
+            "\"users\""
+        );
     }
 
     // AC-007 - behavior (the rows query targets the schema-qualified table when a schema is known)
@@ -2670,16 +2730,35 @@ mod tests {
         assert!(build_count_query(DbEngine::Postgres, Some("s"), "t", None)
             .contains("FROM \"s\".\"t\""));
 
-        let (update, _) =
-            build_update_query(DbEngine::Postgres, Some("s"), "t", "c", "int4", "id", "1", "2");
+        let (update, _) = build_update_query(
+            DbEngine::Postgres,
+            Some("s"),
+            "t",
+            "c",
+            "int4",
+            "id",
+            "1",
+            "2",
+        );
         assert!(update.starts_with("UPDATE \"s\".\"t\" "), "got: {update}");
 
-        let (insert, _) =
-            build_insert_query(DbEngine::Postgres, Some("s"), "t", &[("c", "text")], &[Some("v")]);
-        assert!(insert.starts_with("INSERT INTO \"s\".\"t\" "), "got: {insert}");
+        let (insert, _) = build_insert_query(
+            DbEngine::Postgres,
+            Some("s"),
+            "t",
+            &[("c", "text")],
+            &[Some("v")],
+        );
+        assert!(
+            insert.starts_with("INSERT INTO \"s\".\"t\" "),
+            "got: {insert}"
+        );
 
         let (delete, _) = build_delete_query(DbEngine::Postgres, Some("s"), "t", "id", "2");
-        assert!(delete.starts_with("DELETE FROM \"s\".\"t\" "), "got: {delete}");
+        assert!(
+            delete.starts_with("DELETE FROM \"s\".\"t\" "),
+            "got: {delete}"
+        );
     }
 
     // AC-007/009 - behavior (the PG primary-key lookup binds the quoted, schema-qualified name so
@@ -2752,7 +2831,10 @@ mod tests {
             unpinned.contains("NOT IN ('pg_catalog', 'information_schema')"),
             "unpinned PG query keeps the system-schema exclusion: {unpinned}"
         );
-        assert!(!unpinned.contains("$2"), "unpinned PG query has no $2: {unpinned}");
+        assert!(
+            !unpinned.contains("$2"),
+            "unpinned PG query has no $2: {unpinned}"
+        );
 
         // MySQL/SQLite never carry a schema; the flag must not change their query.
         assert_eq!(
@@ -2768,8 +2850,16 @@ mod tests {
     // behavior (Postgres casts every column to text and applies the limit; no filter -> no WHERE)
     #[test]
     fn should_cast_each_column_to_text_and_limit_for_postgres() {
-        let query =
-            build_rows_query(DbEngine::Postgres, None, "product", &cols(), 200, 0, None, None);
+        let query = build_rows_query(
+            DbEngine::Postgres,
+            None,
+            "product",
+            &cols(),
+            200,
+            0,
+            None,
+            None,
+        );
         assert_eq!(
             query,
             "SELECT \"id\"::text, \"price\"::text FROM \"product\" LIMIT 200"
@@ -2779,8 +2869,16 @@ mod tests {
     // behavior (MySQL casts every column to CHAR and applies the limit; no filter -> no WHERE)
     #[test]
     fn should_cast_each_column_to_char_and_limit_for_mysql() {
-        let query =
-            build_rows_query(DbEngine::Mysql, None, "product", &cols(), 100, 0, None, None);
+        let query = build_rows_query(
+            DbEngine::Mysql,
+            None,
+            "product",
+            &cols(),
+            100,
+            0,
+            None,
+            None,
+        );
         assert_eq!(
             query,
             "SELECT CAST(`id` AS CHAR), CAST(`price` AS CHAR) FROM `product` LIMIT 100"
@@ -2865,8 +2963,16 @@ mod tests {
     // AC-001 - behavior (a non-zero offset emits OFFSET after LIMIT; offset 0 emits none)
     #[test]
     fn should_append_offset_after_limit_when_offset_is_non_zero() {
-        let query =
-            build_rows_query(DbEngine::Postgres, None, "product", &cols(), 200, 200, None, None);
+        let query = build_rows_query(
+            DbEngine::Postgres,
+            None,
+            "product",
+            &cols(),
+            200,
+            200,
+            None,
+            None,
+        );
         assert_eq!(
             query,
             "SELECT \"id\"::text, \"price\"::text FROM \"product\" LIMIT 200 OFFSET 200"
@@ -3394,8 +3500,16 @@ mod tests {
     // AC-005, TC-007 - behavior (SQLite casts every column to TEXT, applies the limit, double-quotes)
     #[test]
     fn should_cast_each_column_to_text_and_limit_for_sqlite() {
-        let query =
-            build_rows_query(DbEngine::Sqlite, None, "product", &cols(), 200, 0, None, None);
+        let query = build_rows_query(
+            DbEngine::Sqlite,
+            None,
+            "product",
+            &cols(),
+            200,
+            0,
+            None,
+            None,
+        );
         assert_eq!(
             query,
             "SELECT CAST(\"id\" AS TEXT), CAST(\"price\" AS TEXT) FROM \"product\" LIMIT 200"
@@ -3662,9 +3776,24 @@ mod tests {
     #[test]
     fn should_group_schema_rows_into_one_entry_per_table_preserving_column_order() {
         let rows = vec![
-            (Some("public".into()), "users".into(), "id".into(), "int4".into()),
-            (Some("public".into()), "users".into(), "email".into(), "text".into()),
-            (Some("public".into()), "orders".into(), "id".into(), "int8".into()),
+            (
+                Some("public".into()),
+                "users".into(),
+                "id".into(),
+                "int4".into(),
+            ),
+            (
+                Some("public".into()),
+                "users".into(),
+                "email".into(),
+                "text".into(),
+            ),
+            (
+                Some("public".into()),
+                "orders".into(),
+                "id".into(),
+                "int8".into(),
+            ),
         ];
 
         let grouped = group_schema(rows);
@@ -3684,8 +3813,18 @@ mod tests {
     #[test]
     fn should_keep_same_named_tables_in_different_schemas_distinct() {
         let rows = vec![
-            (Some("public".into()), "users".into(), "id".into(), "int4".into()),
-            (Some("analytics".into()), "users".into(), "id".into(), "int8".into()),
+            (
+                Some("public".into()),
+                "users".into(),
+                "id".into(),
+                "int4".into(),
+            ),
+            (
+                Some("analytics".into()),
+                "users".into(),
+                "id".into(),
+                "int8".into(),
+            ),
         ];
 
         let grouped = group_schema(rows);
@@ -4237,13 +4376,22 @@ mod tests {
     // AC-007 - behavior (each engine gets a distinct views query, and it is not the table catalog)
     #[test]
     fn should_return_a_distinct_views_query_per_engine_that_differs_from_the_table_catalog() {
-        assert_ne!(views_query(DbEngine::Postgres), views_query(DbEngine::Mysql));
-        assert_ne!(views_query(DbEngine::Postgres), views_query(DbEngine::Sqlite));
+        assert_ne!(
+            views_query(DbEngine::Postgres),
+            views_query(DbEngine::Mysql)
+        );
+        assert_ne!(
+            views_query(DbEngine::Postgres),
+            views_query(DbEngine::Sqlite)
+        );
         assert_ne!(
             views_query(DbEngine::Postgres),
             catalog_query(DbEngine::Postgres)
         );
-        assert_ne!(views_query(DbEngine::Sqlite), catalog_query(DbEngine::Sqlite));
+        assert_ne!(
+            views_query(DbEngine::Sqlite),
+            catalog_query(DbEngine::Sqlite)
+        );
     }
 
     // === F14 database_objects_query (AC-008, TC-008, TC-011) ===
@@ -4384,7 +4532,10 @@ mod tests {
         assert_eq!(indexes[0].name, "pk_users");
         assert!(indexes[0].is_primary && indexes[0].is_unique);
         assert_eq!(indexes[1].name, "users_name_email_idx");
-        assert_eq!(indexes[1].columns, vec!["name".to_string(), "email".to_string()]);
+        assert_eq!(
+            indexes[1].columns,
+            vec!["name".to_string(), "email".to_string()]
+        );
         assert!(!indexes[1].is_unique && !indexes[1].is_primary);
     }
 
@@ -4437,8 +4588,8 @@ mod tests {
 #[cfg(test)]
 mod tx_tests {
     use super::{
-        begin_transaction, commit_transaction, connect_database, disconnect_database, rollback_transaction,
-        run_query, transaction_state, ConnectionConfig, DEFAULT_ROW_LIMIT,
+        begin_transaction, commit_transaction, connect_database, disconnect_database,
+        rollback_transaction, run_query, transaction_state, ConnectionConfig, DEFAULT_ROW_LIMIT,
     };
     use std::sync::Once;
 
@@ -4481,9 +4632,14 @@ mod tx_tests {
     // Convenience: run one statement on the held connection and unwrap. `req` must be unique per
     // call (it keys the cancel registry).
     async fn exec(id: &str, sql: &str, req: &str) -> Vec<super::QueryOutcome> {
-        run_query(id.to_string(), sql.to_string(), DEFAULT_ROW_LIMIT, req.to_string())
-            .await
-            .unwrap_or_else(|error| panic!("run_query({sql}) failed: {error}"))
+        run_query(
+            id.to_string(),
+            sql.to_string(),
+            DEFAULT_ROW_LIMIT,
+            req.to_string(),
+        )
+        .await
+        .unwrap_or_else(|error| panic!("run_query({sql}) failed: {error}"))
     }
 
     // TC-001, AC-002, AC-003 - behavior (begin opens the tx; an INSERT then a SELECT on the SAME id
@@ -4497,7 +4653,12 @@ mod tx_tests {
             .await
             .expect("connect");
 
-        exec(id, "CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)", "c1").await;
+        exec(
+            id,
+            "CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)",
+            "c1",
+        )
+        .await;
 
         begin_transaction(id.to_string()).await.expect("begin");
         assert!(
@@ -4531,7 +4692,12 @@ mod tx_tests {
             .await
             .expect("connect");
 
-        exec(id, "CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)", "c1").await;
+        exec(
+            id,
+            "CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)",
+            "c1",
+        )
+        .await;
         begin_transaction(id.to_string()).await.expect("begin");
         exec(id, "INSERT INTO t (id, name) VALUES (1, 'alice')", "c2").await;
 
@@ -4543,7 +4709,11 @@ mod tx_tests {
 
         // A fresh SELECT now runs on the pool (auto-commit path) - it must still see the committed row.
         let out = exec(id, "SELECT id FROM t", "c3").await;
-        assert_eq!(out[0].rows.len(), 1, "a committed row must survive on a fresh connection");
+        assert_eq!(
+            out[0].rows.len(),
+            1,
+            "a committed row must survive on a fresh connection"
+        );
 
         disconnect_database(id.to_string()).await;
         cleanup(&file);
@@ -4560,11 +4730,18 @@ mod tx_tests {
             .await
             .expect("connect");
 
-        exec(id, "CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)", "c1").await;
+        exec(
+            id,
+            "CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)",
+            "c1",
+        )
+        .await;
         begin_transaction(id.to_string()).await.expect("begin");
         exec(id, "INSERT INTO t (id, name) VALUES (1, 'alice')", "c2").await;
 
-        rollback_transaction(id.to_string()).await.expect("rollback");
+        rollback_transaction(id.to_string())
+            .await
+            .expect("rollback");
         assert!(
             !transaction_state(id.to_string()),
             "transaction_state must be false after rollback"
@@ -4608,7 +4785,9 @@ mod tx_tests {
             "the pinned read must see its own uncommitted DELETE (empty)"
         );
 
-        rollback_transaction(id.to_string()).await.expect("rollback");
+        rollback_transaction(id.to_string())
+            .await
+            .expect("rollback");
 
         let after = exec(id, "SELECT id FROM t", "c5").await;
         assert_eq!(
@@ -4674,7 +4853,10 @@ mod tx_tests {
             commit_transaction(id.to_string()).await,
             rollback_transaction(id.to_string()).await,
         ] {
-            assert!(result.is_err(), "a tx command on an unknown id must return Err");
+            assert!(
+                result.is_err(),
+                "a tx command on an unknown id must return Err"
+            );
             let message = result.err().unwrap().to_lowercase();
             assert!(
                 message.contains("not connected") || message.contains("no connection"),
@@ -4698,7 +4880,12 @@ mod tx_tests {
             .await
             .expect("connect");
 
-        exec(id, "CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)", "c1").await;
+        exec(
+            id,
+            "CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)",
+            "c1",
+        )
+        .await;
         begin_transaction(id.to_string()).await.expect("begin");
         exec(id, "INSERT INTO t (id, name) VALUES (1, 'alice')", "c2").await;
 
@@ -4756,8 +4943,12 @@ mod tx_tests {
         };
         let a = "live-tx-a";
         let b = "live-tx-b";
-        connect_database(a.to_string(), pg()).await.expect("connect a");
-        connect_database(b.to_string(), pg()).await.expect("connect b");
+        connect_database(a.to_string(), pg())
+            .await
+            .expect("connect a");
+        connect_database(b.to_string(), pg())
+            .await
+            .expect("connect b");
 
         exec(
             a,
@@ -4772,7 +4963,11 @@ mod tx_tests {
 
         // B is a DIFFERENT connection with no open tx: it must NOT see A's uncommitted delete.
         let vb = exec(b, "SELECT id FROM tx_iso", "vb1").await;
-        assert_eq!(vb[0].rows.len(), 3, "B must still see all rows before A commits");
+        assert_eq!(
+            vb[0].rows.len(),
+            3,
+            "B must still see all rows before A commits"
+        );
 
         // A (pinned) sees its own delete.
         let va = exec(a, "SELECT id FROM tx_iso", "va1").await;
@@ -4780,7 +4975,11 @@ mod tx_tests {
 
         commit_transaction(a.to_string()).await.expect("commit a");
         let vb2 = exec(b, "SELECT id FROM tx_iso", "vb2").await;
-        assert_eq!(vb2[0].rows.len(), 0, "after A commits, B must see the delete");
+        assert_eq!(
+            vb2[0].rows.len(),
+            0,
+            "after A commits, B must see the delete"
+        );
 
         exec(a, "DROP TABLE IF EXISTS tx_iso", "drop").await;
         disconnect_database(a.to_string()).await;
@@ -4842,7 +5041,11 @@ mod tx_tests {
 
         commit_transaction(id.to_string()).await.expect("commit");
         let out = exec(id, "SELECT id FROM tx_sp ORDER BY id", "check").await;
-        assert_eq!(out[0].rows.len(), 2, "rows 1 and 2 committed; the duplicate left nothing");
+        assert_eq!(
+            out[0].rows.len(),
+            2,
+            "rows 1 and 2 committed; the duplicate left nothing"
+        );
 
         exec(id, "DROP TABLE IF EXISTS tx_sp", "drop").await;
         disconnect_database(id.to_string()).await;

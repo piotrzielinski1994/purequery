@@ -208,6 +208,14 @@ describe("row context menu - table leaf", () => {
     expect(screen.queryByRole("menuitem", { name: /^delete$/i })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: /^connect$/i })).toBeNull();
     expect(screen.queryByText("Delete")).toBeNull();
+    // The empty-area root menu must NOT leak onto a table leaf either: right-clicking a table is
+    // not a right-click on empty sidebar space, so New database / New folder must not appear.
+    expect(
+      screen.queryByRole("menuitem", { name: /^new database$/i }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("menuitem", { name: /^new folder$/i }),
+    ).toBeNull();
   });
 });
 

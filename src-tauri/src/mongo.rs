@@ -7,8 +7,8 @@
 // scalars become their JSON-literal text, a missing key becomes a NULL cell.
 
 use crate::db::{
-    ConnectCatalog, IndexInfo, QueryOutcome, RowMutation, SchemaColumn, Sort, TableColumn, TableRef,
-    TableRows, TableSchema, TableStructure,
+    ConnectCatalog, IndexInfo, QueryOutcome, RowMutation, SchemaColumn, Sort, TableColumn,
+    TableRef, TableRows, TableSchema, TableStructure,
 };
 use futures_util::TryStreamExt;
 use mongodb::bson::{doc, oid::ObjectId, Bson, Document};
@@ -76,7 +76,12 @@ fn encode(value: &str) -> String {
 // Builds the connection string. An explicit non-empty `uri` is returned verbatim (the user owns
 // it); otherwise the discrete fields are assembled into a percent-encoded `mongodb://` URL.
 pub fn mongo_uri(config: &MongoConfig) -> String {
-    if let Some(uri) = config.uri.as_deref().map(str::trim).filter(|u| !u.is_empty()) {
+    if let Some(uri) = config
+        .uri
+        .as_deref()
+        .map(str::trim)
+        .filter(|u| !u.is_empty())
+    {
         return uri.to_string();
     }
     format!(
@@ -285,14 +290,13 @@ fn json_value_to_bson(value: Value) -> Bson {
         }
         Value::String(text) => Bson::String(text),
         Value::Array(items) => Bson::Array(items.into_iter().map(json_value_to_bson).collect()),
-        Value::Object(map) => extended_json_type(&map)
-            .unwrap_or_else(|| {
-                Bson::Document(
-                    map.into_iter()
-                        .map(|(key, value)| (key, json_value_to_bson(value)))
-                        .collect(),
-                )
-            }),
+        Value::Object(map) => extended_json_type(&map).unwrap_or_else(|| {
+            Bson::Document(
+                map.into_iter()
+                    .map(|(key, value)| (key, json_value_to_bson(value)))
+                    .collect(),
+            )
+        }),
     }
 }
 
@@ -400,10 +404,7 @@ pub fn build_replace(pk_value: &str, document_json: &str) -> Result<(Document, D
 // Opens a Mongo client (fail-fast server selection), pings, lists collections, and holds the
 // client keyed by id. Cancellable via the SHARED cancel registry under the same `connect:` key the
 // SQL connect uses, so the Settings "Cancel" button aborts a stuck Mongo connect identically.
-pub async fn connect(
-    connection_id: String,
-    config: MongoConfig,
-) -> Result<ConnectCatalog, String> {
+pub async fn connect(connection_id: String, config: MongoConfig) -> Result<ConnectCatalog, String> {
     let cancel_key = crate::db::connect_cancel_key(&connection_id);
     let token = crate::db::register_cancel_token(&cancel_key);
     let result = tokio::select! {
@@ -603,7 +604,10 @@ const SCHEMA_SAMPLE_SIZE: i64 = 50;
 pub fn sample_fields(documents: &[Document]) -> Vec<String> {
     let mut fields: Vec<String> = Vec::new();
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
-    if documents.iter().any(|document| document.contains_key("_id")) {
+    if documents
+        .iter()
+        .any(|document| document.contains_key("_id"))
+    {
         fields.push("_id".to_string());
         seen.insert("_id".to_string());
     }
@@ -678,8 +682,7 @@ pub async fn apply_mutations(
                 pk_value,
                 new_value,
             } => {
-                let (filter, update) =
-                    build_cell_update(pk_value, column, new_value.as_deref())?;
+                let (filter, update) = build_cell_update(pk_value, column, new_value.as_deref())?;
                 let result = coll
                     .update_one(filter, update)
                     .await
@@ -857,11 +860,7 @@ fn parse_command(text: &str) -> Result<MongoCommand, String> {
 
 // The nth arg's raw text (empty string when absent), for the read ops that tolerate a missing arg.
 fn arg_or_empty(command: &MongoCommand, index: usize) -> &str {
-    command
-        .args
-        .get(index)
-        .map(String::as_str)
-        .unwrap_or("")
+    command.args.get(index).map(String::as_str).unwrap_or("")
 }
 
 // The nth arg parsed as a required JSON object (update/replacement/insert document). A missing,
@@ -913,7 +912,10 @@ async fn run_command(
                 .try_collect()
                 .await
                 .map_err(|error| error.to_string())?;
-            Ok(documents_outcome(format!("db.{name}.find(...)"), &documents))
+            Ok(documents_outcome(
+                format!("db.{name}.find(...)"),
+                &documents,
+            ))
         }
         MongoOp::Aggregate => {
             let mut stages = parse_pipeline(arg_or_empty(command, 0))?;
@@ -935,7 +937,11 @@ async fn run_command(
             coll.insert_one(document)
                 .await
                 .map_err(|error| error.to_string())?;
-            Ok(write_outcome(format!("db.{name}.insertOne(...)"), 1, "inserted"))
+            Ok(write_outcome(
+                format!("db.{name}.insertOne(...)"),
+                1,
+                "inserted",
+            ))
         }
         MongoOp::InsertMany => {
             let documents = parse_document_array(arg_or_empty(command, 0))?;
@@ -1118,7 +1124,7 @@ fn split_commands(text: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_cell_update, build_delete, build_insert, build_replace, bson_type_label,
+        bson_type_label, build_cell_update, build_delete, build_insert, build_replace,
         flatten_documents, is_connected, mongo_uri, parse_command, parse_filter, sample_fields,
         split_commands, MongoConfig, MongoOp,
     };
@@ -1132,7 +1138,10 @@ mod tests {
         let command = parse_command("db.users.find({ \"age\": { \"$gt\": 30 } })").expect("parse");
         assert_eq!(command.collection, "users");
         assert_eq!(command.op, MongoOp::Find);
-        assert_eq!(command.args, vec!["{ \"age\": { \"$gt\": 30 } }".to_string()]);
+        assert_eq!(
+            command.args,
+            vec!["{ \"age\": { \"$gt\": 30 } }".to_string()]
+        );
     }
 
     // behavior (aggregate command + a quoted collection name + a trailing semicolon)
@@ -1184,8 +1193,14 @@ mod tests {
     #[test]
     fn should_reject_malformed_commands() {
         assert!(parse_command("find({})").is_err(), "must start with db.");
-        assert!(parse_command("db.users.remove({})").is_err(), "unsupported op");
-        assert!(parse_command("db.users.find({}").is_err(), "missing close paren");
+        assert!(
+            parse_command("db.users.remove({})").is_err(),
+            "unsupported op"
+        );
+        assert!(
+            parse_command("db.users.find({}").is_err(),
+            "missing close paren"
+        );
         assert!(parse_command("db..find({})").is_err(), "missing collection");
     }
 
@@ -1238,8 +1253,14 @@ mod tests {
             ..config()
         };
         let uri = mongo_uri(&cfg);
-        assert!(!uri.contains("p@ss:w/rd"), "raw special chars leaked: {uri}");
-        assert!(uri.contains("p%40ss%3Aw%2Frd"), "expected encoded creds: {uri}");
+        assert!(
+            !uri.contains("p@ss:w/rd"),
+            "raw special chars leaked: {uri}"
+        );
+        assert!(
+            uri.contains("p%40ss%3Aw%2Frd"),
+            "expected encoded creds: {uri}"
+        );
     }
 
     // TC-004, E-7 - behavior (an explicit uri overrides the fields verbatim)
@@ -1297,10 +1318,7 @@ mod tests {
             doc! { "_id": "a", "name": "Ada", "age": 1 },
             doc! { "_id": "b", "vip": true, "name": "Lin" },
         ];
-        assert_eq!(
-            sample_fields(&documents),
-            vec!["_id", "name", "age", "vip"]
-        );
+        assert_eq!(sample_fields(&documents), vec!["_id", "name", "age", "vip"]);
         assert!(sample_fields(&[]).is_empty());
     }
 
@@ -1327,10 +1345,7 @@ mod tests {
         assert_eq!(bson_type_label(&Bson::Int64(1)), "long");
         assert_eq!(bson_type_label(&Bson::Boolean(true)), "bool");
         assert_eq!(bson_type_label(&Bson::String("x".into())), "string");
-        assert_eq!(
-            bson_type_label(&Bson::Document(doc! { "a": 1 })),
-            "object"
-        );
+        assert_eq!(bson_type_label(&Bson::Document(doc! { "a": 1 })), "object");
         assert_eq!(bson_type_label(&Bson::Array(vec![])), "array");
     }
 
@@ -1343,7 +1358,10 @@ mod tests {
         assert_eq!(parse_filter("   ").expect("empty"), doc! {});
 
         assert!(parse_filter("{not json").is_err());
-        assert!(parse_filter("[1,2,3]").is_err(), "a non-object filter is rejected");
+        assert!(
+            parse_filter("[1,2,3]").is_err(),
+            "a non-object filter is rejected"
+        );
     }
 
     // behavior (Extended JSON $oid is parsed to a real ObjectId so an ObjectId _id can be queried;
@@ -1351,8 +1369,8 @@ mod tests {
     #[test]
     fn should_parse_extended_json_oid_in_a_filter() {
         let hex = "6a4185c4389537a2e1d1a7bb";
-        let parsed = parse_filter(&format!("{{\"_id\": {{\"$oid\": \"{hex}\"}}}}"))
-            .expect("oid filter");
+        let parsed =
+            parse_filter(&format!("{{\"_id\": {{\"$oid\": \"{hex}\"}}}}")).expect("oid filter");
         let expected = ObjectId::parse_str(hex).unwrap();
         assert_eq!(parsed, doc! { "_id": expected });
 
@@ -1383,8 +1401,7 @@ mod tests {
     // TC-008 - behavior (cell update -> updateOne $set with the value as a JSON literal; _id locked)
     #[test]
     fn should_build_a_cell_update_parsing_the_value_as_a_json_literal() {
-        let (filter, update) =
-            build_cell_update("evt-login", "age", Some("42")).expect("update");
+        let (filter, update) = build_cell_update("evt-login", "age", Some("42")).expect("update");
         assert_eq!(filter, doc! { "_id": "evt-login" });
         assert_eq!(update, doc! { "$set": { "age": 42i64 } });
 
@@ -1398,7 +1415,10 @@ mod tests {
         let (_, null_update) = build_cell_update("x", "note", None).unwrap();
         assert_eq!(null_update, doc! { "$set": { "note": Bson::Null } });
 
-        assert!(build_cell_update("x", "_id", Some("y")).is_err(), "_id is locked");
+        assert!(
+            build_cell_update("x", "_id", Some("y")).is_err(),
+            "_id is locked"
+        );
     }
 
     // TC-009 - behavior (insert builds the doc from parsed values; delete builds the id filter;
@@ -1452,9 +1472,7 @@ mod tests {
             database: String::new(),
             user: "dbui".to_string(),
             password: "dbui".to_string(),
-            uri: Some(
-                "mongodb://dbui:dbui@localhost:27018/dbui_test?authSource=admin".to_string(),
-            ),
+            uri: Some("mongodb://dbui:dbui@localhost:27018/dbui_test?authSource=admin".to_string()),
         };
         let id = "live-test".to_string();
 
@@ -1504,7 +1522,10 @@ mod tests {
             .expect("browse events");
         let event_cols: Vec<&str> = events.columns.iter().map(|c| c.name.as_str()).collect();
         assert!(event_cols.contains(&"_id"));
-        assert!(event_cols.contains(&"message"), "union covers disjoint keys: {event_cols:?}");
+        assert!(
+            event_cols.contains(&"message"),
+            "union covers disjoint keys: {event_cols:?}"
+        );
 
         // Query tab: a self-contained command (collection in the text) runs end-to-end. find with a
         // filter + a multi-command buffer + an aggregate, all via the SQL-shaped run_query.
@@ -1517,7 +1538,11 @@ mod tests {
         )
         .await
         .expect("run_query");
-        assert_eq!(outcomes.len(), 2, "two ;-separated commands -> two outcomes");
+        assert_eq!(
+            outcomes.len(),
+            2,
+            "two ;-separated commands -> two outcomes"
+        );
         assert!(outcomes[0].returns_rows && !outcomes[0].rows.is_empty());
         // $count yields a single { n: <total> } document.
         assert_eq!(outcomes[1].rows.len(), 1);
@@ -1528,8 +1553,7 @@ mod tests {
             .iter()
             .find(|table| table.name == "users")
             .expect("users schema");
-        let field_names: Vec<&str> =
-            users.columns.iter().map(|c| c.name.as_str()).collect();
+        let field_names: Vec<&str> = users.columns.iter().map(|c| c.name.as_str()).collect();
         assert!(field_names.contains(&"_id"));
         assert!(field_names.contains(&"address"), "fields: {field_names:?}");
         assert!(field_names.contains(&"tags"));
@@ -1566,9 +1590,7 @@ mod tests {
             database: String::new(),
             user: "dbui".to_string(),
             password: "dbui".to_string(),
-            uri: Some(
-                "mongodb://dbui:dbui@localhost:27018/dbui_test?authSource=admin".to_string(),
-            ),
+            uri: Some("mongodb://dbui:dbui@localhost:27018/dbui_test?authSource=admin".to_string()),
         };
         let id = "live-write-test".to_string();
         super::connect(id.clone(), config).await.expect("connect");

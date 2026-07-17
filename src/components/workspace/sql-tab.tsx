@@ -343,7 +343,13 @@ function SqlPane({
   variables,
   collections,
 }: {
-  node: { id: string; sql: string; readOnly: boolean; manualCommit: boolean };
+  node: {
+    id: string;
+    sql: string;
+    readOnly: boolean;
+    manualCommit: boolean;
+    defaultSchema: string | null;
+  };
   connectionId: string;
   isConnected: boolean;
   engine: DbEngine;
@@ -673,6 +679,7 @@ function SqlPane({
               onChange={setSql}
               engine={engine}
               schema={schema}
+              defaultSchema={node.defaultSchema ?? undefined}
               collections={collections}
               variables={variables}
               onEditVariable={() => setDatabaseTab("variables")}

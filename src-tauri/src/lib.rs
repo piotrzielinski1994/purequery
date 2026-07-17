@@ -1,11 +1,13 @@
+mod backup;
 mod db;
 mod logging;
 mod mongo;
 
 use db::{
-    apply_row_mutations, begin_transaction as begin_transaction_db, cancel_query as cancel_query_db,
-    commit_transaction as commit_transaction_db, connect_database as connect_database_db,
-    count_table_rows, disconnect_database as disconnect_database_db,
+    apply_row_mutations, begin_transaction as begin_transaction_db,
+    cancel_query as cancel_query_db, commit_transaction as commit_transaction_db,
+    connect_database as connect_database_db, count_table_rows,
+    disconnect_database as disconnect_database_db,
     fetch_database_objects as fetch_database_objects_db, fetch_schema as fetch_schema_db,
     fetch_table_rows, fetch_table_structure as fetch_table_structure_db,
     rollback_transaction as rollback_transaction_db, run_query,
@@ -202,7 +204,13 @@ async fn execute_mongo(
     request_id: String,
 ) -> Result<Vec<QueryOutcome>, String> {
     let started = std::time::Instant::now();
-    let result = mongo::run_query(connection_id.clone(), command, DEFAULT_ROW_LIMIT, request_id).await;
+    let result = mongo::run_query(
+        connection_id.clone(),
+        command,
+        DEFAULT_ROW_LIMIT,
+        request_id,
+    )
+    .await;
     log_query_outcome("mongo", &connection_id, started, &result);
     result
 }
@@ -294,6 +302,62 @@ fn transaction_state(connection_id: String) -> bool {
     transaction_state_db(connection_id)
 }
 
+// Approximate total row/document count for the giant-DB guardrail - catalog estimates, not
+// COUNT(*), so it stays fast on huge databases (see backup::estimate_rows_query). Routes Mongo vs
+// SQL by the engine tag like backup_database. The FE compares this against its size limit BEFORE
+// opening the save dialog and blocks an over-limit backup. SQLite returns 0 (its file-copy backup
+// is never gated).
+#[tauri::command]
+async fn estimate_backup_rows(config: serde_json::Value) -> Result<i64, String> {
+    let engine = config_engine(&config).unwrap_or("?").to_string();
+    if engine == "mongodb" {
+        return match serde_json::from_value::<MongoConfig>(config) {
+            Ok(mongo_config) => backup::estimate_mongo_rows(mongo_config).await,
+            Err(error) => Err(error.to_string()),
+        };
+    }
+    match serde_json::from_value::<ConnectionConfig>(config) {
+        Ok(sql_config) => backup::estimate_sql_rows(sql_config).await,
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+// Exports a database to `path`: a native data-only INSERT dump (Postgres/MySQL), a file copy
+// (SQLite), or an Extended-JSON JSONL export (MongoDB) - dbui generates it over its own connection,
+// no external tool. Takes the raw config like connect_database (the pool holds no config) and peeks
+// the `engine` tag to route Mongo vs SQL. No open connection is required - the backup opens its own.
+// Progress is the backend log stream (Logs tab); the returned summary drives the FE toast.
+#[tauri::command]
+async fn backup_database(
+    config: serde_json::Value,
+    path: String,
+) -> Result<backup::BackupSummary, String> {
+    let engine = config_engine(&config).unwrap_or("?").to_string();
+    let started = std::time::Instant::now();
+    let spec = if engine == "mongodb" {
+        serde_json::from_value::<MongoConfig>(config)
+            .map(|mongo_config| backup::backup_spec_mongo(&mongo_config, &path))
+            .map_err(|error| error.to_string())
+    } else {
+        serde_json::from_value::<ConnectionConfig>(config)
+            .map(|sql_config| backup::backup_spec_sql(&sql_config, &path))
+            .map_err(|error| error.to_string())
+    };
+    let result = match spec {
+        Ok(spec) => backup::run_backup(spec).await,
+        Err(error) => Err(error),
+    };
+    let ms = started.elapsed().as_millis();
+    match &result {
+        Ok(summary) => log::info!(
+            "{}",
+            logging::format_backup_ok(&engine, &summary.path, summary.bytes, ms)
+        ),
+        Err(error) => log::error!("{}", logging::format_backup_err(&engine, ms, error)),
+    }
+    result
+}
+
 // One file-log line per tx lifecycle command (begin/commit/rollback), mirroring log_query_outcome.
 fn log_transaction(
     verb: &str,
@@ -316,6 +380,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
             logging::init(app.handle());
@@ -338,6 +403,8 @@ pub fn run() {
             commit_transaction,
             rollback_transaction,
             transaction_state,
+            estimate_backup_rows,
+            backup_database,
             logging::log_message
         ])
         .run(tauri::generate_context!())

@@ -104,6 +104,14 @@ pub fn format_mutations(id: &str, table: &str, affected: u64, ms: u128) -> Strin
     format!("mutations connection_id={id} table={table} affected={affected} ({ms}ms)")
 }
 
+pub fn format_backup_ok(engine: &str, path: &str, bytes: u64, ms: u128) -> String {
+    format!("backup engine={engine} path={path} bytes={bytes} ({ms}ms)")
+}
+
+pub fn format_backup_err(engine: &str, ms: u128, error: &str) -> String {
+    format!("backup engine={engine} failed ({ms}ms): {error}")
+}
+
 // A cancelled connect/query rejects with this sentinel (db::CANCEL_SENTINEL). The dispatcher uses
 // this to suppress the error log line - a user Cancel is neutral, not a failure.
 pub fn is_cancel_sentinel(error: &str) -> bool {
@@ -113,9 +121,28 @@ pub fn is_cancel_sentinel(error: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        format_connect_err, format_connect_ok, format_disconnect, format_mutations,
-        format_query_err, format_query_ok, is_cancel_sentinel, launch_log_name,
+        format_backup_err, format_backup_ok, format_connect_err, format_connect_ok,
+        format_disconnect, format_mutations, format_query_err, format_query_ok, is_cancel_sentinel,
+        launch_log_name,
     };
+
+    // behavior: backup-ok line reports engine, path, byte count and elapsed ms
+    #[test]
+    fn should_format_backup_ok_line_with_engine_path_bytes_and_ms() {
+        assert_eq!(
+            format_backup_ok("postgres", "/tmp/x.dump", 2048, 91),
+            "backup engine=postgres path=/tmp/x.dump bytes=2048 (91ms)"
+        );
+    }
+
+    // behavior: backup-err line reports engine, ms and the error tail
+    #[test]
+    fn should_format_backup_err_line_with_engine_ms_and_error() {
+        assert_eq!(
+            format_backup_err("mysql", 12, "connection refused"),
+            "backup engine=mysql failed (12ms): connection refused"
+        );
+    }
 
     // behavior: connect-ok line reports id, engine, table count and elapsed ms
     #[test]
