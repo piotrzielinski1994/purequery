@@ -5,8 +5,8 @@ import type {
 } from "@/lib/workspace/model";
 
 // The per-engine availability of the database-card object tabs (F14), in card display order.
-// Postgres has all four kinds; MySQL has no sequences (AUTO_INCREMENT, not sequence objects); SQLite
-// exposes triggers only; MongoDB has none. Drives both the tab bar and the fetch dispatch.
+// Postgres + SQL Server have all four kinds; MySQL has no sequences (AUTO_INCREMENT, not sequence
+// objects); SQLite exposes triggers only; MongoDB has none. Drives the tab bar + fetch dispatch.
 export type ObjectTabDef = { kind: ObjectKind; label: string };
 
 const LABELS: Record<ObjectKind, string> = {
@@ -21,6 +21,7 @@ const KINDS_BY_ENGINE: Record<DbEngine, ObjectKind[]> = {
   mysql: ["procedure", "function", "trigger"],
   sqlite: ["trigger"],
   mongodb: [],
+  sqlserver: ["procedure", "function", "trigger", "sequence"],
 };
 
 export function objectTabsFor(engine: DbEngine): ObjectTabDef[] {

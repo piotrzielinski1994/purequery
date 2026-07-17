@@ -1,6 +1,6 @@
-export type DbEngine = "postgres" | "mysql" | "sqlite" | "mongodb";
+export type DbEngine = "postgres" | "mysql" | "sqlite" | "mongodb" | "sqlserver";
 
-export type NetworkEngine = "postgres" | "mysql";
+export type NetworkEngine = "postgres" | "mysql" | "sqlserver";
 
 export type NetworkConnection = {
   engine: NetworkEngine;

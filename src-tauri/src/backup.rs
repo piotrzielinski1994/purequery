@@ -3,6 +3,7 @@ use crate::db::{
     TableColumn, TableRef,
 };
 use crate::mongo::{mongo_uri, MongoConfig};
+use crate::mssql::{self, MssqlConfig};
 use futures_util::TryStreamExt;
 use mongodb::bson::{Bson, Document};
 use mongodb::options::ClientOptions;
@@ -46,6 +47,12 @@ pub enum BackupSpec {
         config: MongoConfig,
         to: String,
     },
+    // SQL Server: like the network SQL engines, but the dump runs over its own tiberius connection
+    // (SQL Server is not a `sqlx::Any` engine), emitting SQL Server-quoted (`[..]`) data-only INSERTs.
+    Mssql {
+        config: MssqlConfig,
+        to: String,
+    },
     CopyFile {
         from: String,
         to: String,
@@ -81,6 +88,44 @@ pub fn backup_spec_mongo(config: &MongoConfig, path: &str) -> BackupSpec {
         config: config.clone(),
         to: path.to_string(),
     }
+}
+
+pub fn backup_spec_mssql(config: &MssqlConfig, path: &str) -> BackupSpec {
+    BackupSpec::Mssql {
+        config: config.clone(),
+        to: path.to_string(),
+    }
+}
+
+// A SQL Server string literal: single quotes doubled, wrapped in quotes; `NULL` for a missing value.
+// Backslash is NOT doubled - SQL Server (unlike MySQL) does not treat `\` as a string escape, so
+// doubling it would corrupt the value (mirrors the Postgres/SQLite arm of `sql_literal`). Pure.
+pub fn mssql_sql_literal(value: Option<&str>) -> String {
+    match value {
+        None => "NULL".to_string(),
+        Some(text) => format!("'{}'", text.replace('\'', "''")),
+    }
+}
+
+// One `INSERT INTO [schema].[table] ([cols]) VALUES (vals);` line for a SQL Server row. Pure.
+pub fn mssql_insert_statement(
+    schema: Option<&str>,
+    table: &str,
+    columns: &[TableColumn],
+    row: &[Option<String>],
+) -> String {
+    let qualified = mssql::qualified_name(schema, table);
+    let column_list = columns
+        .iter()
+        .map(|column| mssql::quote_ident(&column.name))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let value_list = row
+        .iter()
+        .map(|value| mssql_sql_literal(value.as_deref()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("INSERT INTO {qualified} ({column_list}) VALUES ({value_list});")
 }
 
 // A SQL string literal: single quotes doubled, wrapped in quotes; `NULL` for a missing value. The
@@ -402,6 +447,56 @@ async fn run_mongo_backup(config: MongoConfig, path: &str) -> Result<BackupSumma
     })
 }
 
+// Opens a standalone tiberius connection (self-contained, like `run_sql_backup`'s pool), lists the
+// base tables, and writes a data-only INSERT dump with SQL Server quoting. Reads each table in ONE
+// statement (`u32::MAX`, no paging) for snapshot fidelity, same as the sqlx path.
+async fn run_mssql_backup(config: MssqlConfig, path: &str) -> Result<BackupSummary, String> {
+    let started = std::time::Instant::now();
+    let mut conn = mssql::open_standalone(&config).await?;
+    let tables = mssql::list_tables(&mut conn).await?;
+
+    let mut dump = format!(
+        "-- dbui backup (sqlserver) database={}\n-- data-only: INSERT statements; restore into an existing schema\n",
+        config.database
+    );
+
+    for table in &tables {
+        let qualified = mssql::qualified_name(table.schema.as_deref(), &table.name);
+        dump.push_str(&format!("\n-- {qualified}\n"));
+        let all = mssql::read_table_page(
+            &mut conn,
+            table.schema.as_deref(),
+            &table.name,
+            u32::MAX,
+            0,
+            None,
+            None,
+        )
+        .await?;
+        if all.columns.is_empty() {
+            continue;
+        }
+        all.rows.iter().for_each(|row| {
+            dump.push_str(&mssql_insert_statement(
+                table.schema.as_deref(),
+                &table.name,
+                &all.columns,
+                row,
+            ));
+            dump.push('\n');
+        });
+    }
+
+    tokio::fs::write(path, &dump)
+        .await
+        .map_err(|error| format!("write failed: {error}"))?;
+    Ok(BackupSummary {
+        path: path.to_string(),
+        bytes: dump.len() as u64,
+        ms: started.elapsed().as_millis(),
+    })
+}
+
 pub async fn run_backup(spec: BackupSpec) -> Result<BackupSummary, String> {
     match spec {
         BackupSpec::CopyFile { from, to } => {
@@ -417,17 +512,20 @@ pub async fn run_backup(spec: BackupSpec) -> Result<BackupSummary, String> {
         }
         BackupSpec::Sql { config, to } => run_sql_backup(config, &to).await,
         BackupSpec::Mongo { config, to } => run_mongo_backup(config, &to).await,
+        BackupSpec::Mssql { config, to } => run_mssql_backup(config, &to).await,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        backup_spec_mongo, backup_spec_sql, estimate_rows_query, insert_statement,
-        mongo_jsonl_line, qualified_name, run_backup, sql_dump_header, sql_literal, BackupSpec,
+        backup_spec_mongo, backup_spec_mssql, backup_spec_sql, estimate_rows_query,
+        insert_statement, mongo_jsonl_line, mssql_insert_statement, mssql_sql_literal,
+        qualified_name, run_backup, sql_dump_header, sql_literal, BackupSpec,
     };
     use crate::db::{ConnectionConfig, DbEngine, TableColumn};
     use crate::mongo::MongoConfig;
+    use crate::mssql::MssqlConfig;
     use mongodb::bson::{doc, oid::ObjectId};
 
     fn column(name: &str) -> TableColumn {
@@ -579,6 +677,48 @@ mod tests {
         assert!(header.contains("postgres"), "names engine: {header}");
         assert!(header.contains("shop"), "names database: {header}");
         assert!(header.contains("data-only"), "marks data-only: {header}");
+    }
+
+    // TC-010 - behavior (SQL Server literal doubles single quotes but does NOT double backslash -
+    // SQL Server, unlike MySQL, does not treat `\` as a string escape)
+    #[test]
+    fn should_escape_only_single_quotes_for_sql_server() {
+        assert_eq!(mssql_sql_literal(None), "NULL");
+        assert_eq!(mssql_sql_literal(Some("")), "''");
+        assert_eq!(mssql_sql_literal(Some("O'Brien")), "'O''Brien'");
+        // backslash stays single (not doubled)
+        assert_eq!(mssql_sql_literal(Some("a\\b")), "'a\\b'");
+    }
+
+    // TC-010 - behavior (a SQL Server INSERT uses [bracket] quoting, schema-qualified, NULLs kept)
+    #[test]
+    fn should_build_a_bracket_quoted_sql_server_insert() {
+        let columns = [column("id"), column("name")];
+        let row = [Some("1".to_string()), None];
+        let sql = mssql_insert_statement(Some("dbo"), "users", &columns, &row);
+        assert_eq!(
+            sql,
+            "INSERT INTO [dbo].[users] ([id], [name]) VALUES ('1', NULL);"
+        );
+    }
+
+    // behavior (a SQL Server backup opens its own connection + dumps, carrying the config + dest)
+    #[test]
+    fn should_build_an_mssql_spec_carrying_the_config() {
+        let config = MssqlConfig {
+            host: "localhost".to_string(),
+            port: 1433,
+            database: "playground".to_string(),
+            user: "sa".to_string(),
+            password: "pw".to_string(),
+        };
+        match backup_spec_mssql(&config, "/tmp/x.sql") {
+            BackupSpec::Mssql { to, config: c } => {
+                assert_eq!(to, "/tmp/x.sql");
+                assert_eq!(c.database, "playground");
+            }
+            other => panic!("expected an Mssql spec, got {other:?}"),
+        }
     }
 
     // behavior (a Mongo document serializes to canonical Extended JSON that round-trips an ObjectId)

@@ -1,4 +1,5 @@
 import { SiPostgresql, SiMysql, SiSqlite, SiMongodb } from "react-icons/si";
+import { DiMsqlServer } from "react-icons/di";
 import type { IconType } from "react-icons";
 import type { DbEngine } from "@/lib/workspace/model";
 
@@ -11,6 +12,7 @@ const ENGINE_ICONS: Record<DbEngine, IconType> = {
   mysql: SiMysql,
   sqlite: SiSqlite,
   mongodb: SiMongodb,
+  sqlserver: DiMsqlServer,
 };
 
 export function EngineIcon({

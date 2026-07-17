@@ -91,7 +91,7 @@ export const DEFAULT_WORKSPACE: PersistedWorkspace = {
   tree: [],
 };
 
-const NETWORK_ENGINES = new Set<DbEngine>(["postgres", "mysql"]);
+const NETWORK_ENGINES = new Set<DbEngine>(["postgres", "mysql", "sqlserver"]);
 
 const EMPTY_RESULT: QueryResult = {
   status: "success",

@@ -795,3 +795,113 @@ describe("SettingsTab engine switch keeps both shapes (TC-011)", () => {
     expect(screen.queryByRole("textbox", { name: /host/i })).toBeNull();
   });
 });
+
+// A SQL Server database node: the same network shape as Postgres/MySQL (no extra field).
+function sqlserverNode(): DatabaseNode {
+  return {
+    kind: "database",
+    id: "db-mssql",
+    name: "playground_mssql",
+    accentColor: null,
+    readOnly: false,
+    manualCommit: false,
+    defaultSchema: null,
+    engine: "sqlserver",
+    host: "localhost",
+    port: 1433,
+    database: "playground",
+    user: "sa",
+    password: "Passw0rd!",
+    tables: [],
+    views: [],
+    sql: "",
+    savedScripts: [],
+    savedJsScripts: [],
+    variables: [],
+    result: sqliteResult,
+  };
+}
+
+function renderMssqlSettings() {
+  const tree: TreeNode[] = [sqlserverNode()];
+  return render(
+    <WorkspaceProvider tree={tree} initialActiveTabId="db-mssql">
+      <SettingsTab />
+    </WorkspaceProvider>,
+  );
+}
+
+describe("SettingsTab SQL Server engine (TC-001)", () => {
+  // TC-001, AC-002 - behavior (sqlserver shows the network fields, no extra field, no file field)
+  it("should show host/port/database/user/password for a sqlserver node", () => {
+    renderMssqlSettings();
+    expect(screen.getByRole("textbox", { name: /host/i })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /port/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: /database/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /user/i })).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Password", { exact: true }),
+    ).toBeInTheDocument();
+    // no mongo-only connection string field, no sqlite file field
+    expect(
+      screen.queryByRole("textbox", { name: /connection string/i }),
+    ).toBeNull();
+    expect(
+      screen.queryByLabelText("Database file", { exact: true }),
+    ).toBeNull();
+  });
+
+  // TC-001, AC-002 - behavior (the port 1433 is seeded from the node)
+  it("should seed the sql server port 1433 from the node", () => {
+    renderMssqlSettings();
+    expect(screen.getByRole("textbox", { name: /port/i })).toHaveValue("1433");
+  });
+
+  // TC-001, AC-001 - behavior (the engine selector shows SQL Server)
+  it("should show SQL Server in the engine selector for a sqlserver node", () => {
+    renderMssqlSettings();
+    expect(
+      screen.getByRole("combobox", { name: /type/i }),
+    ).toHaveTextContent(/sql server/i);
+  });
+
+  // TC-001, AC-002 - behavior (host+database+user set -> Connect enabled)
+  it("should enable Connect when host, database and user are set", () => {
+    renderMssqlSettings();
+    expect(screen.getByRole("button", { name: /^connect$/i })).toBeEnabled();
+  });
+
+  // TC-001, AC-002 - behavior (empty user -> Connect disabled, like the other network engines)
+  it("should disable Connect when the user is empty", async () => {
+    const user = userEvent.setup();
+    renderMssqlSettings();
+    await user.clear(screen.getByRole("textbox", { name: /user/i }));
+    expect(screen.getByRole("button", { name: /^connect$/i })).toBeDisabled();
+  });
+
+  // TC-001, AC-002 - behavior (Connect sends the sqlserver engine + network fields to the backend)
+  it("should invoke connectDatabase with the sqlserver engine and its fields when Connect is clicked", async () => {
+    const user = userEvent.setup();
+    mockConnect.mockResolvedValueOnce({
+      tables: [{ schema: "dbo", name: "users" }],
+      views: [],
+    });
+    renderMssqlSettings();
+
+    await user.click(screen.getByRole("button", { name: /^connect$/i }));
+
+    expect(mockConnect).toHaveBeenCalledWith(
+      "db-mssql",
+      expect.objectContaining({
+        engine: "sqlserver",
+        host: "localhost",
+        port: 1433,
+        database: "playground",
+        user: "sa",
+        password: "Passw0rd!",
+      }),
+    );
+  });
+});

@@ -270,6 +270,49 @@ describe("SqlEditor", () => {
     expect(labels).not.toContain("qrtz_locks");
   });
 
+  // TC-014 / AC-016 — behavior: a SQL Server database with NO pinned defaultSchema falls back to
+  // `dbo` (its built-in default), so `dbo` tables complete unqualified after FROM while another
+  // schema's tables stay behind their qualifier. (Postgres falls back to `public`; sqlserver to `dbo`.)
+  it("should complete dbo tables unqualified for a sqlserver database with no pinned schema", async () => {
+    const mssqlSchema: TableSchema[] = [
+      {
+        schema: "dbo",
+        name: "users",
+        columns: [{ name: "id", dataType: "int" }],
+      },
+      {
+        schema: "sales",
+        name: "line_items",
+        columns: [{ name: "sku", dataType: "nvarchar" }],
+      },
+    ];
+    const doc = "select * from ";
+    const { container } = render(
+      <SqlEditor
+        value={doc}
+        onChange={() => {}}
+        engine="sqlserver"
+        schema={mssqlSchema}
+      />,
+    );
+
+    const state = liveView(container).state;
+    const sources = state.languageDataAt<
+      (ctx: CompletionContext) => unknown
+    >("autocomplete", doc.length);
+    const ctx = new CompletionContext(state, doc.length, true);
+    const results = (await Promise.all(
+      sources.map((source) => source(ctx)),
+    )) as ({ options: { label: string }[] } | null)[];
+    const labels = results.flatMap((result) =>
+      (result?.options ?? []).map((option) => option.label),
+    );
+
+    // `dbo` is the sqlserver built-in default -> its table completes unqualified; `sales` stays qualified.
+    expect(labels).toContain("users");
+    expect(labels).not.toContain("line_items");
+  });
+
   // TC-009 / AC-005 — behavior: with no schema, completion still offers SQL keywords.
   it("should complete SQL keywords when no schema is available", async () => {
     const doc = "SEL";

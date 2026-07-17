@@ -2,6 +2,7 @@ mod backup;
 mod db;
 mod logging;
 mod mongo;
+mod mssql;
 
 use db::{
     apply_row_mutations, begin_transaction as begin_transaction_db,
@@ -16,6 +17,7 @@ use db::{
     DEFAULT_ROW_LIMIT,
 };
 use mongo::MongoConfig;
+use mssql::MssqlConfig;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -48,6 +50,11 @@ async fn connect_database(
             Ok(mongo_config) => mongo::connect(connection_id.clone(), mongo_config).await,
             Err(error) => Err(error.to_string()),
         }
+    } else if engine == "sqlserver" {
+        match serde_json::from_value::<MssqlConfig>(config) {
+            Ok(mssql_config) => mssql::connect(connection_id.clone(), mssql_config).await,
+            Err(error) => Err(error.to_string()),
+        }
     } else {
         match serde_json::from_value::<ConnectionConfig>(config) {
             Ok(sql_config) => connect_database_db(connection_id.clone(), sql_config).await,
@@ -76,6 +83,10 @@ async fn disconnect_database(connection_id: String) {
         mongo::disconnect(connection_id).await;
         return;
     }
+    if mssql::is_connected(&connection_id) {
+        mssql::disconnect(connection_id).await;
+        return;
+    }
     disconnect_database_db(connection_id).await
 }
 
@@ -92,6 +103,18 @@ async fn fetch_table(
     if mongo::is_connected(&connection_id) {
         return mongo::fetch_documents(
             connection_id,
+            table,
+            limit.unwrap_or(DEFAULT_ROW_LIMIT),
+            offset.unwrap_or(0),
+            filter,
+            sort,
+        )
+        .await;
+    }
+    if mssql::is_connected(&connection_id) {
+        return mssql::fetch_table_rows(
+            connection_id,
+            schema,
             table,
             limit.unwrap_or(DEFAULT_ROW_LIMIT),
             offset.unwrap_or(0),
@@ -122,6 +145,9 @@ async fn count_table(
     if mongo::is_connected(&connection_id) {
         return mongo::count_documents(connection_id, table, filter).await;
     }
+    if mssql::is_connected(&connection_id) {
+        return mssql::count_table_rows(connection_id, schema, table, filter).await;
+    }
     count_table_rows(connection_id, schema, table, filter).await
 }
 
@@ -139,6 +165,8 @@ async fn apply_mutations(
     let started = std::time::Instant::now();
     let result = if mongo::is_connected(&connection_id) {
         mongo::apply_mutations(connection_id.clone(), table, mutations).await
+    } else if mssql::is_connected(&connection_id) {
+        mssql::apply_mutations(connection_id.clone(), schema, table, mutations).await
     } else {
         apply_row_mutations(connection_id.clone(), schema, table, mutations).await
     };
@@ -164,7 +192,11 @@ async fn execute_sql(
     request_id: String,
 ) -> Result<Vec<QueryOutcome>, String> {
     let started = std::time::Instant::now();
-    let result = run_query(connection_id.clone(), sql, DEFAULT_ROW_LIMIT, request_id).await;
+    let result = if mssql::is_connected(&connection_id) {
+        mssql::run_query(connection_id.clone(), sql, DEFAULT_ROW_LIMIT, request_id).await
+    } else {
+        run_query(connection_id.clone(), sql, DEFAULT_ROW_LIMIT, request_id).await
+    };
     log_query_outcome("sql", &connection_id, started, &result);
     result
 }
@@ -225,6 +257,9 @@ async fn fetch_schema(connection_id: String) -> Result<Vec<TableSchema>, String>
     if mongo::is_connected(&connection_id) {
         return mongo::fetch_schema(connection_id).await;
     }
+    if mssql::is_connected(&connection_id) {
+        return mssql::fetch_schema(connection_id).await;
+    }
     fetch_schema_db(connection_id).await
 }
 
@@ -238,6 +273,9 @@ async fn fetch_table_structure(
 ) -> Result<TableStructure, String> {
     if mongo::is_connected(&connection_id) {
         return mongo::fetch_table_structure(connection_id, table).await;
+    }
+    if mssql::is_connected(&connection_id) {
+        return mssql::fetch_table_structure(connection_id, schema, table).await;
     }
     fetch_table_structure_db(connection_id, schema, table).await
 }
@@ -253,6 +291,9 @@ async fn fetch_database_objects(
     if mongo::is_connected(&connection_id) {
         return Ok(Vec::new());
     }
+    if mssql::is_connected(&connection_id) {
+        return mssql::fetch_database_objects(connection_id, kind).await;
+    }
     fetch_database_objects_db(connection_id, kind).await
 }
 
@@ -266,7 +307,11 @@ async fn begin_transaction(connection_id: String) -> Result<(), String> {
         return Err("manual-commit transactions are not supported for MongoDB".to_string());
     }
     let started = std::time::Instant::now();
-    let result = begin_transaction_db(connection_id.clone()).await;
+    let result = if mssql::is_connected(&connection_id) {
+        mssql::begin_transaction(connection_id.clone()).await
+    } else {
+        begin_transaction_db(connection_id.clone()).await
+    };
     log_transaction("begin", &connection_id, started, &result);
     result
 }
@@ -277,7 +322,11 @@ async fn commit_transaction(connection_id: String) -> Result<(), String> {
         return Err("manual-commit transactions are not supported for MongoDB".to_string());
     }
     let started = std::time::Instant::now();
-    let result = commit_transaction_db(connection_id.clone()).await;
+    let result = if mssql::is_connected(&connection_id) {
+        mssql::commit_transaction(connection_id.clone()).await
+    } else {
+        commit_transaction_db(connection_id.clone()).await
+    };
     log_transaction("commit", &connection_id, started, &result);
     result
 }
@@ -288,7 +337,11 @@ async fn rollback_transaction(connection_id: String) -> Result<(), String> {
         return Err("manual-commit transactions are not supported for MongoDB".to_string());
     }
     let started = std::time::Instant::now();
-    let result = rollback_transaction_db(connection_id.clone()).await;
+    let result = if mssql::is_connected(&connection_id) {
+        mssql::rollback_transaction(connection_id.clone()).await
+    } else {
+        rollback_transaction_db(connection_id.clone()).await
+    };
     log_transaction("rollback", &connection_id, started, &result);
     result
 }
@@ -298,6 +351,9 @@ fn transaction_state(connection_id: String) -> bool {
     // Mongo never has an open manual-commit tx; the SQL registry returns false for any unknown id.
     if mongo::is_connected(&connection_id) {
         return false;
+    }
+    if mssql::is_connected(&connection_id) {
+        return mssql::transaction_state(&connection_id);
     }
     transaction_state_db(connection_id)
 }
@@ -313,6 +369,12 @@ async fn estimate_backup_rows(config: serde_json::Value) -> Result<i64, String> 
     if engine == "mongodb" {
         return match serde_json::from_value::<MongoConfig>(config) {
             Ok(mongo_config) => backup::estimate_mongo_rows(mongo_config).await,
+            Err(error) => Err(error.to_string()),
+        };
+    }
+    if engine == "sqlserver" {
+        return match serde_json::from_value::<MssqlConfig>(config) {
+            Ok(mssql_config) => mssql::estimate_rows(&mssql_config).await,
             Err(error) => Err(error.to_string()),
         };
     }
@@ -337,6 +399,10 @@ async fn backup_database(
     let spec = if engine == "mongodb" {
         serde_json::from_value::<MongoConfig>(config)
             .map(|mongo_config| backup::backup_spec_mongo(&mongo_config, &path))
+            .map_err(|error| error.to_string())
+    } else if engine == "sqlserver" {
+        serde_json::from_value::<MssqlConfig>(config)
+            .map(|mssql_config| backup::backup_spec_mssql(&mssql_config, &path))
             .map_err(|error| error.to_string())
     } else {
         serde_json::from_value::<ConnectionConfig>(config)

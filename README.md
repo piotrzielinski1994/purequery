@@ -65,17 +65,20 @@ The dev server runs on port 1431 (set in both `vite.config.ts` and `src-tauri/ta
 > and content|console splits are resizable. The sidebar toggles with `Cmd/Ctrl+B` and the
 > console panel with `Cmd/Ctrl+J` (also via palette commands).
 >
-> The **Settings** sub-tab is live: pick an engine (Postgres / MySQL / SQLite / MongoDB), edit the
+> The **Settings** sub-tab is live: pick an engine (Postgres / MySQL / SQLite / MongoDB / SQL
+> Server), edit the
 > connection fields (SQLite shows a single "Database file" path field instead of host/port/
 > user/password; MongoDB adds a "Connection string (URI)" field that overrides the discrete
-> host/port/database/user/password when non-empty), optionally assign an **accent color** (None / Green / Blue / Red presets, a
+> host/port/database/user/password when non-empty; SQL Server uses the same host/port/database/
+> user/password network fields as Postgres/MySQL, default port 1433), optionally assign an **accent color** (None / Green / Blue / Red presets, a
 > native picker, or any hex) that recolors the whole shell's existing borders while that database
 > is active, as a prod-vs-test cue (persisted per database in `workspace.json`), and press **Connect** to open
 > a real `sqlx` connection (Rust backend) and replace that database's sidebar tables with the
 > live catalog. Status shows as a toast + a coloured
 > dot on the database row. A database lists its tables only after a successful connect
 > (the live catalog); table leaves are never shown before connecting. A Postgres connection
-> groups its tables under their **schema** rows (`public`, `analytics`, ...); MySQL/SQLite have
+> groups its tables under their **schema** rows (`public`, `analytics`, ...); SQL Server groups the
+> same way (`dbo`, ...); MySQL/SQLite have
 > no schema level and list tables flat. Opening a table of a
 > connected database fetches its real content (first 200 rows, NULL shown as `[NULL]`); each
 > column header shows its type plus `PK`/`NN` markers, clicking a header sorts the whole table
@@ -159,6 +162,18 @@ The dev server runs on port 1431 (set in both `vite.config.ts` and `src-tauri/ta
 > crate in a separate `src-tauri/src/mongo.rs` module (the SQL engines run on `sqlx`); `lib.rs`
 > dispatches each command to the Mongo or SQL path by connection.
 
+> **SQL Server** is supported as a full-parity relational engine. sqlx dropped its MSSQL driver in
+> 0.7, so - like MongoDB - SQL Server lives in its own `src-tauri/src/mssql.rs` module on the
+> pure-Rust **`tiberius`** TDS driver (no native libraries; works on Apple Silicon via `rustls`),
+> with its own connection registry, dispatched per connection id from `lib.rs`. Because it IS
+> relational SQL it reuses every shared IPC struct and the whole frontend (the shared data grid, SQL
+> editor, History/Changes, Structure view, FK navigation, object tabs, backup, manual-commit
+> transactions, read-only) with no forked UI - browse/query/CRUD/introspection all work as they do
+> for Postgres/MySQL. Connect with the network fields (default port 1433); tables group by schema
+> (`dbo`, ...). Note tiberius's `Client` is a single connection (not a pool), so commands on one
+> connection serialise; manual-commit transactions are a simple `BEGIN TRAN` + flag on that held
+> connection.
+
 ## Repo layout
 
 ```
@@ -191,9 +206,10 @@ src/
                         mergeWorkspace + hydrate/dehydrate, stores, WorkspaceStoreProvider)
   index.css             Tailwind v4 + theme tokens
   test/setup.ts         Vitest + Testing Library setup
-src-tauri/              Rust desktop shell: db.rs (SQL engines via sqlx Any), mongo.rs (MongoDB
-                        via the mongodb crate), lib.rs (commands + per-connection SQL/Mongo
-                        dispatch), logging.rs file logger, tauri.conf.json
+src-tauri/              Rust desktop shell: db.rs (Postgres/MySQL/SQLite via sqlx Any), mongo.rs
+                        (MongoDB via the mongodb crate), mssql.rs (SQL Server via the tiberius TDS
+                        crate), lib.rs (commands + per-connection SQL/Mongo/mssql dispatch),
+                        backup.rs (native dumps), logging.rs file logger, tauri.conf.json
 tests/e2e/              Behavior smoke tests
 docs/                   spec/plan per feature, ADR, learnings, design.md
 ```

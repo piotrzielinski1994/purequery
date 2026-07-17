@@ -133,6 +133,28 @@ describe("mergeWorkspace valid nodes", () => {
     expect(merged.tree).toEqual([mysqlDb]);
   });
 
+  // TC-003, AC-005 - behavior (a sqlserver node is a network engine and survives merge unchanged)
+  it("should keep a sqlserver engine database node", () => {
+    const mssqlDb: PersistedDatabase = {
+      ...validDatabase,
+      engine: "sqlserver",
+    };
+    const merged = mergeWorkspace({ version: 1, tree: [mssqlDb] });
+
+    expect(merged.tree).toEqual([mssqlDb]);
+  });
+
+  // TC-003, AC-005 - behavior (a sqlserver node round-trips through hydrate/dehydrate)
+  it("should round-trip a sqlserver database through hydrate/dehydrate", () => {
+    const mssqlDb: PersistedDatabase = {
+      ...validDatabase,
+      engine: "sqlserver",
+    };
+    const persisted = { version: 1 as const, tree: [mssqlDb] };
+
+    expect(dehydrate(hydrate(persisted.tree))).toEqual(persisted);
+  });
+
   // AC-002 - behavior
   it("should preserve sibling order of the persisted nodes", () => {
     const second: PersistedDatabase = { ...validDatabase, id: "db-second" };

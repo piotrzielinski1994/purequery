@@ -25,6 +25,7 @@ import {
   PostgreSQL,
   MySQL,
   SQLite,
+  MSSQL,
   schemaCompletionSource,
 } from "@codemirror/lang-sql";
 import { json as jsonLanguage } from "@codemirror/lang-json";
@@ -59,6 +60,7 @@ const dialects = {
   postgres: PostgreSQL,
   mysql: MySQL,
   sqlite: SQLite,
+  sqlserver: MSSQL,
 } as const;
 
 // The `{{name}}` query-variable grammar (F18) - the SAME as the substitution parser (word-char name,
@@ -425,13 +427,22 @@ function buildSqlLanguage(
   ]);
 }
 
-// Folds the flat per-table schema list into the namespace lang-sql wants. With Postgres schemas
-// present it nests `schema -> table -> columns` and reports a DEFAULT schema whose tables also
-// complete unqualified: the per-database `defaultSchema` pin if set (and present in the catalog),
-// else `public` when it exists; without schemas it stays a flat `table -> columns` map.
+// The built-in default schema per engine (used when no per-database schema is pinned): Postgres's
+// `public`, SQL Server's `dbo`. Other engines have no schema level, so none.
+const BUILTIN_DEFAULT_SCHEMA: Partial<Record<DbEngine, string>> = {
+  postgres: "public",
+  sqlserver: "dbo",
+};
+
+// Folds the flat per-table schema list into the namespace lang-sql wants. With schemas present
+// (Postgres / SQL Server) it nests `schema -> table -> columns` and reports a DEFAULT schema whose
+// tables also complete unqualified: the per-database `defaultSchema` pin if set (and present in the
+// catalog), else the engine's built-in default (`public`/`dbo`) when it exists; without schemas it
+// stays a flat `table -> columns` map.
 function buildNamespace(
   schema: TableSchema[],
   pinnedSchema: string | undefined,
+  engine: DbEngine,
 ): {
   namespace: SqlNamespace;
   defaultSchema: string | undefined;
@@ -445,14 +456,15 @@ function buildNamespace(
       defaultSchema: undefined,
     };
   }
+  const builtinDefault = BUILTIN_DEFAULT_SCHEMA[engine] ?? "public";
   const nested: Record<string, Record<string, string[]>> = {};
   for (const table of schema) {
-    const schemaName = table.schema ?? "public";
+    const schemaName = table.schema ?? builtinDefault;
     (nested[schemaName] ??= {})[table.name] = table.columns.map((c) => c.name);
   }
   const preferred =
     pinnedSchema && pinnedSchema in nested ? pinnedSchema : undefined;
-  const fallback = "public" in nested ? "public" : undefined;
+  const fallback = builtinDefault in nested ? builtinDefault : undefined;
   return { namespace: nested, defaultSchema: preferred ?? fallback };
 }
 
@@ -562,7 +574,11 @@ export function SqlEditor({
     .map((variable) => `${variable.name}=${variable.value}`)
     .join(" ");
   const extensions = useMemo<Extension[]>(() => {
-    const { namespace, defaultSchema } = buildNamespace(schema, pinnedSchema);
+    const { namespace, defaultSchema } = buildNamespace(
+      schema,
+      pinnedSchema,
+      engine,
+    );
     // The filter row is a WHERE on ONE table: complete only that table's columns. Match by name
     // (the filter card already targets a single table; schema-qualified collisions don't surface
     // here since the editor is scoped to that one table's columns).

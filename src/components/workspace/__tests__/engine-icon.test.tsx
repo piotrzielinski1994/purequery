@@ -5,15 +5,27 @@ import { EngineIcon } from "@/components/workspace/engine-icon";
 import type { DbEngine } from "@/lib/workspace/model";
 
 describe("EngineIcon", () => {
-  // behavior (each engine renders a distinct brand glyph, identified by its testid)
+  // TC-002 - behavior (each engine renders a distinct brand glyph, identified by its testid)
   it("should render a distinct icon per engine", () => {
-    const engines: DbEngine[] = ["postgres", "mysql", "sqlite", "mongodb"];
+    const engines: DbEngine[] = [
+      "postgres",
+      "mysql",
+      "sqlite",
+      "mongodb",
+      "sqlserver",
+    ];
     const testIds = engines.map((engine) => {
       const { container } = render(<EngineIcon engine={engine} />);
       const svg = container.querySelector("svg");
       return svg?.getAttribute("data-engine");
     });
-    expect(testIds).toEqual(["postgres", "mysql", "sqlite", "mongodb"]);
+    expect(testIds).toEqual([
+      "postgres",
+      "mysql",
+      "sqlite",
+      "mongodb",
+      "sqlserver",
+    ]);
   });
 
   // behavior (monochrome: the glyph inherits the current text color, never a brand color)

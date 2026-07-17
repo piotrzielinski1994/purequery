@@ -23,7 +23,19 @@ const ENGINE_LABELS: Record<DbEngine, string> = {
   mysql: "MySQL",
   sqlite: "SQLite",
   mongodb: "MongoDB",
+  sqlserver: "SQL Server",
 };
+
+// The canonical default port per network engine, seeded when the user switches the Type select
+// (unless they already typed a custom port - see `changeEngine`). SQLite has no port.
+const DEFAULT_PORT_BY_ENGINE: Partial<Record<DbEngine, number>> = {
+  postgres: 5432,
+  mysql: 3306,
+  mongodb: 27017,
+  sqlserver: 1433,
+};
+
+const DEFAULT_PORTS = new Set<number>(Object.values(DEFAULT_PORT_BY_ENGINE));
 
 // The form holds a superset of every connection shape so switching the engine never loses what
 // the user already typed; the live ConnectionConfig is projected per engine at connect time.
@@ -417,6 +429,17 @@ function ConnectionForm({ node }: { node: DatabaseNode }) {
     value: ConnectionForm[K],
   ) => setForm((current) => ({ ...current, [key]: value }));
 
+  // Switching the engine seeds that engine's canonical port, but only when the current port is still
+  // another engine's default (a user-typed custom port is preserved).
+  const changeEngine = (engine: DbEngine) =>
+    setForm((current) => ({
+      ...current,
+      engine,
+      port: DEFAULT_PORTS.has(current.port)
+        ? DEFAULT_PORT_BY_ENGINE[engine] ?? current.port
+        : current.port,
+    }));
+
   const isConnectable = (() => {
     if (isSqlite) {
       return form.file.length > 0;
@@ -453,7 +476,7 @@ function ConnectionForm({ node }: { node: DatabaseNode }) {
       <Field label="Type" htmlFor="conn-engine">
         <Select
           value={form.engine}
-          onValueChange={(value) => update("engine", value as DbEngine)}
+          onValueChange={(value) => changeEngine(value as DbEngine)}
         >
           <SelectTrigger id="conn-engine" className="w-full">
             {ENGINE_LABELS[form.engine]}
@@ -463,6 +486,7 @@ function ConnectionForm({ node }: { node: DatabaseNode }) {
             <SelectItem value="mysql">MySQL</SelectItem>
             <SelectItem value="sqlite">SQLite</SelectItem>
             <SelectItem value="mongodb">MongoDB</SelectItem>
+            <SelectItem value="sqlserver">SQL Server</SelectItem>
           </SelectContent>
         </Select>
       </Field>
