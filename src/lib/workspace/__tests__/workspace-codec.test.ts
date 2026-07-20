@@ -220,3 +220,71 @@ describe("dehydrateDatabase", () => {
     expect(persisted).not.toHaveProperty("result");
   });
 });
+
+describe("DynamoDB persistence (TC-003)", () => {
+  const validPersistedDynamo: PersistedDatabase = {
+    kind: "database",
+    id: "db-dynamo",
+    name: "prod_dynamo",
+    engine: "dynamodb",
+    region: "eu-west-1",
+    accessKeyId: "AKIA",
+    secretAccessKey: "shh",
+    sessionToken: "tok",
+    endpoint: "http://localhost:8009",
+  };
+
+  // TC-003, AC-005 - behavior: a valid dynamodb record keeps region + keys + optional token/endpoint
+  it("should keep a valid dynamodb record with region, keys and optional token/endpoint", () => {
+    expect(mergeDatabaseFile({ ...validPersistedDynamo })).toEqual(
+      validPersistedDynamo,
+    );
+  });
+
+  // TC-003, AC-005 - behavior: a missing region yields null (region is required)
+  it("should return null when the region is missing", () => {
+    const rest: Record<string, unknown> = { ...validPersistedDynamo };
+    delete rest.region;
+    expect(mergeDatabaseFile(rest)).toBeNull();
+  });
+
+  // TC-003, AC-005 - behavior: blank optional token/endpoint are dropped on merge
+  it("should drop absent optional sessionToken and endpoint", () => {
+    const merged = mergeDatabaseFile({
+      kind: "database",
+      id: "db-dynamo",
+      name: "prod_dynamo",
+      engine: "dynamodb",
+      region: "us-east-1",
+      accessKeyId: "",
+      secretAccessKey: "",
+    });
+    expect(merged).not.toBeNull();
+    expect(merged).not.toHaveProperty("sessionToken");
+    expect(merged).not.toHaveProperty("endpoint");
+    expect(merged).toMatchObject({ engine: "dynamodb", region: "us-east-1" });
+  });
+
+  // TC-003, AC-005 - behavior: a full hydrate -> dehydrate round-trip preserves the dynamo fields
+  it("should round-trip a dynamodb database through hydrate and dehydrate", () => {
+    const node = hydrateDatabase(validPersistedDynamo);
+    expect(node.engine).toBe("dynamodb");
+    expect(dehydrateDatabase(node)).toEqual(validPersistedDynamo);
+  });
+
+  // TC-003, AC-005 - behavior: blank optionals are omitted from the persisted shape
+  it("should omit blank optional fields when dehydrating a dynamodb node", () => {
+    const node = hydrateDatabase({
+      kind: "database",
+      id: "db-dynamo",
+      name: "prod_dynamo",
+      engine: "dynamodb",
+      region: "eu-west-1",
+      accessKeyId: "AKIA",
+      secretAccessKey: "shh",
+    });
+    const persisted = dehydrateDatabase(node);
+    expect(persisted).not.toHaveProperty("sessionToken");
+    expect(persisted).not.toHaveProperty("endpoint");
+  });
+});

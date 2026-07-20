@@ -68,6 +68,9 @@ export function fetchTable(
     offset?: number;
     filter?: string;
     sort?: Sort | null;
+    // DynamoDB token paging: the previous page's `nextToken` to resume from (ignored by the
+    // offset-paged SQL/Mongo engines).
+    nextToken?: string | null;
   },
 ): Promise<TableRows> {
   return invoke<TableRows>("fetch_table", {
@@ -78,6 +81,7 @@ export function fetchTable(
     offset: opts?.offset ?? 0,
     filter: opts?.filter ?? null,
     sort: opts?.sort ?? null,
+    nextToken: opts?.nextToken ?? null,
   });
 }
 

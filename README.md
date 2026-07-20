@@ -17,9 +17,13 @@ sidebar drag-and-drop.
 If the Rust toolchain or system prerequisites are missing, `npm start` fails fast with
 a build error from Cargo.
 
+Supported engines: **Postgres**, **MySQL**, **SQLite**, **MongoDB**, **SQL Server**, and
+**DynamoDB** (AWS key-value / NoSQL - PartiQL Query tab, browse + item CRUD; connects with a region +
+optional keys/endpoint, works against real AWS or DynamoDB Local).
+
 The per-database **Backup...** action needs no external tools - purequery generates the dump itself
 (Postgres/MySQL -> a data-only `.sql` INSERT script, SQLite -> a file copy, MongoDB -> a `.jsonl`
-Extended-JSON export).
+Extended-JSON export, DynamoDB -> a `.jsonl` item-per-line export).
 
 ## Setup
 
@@ -69,11 +73,13 @@ The dev server runs on port 1431 (set in both `vite.config.ts` and `src-tauri/ta
 > console panel with `Cmd/Ctrl+J` (also via palette commands).
 >
 > The **Settings** sub-tab is live: pick an engine (Postgres / MySQL / SQLite / MongoDB / SQL
-> Server), edit the
+> Server / DynamoDB), edit the
 > connection fields (SQLite shows a single "Database file" path field instead of host/port/
 > user/password; MongoDB adds a "Connection string (URI)" field that overrides the discrete
 > host/port/database/user/password when non-empty; SQL Server uses the same host/port/database/
-> user/password network fields as Postgres/MySQL, default port 1433), optionally assign an **accent color** (None / Green / Blue / Red presets, a
+> user/password network fields as Postgres/MySQL, default port 1433; DynamoDB shows an AWS field
+> group instead - Region + Access key id / Secret access key + optional Session token / Endpoint URL
+> - blank keys fall back to the default AWS credential chain), optionally assign an **accent color** (None / Green / Blue / Red presets, a
 > native picker, or any hex) that recolors the whole shell's existing borders while that database
 > is active, as a prod-vs-test cue (persisted per database in its `*.db.json`), and press **Connect** to open
 > a real `sqlx` connection (Rust backend) and replace that database's sidebar tables with the

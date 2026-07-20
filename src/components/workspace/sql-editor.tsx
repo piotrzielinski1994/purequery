@@ -26,6 +26,7 @@ import {
   MySQL,
   SQLite,
   MSSQL,
+  StandardSQL,
   schemaCompletionSource,
 } from "@codemirror/lang-sql";
 import { json as jsonLanguage } from "@codemirror/lang-json";
@@ -61,6 +62,8 @@ const dialects = {
   mysql: MySQL,
   sqlite: SQLite,
   sqlserver: MSSQL,
+  // PartiQL (DynamoDB) is SQL-shaped; the generic dialect highlights SELECT/INSERT/UPDATE/DELETE.
+  dynamodb: StandardSQL,
 } as const;
 
 // The `{{name}}` query-variable grammar (F18) - the SAME as the substitution parser (word-char name,

@@ -8,6 +8,7 @@ const EXTENSION_BY_ENGINE: Record<DbEngine, string> = {
   sqlite: "sqlite",
   mongodb: "jsonl",
   sqlserver: "sql",
+  dynamodb: "jsonl",
 };
 
 const FILTER_LABEL_BY_ENGINE: Record<DbEngine, string> = {
@@ -16,6 +17,7 @@ const FILTER_LABEL_BY_ENGINE: Record<DbEngine, string> = {
   sqlite: "SQLite database",
   mongodb: "JSON Lines",
   sqlserver: "SQL dump",
+  dynamodb: "JSON Lines",
 };
 
 // The giant-DB guardrail: a backup whose approximate row/document total exceeds this is blocked

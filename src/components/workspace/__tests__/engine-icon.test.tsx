@@ -13,6 +13,7 @@ describe("EngineIcon", () => {
       "sqlite",
       "mongodb",
       "sqlserver",
+      "dynamodb",
     ];
     const testIds = engines.map((engine) => {
       const { container } = render(<EngineIcon engine={engine} />);
@@ -25,6 +26,7 @@ describe("EngineIcon", () => {
       "sqlite",
       "mongodb",
       "sqlserver",
+      "dynamodb",
     ]);
   });
 

@@ -1,8 +1,9 @@
 # purequery test stack
 
-Docker Postgres + MySQL + MongoDB, seeded for engine smoke tests (held pool / multi-statement /
-transactions / cancel for SQL; collection browse / find / aggregate / CRUD for Mongo). Non-default
-host ports so they don't clash with your own local DBs.
+Docker Postgres + MySQL + MongoDB + SQL Server + DynamoDB Local, seeded for engine smoke tests (held
+pool / multi-statement / transactions / cancel for SQL; collection browse / find / aggregate / CRUD
+for Mongo; PartiQL browse / query / item CRUD for DynamoDB). Non-default host ports so they don't
+clash with your own local DBs.
 
 ## Run
 
@@ -35,6 +36,26 @@ docker compose down -v        # stop + wipe (re-seeds next up)
 - **Postgres public-only** (`purequery_public`, 55433) - every table in `public`; one schema row.
 - **MySQL** (`purequery_test`, 33061) - flat, no schema level.
 - SQLite available without Docker: `.pzielinski/test.sqlite` (flat).
+
+### DynamoDB (key-value / NoSQL engine, port 8009)
+
+DynamoDB Local runs in-memory; connect with the **Endpoint URL** override + any dummy credentials
+(the local engine ignores their value). The "database" is a region.
+
+| Field           | DynamoDB                       |
+| --------------- | ------------------------------ |
+| Engine          | dynamodb                       |
+| Region          | eu-west-1                      |
+| Access key id   | dummy                          |
+| Secret access key | dummy                        |
+| Endpoint URL    | `http://localhost:8009`        |
+
+Seeded tables: `users` (simple partition key `userId`, 3 items - one with a nested `address` map +
+`tags` list, one with a **disjoint** attribute set + a number-set, one key-only) - full inline CRUD;
+`orders` (composite key `pk`+`sk`, 2 items, plus a `byStatus` GSI) - read-only grid, writable via
+the PartiQL Query tab. Exercise the item flatten (nested -> compact JSON, missing -> `[NULL]`), token
+paging, approx `~count`, disabled sort, PartiQL SELECT/INSERT/UPDATE/DELETE, and the Structure view
+(key schema + GSI).
 
 ### MongoDB (document engine, port 27018)
 

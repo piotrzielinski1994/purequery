@@ -1,4 +1,10 @@
-export type DbEngine = "postgres" | "mysql" | "sqlite" | "mongodb" | "sqlserver";
+export type DbEngine =
+  | "postgres"
+  | "mysql"
+  | "sqlite"
+  | "mongodb"
+  | "sqlserver"
+  | "dynamodb";
 
 export type NetworkEngine = "postgres" | "mysql" | "sqlserver";
 
@@ -29,10 +35,23 @@ export type MongoConnection = {
   uri?: string;
 };
 
+// DynamoDB carries an AWS shape, not a host/port/user/password one, so it is NOT a NetworkEngine.
+// Empty accessKeyId/secretAccessKey -> the default AWS credential chain (env / ~/.aws); a non-empty
+// endpoint overrides the regional endpoint (dynamodb-local). Region is always required.
+export type DynamoConnection = {
+  engine: "dynamodb";
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken?: string;
+  endpoint?: string;
+};
+
 export type ConnectionConfig =
   | NetworkConnection
   | SqliteConnection
-  | MongoConnection;
+  | MongoConnection
+  | DynamoConnection;
 
 export type ConnectionStatus = "idle" | "connecting" | "connected" | "error";
 
@@ -47,6 +66,9 @@ export type TableRows = {
   columns: TableColumn[];
   rows: (string | null)[][];
   primaryKey: string | null;
+  // DynamoDB opaque paging token for the next page (its `LastEvaluatedKey`). Absent for the
+  // offset-paged SQL/Mongo engines. Present-and-non-null means a "Load more" page is available.
+  nextToken?: string | null;
 };
 
 export type Sort = {
@@ -192,10 +214,13 @@ export type SqliteDatabaseNode = DatabaseNodeBase & SqliteConnection;
 
 export type MongoDatabaseNode = DatabaseNodeBase & MongoConnection;
 
+export type DynamoDatabaseNode = DatabaseNodeBase & DynamoConnection;
+
 export type DatabaseNode =
   | NetworkDatabaseNode
   | SqliteDatabaseNode
-  | MongoDatabaseNode;
+  | MongoDatabaseNode
+  | DynamoDatabaseNode;
 
 export function connectionOf(node: DatabaseNode): ConnectionConfig {
   if (node.engine === "sqlite") {
@@ -210,6 +235,16 @@ export function connectionOf(node: DatabaseNode): ConnectionConfig {
       user: node.user,
       password: node.password,
       ...(node.uri ? { uri: node.uri } : {}),
+    };
+  }
+  if (node.engine === "dynamodb") {
+    return {
+      engine: "dynamodb",
+      region: node.region,
+      accessKeyId: node.accessKeyId,
+      secretAccessKey: node.secretAccessKey,
+      ...(node.sessionToken ? { sessionToken: node.sessionToken } : {}),
+      ...(node.endpoint ? { endpoint: node.endpoint } : {}),
     };
   }
   return {

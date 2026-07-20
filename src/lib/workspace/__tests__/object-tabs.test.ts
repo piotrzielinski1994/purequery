@@ -36,6 +36,11 @@ describe("objectTabsFor (AC-001..004, TC-001..004)", () => {
     expect(objectTabsFor("mongodb")).toEqual([]);
   });
 
+  // AC-017 - behavior (DynamoDB has no procedures/functions/triggers/sequences)
+  it("should return no object tabs for dynamodb", () => {
+    expect(objectTabsFor("dynamodb")).toEqual([]);
+  });
+
   // AC-001 - behavior (the labels are the human-readable plural titles rendered in the tab bar)
   it("should label the postgres tabs Procedures, Functions, Triggers and Sequences", () => {
     expect(objectTabsFor("postgres").map((tab) => tab.label)).toEqual([

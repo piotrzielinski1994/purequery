@@ -22,6 +22,7 @@ const KINDS_BY_ENGINE: Record<DbEngine, ObjectKind[]> = {
   sqlite: ["trigger"],
   mongodb: [],
   sqlserver: ["procedure", "function", "trigger", "sequence"],
+  dynamodb: [],
 };
 
 export function objectTabsFor(engine: DbEngine): ObjectTabDef[] {

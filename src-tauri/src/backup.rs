@@ -2,6 +2,7 @@ use crate::db::{
     build_url, catalog_query, quote_identifier, read_table_rows, ConnectionConfig, DbEngine,
     TableColumn, TableRef,
 };
+use crate::dynamo::{self, DynamoConfig};
 use crate::mongo::{mongo_uri, MongoConfig};
 use crate::mssql::{self, MssqlConfig};
 use futures_util::TryStreamExt;
@@ -53,6 +54,12 @@ pub enum BackupSpec {
         config: MssqlConfig,
         to: String,
     },
+    // DynamoDB: a `.jsonl` file, one JSON item per line, with `// table:` boundary comments. Opens
+    // its own aws-sdk client (self-contained, like the Mongo/mssql arms). NoSQL, no schema.
+    Dynamo {
+        config: DynamoConfig,
+        to: String,
+    },
     CopyFile {
         from: String,
         to: String,
@@ -95,6 +102,19 @@ pub fn backup_spec_mssql(config: &MssqlConfig, path: &str) -> BackupSpec {
         config: config.clone(),
         to: path.to_string(),
     }
+}
+
+pub fn backup_spec_dynamo(config: &DynamoConfig, path: &str) -> BackupSpec {
+    BackupSpec::Dynamo {
+        config: config.clone(),
+        to: path.to_string(),
+    }
+}
+
+// The DynamoDB half of the giant-DB guardrail: the approximate item total across all tables via
+// `DescribeTable.ItemCount` (metadata, not a scan).
+pub async fn estimate_dynamo_rows(config: DynamoConfig) -> Result<i64, String> {
+    dynamo::estimate_items(&config).await
 }
 
 // A SQL Server string literal: single quotes doubled, wrapped in quotes; `NULL` for a missing value.
@@ -497,6 +517,38 @@ async fn run_mssql_backup(config: MssqlConfig, path: &str) -> Result<BackupSumma
     })
 }
 
+// Opens a standalone aws-sdk client (self-contained, like the other arms), scans every table, and
+// writes a `.jsonl` file - one canonical DynamoDB-JSON item per line (the typed `AttributeValue`
+// wire shape, round-trips every type), with a `// table: <name>` comment before each table's items,
+// via `dynamo::item_to_dynamo_json`. Reads whole tables (the giant-DB guardrail gates size first).
+async fn run_dynamo_backup(config: DynamoConfig, path: &str) -> Result<BackupSummary, String> {
+    let started = std::time::Instant::now();
+    let (client, names) = dynamo::open_standalone(&config).await?;
+
+    let mut dump = format!(
+        "// purequery backup (dynamodb) region={}\n// one JSON item per line; `// table:` marks each table\n",
+        config.region
+    );
+
+    for name in &names {
+        dump.push_str(&format!("// table: {name}\n"));
+        let items = dynamo::scan_all_items(&client, name).await?;
+        items.iter().for_each(|item| {
+            dump.push_str(&dynamo::item_to_dynamo_json(item).to_string());
+            dump.push('\n');
+        });
+    }
+
+    tokio::fs::write(path, &dump)
+        .await
+        .map_err(|error| format!("write failed: {error}"))?;
+    Ok(BackupSummary {
+        path: path.to_string(),
+        bytes: dump.len() as u64,
+        ms: started.elapsed().as_millis(),
+    })
+}
+
 pub async fn run_backup(spec: BackupSpec) -> Result<BackupSummary, String> {
     match spec {
         BackupSpec::CopyFile { from, to } => {
@@ -513,6 +565,7 @@ pub async fn run_backup(spec: BackupSpec) -> Result<BackupSummary, String> {
         BackupSpec::Sql { config, to } => run_sql_backup(config, &to).await,
         BackupSpec::Mongo { config, to } => run_mongo_backup(config, &to).await,
         BackupSpec::Mssql { config, to } => run_mssql_backup(config, &to).await,
+        BackupSpec::Dynamo { config, to } => run_dynamo_backup(config, &to).await,
     }
 }
 

@@ -518,12 +518,17 @@ pub struct Sort {
     pub descending: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TableRows {
     pub columns: Vec<TableColumn>,
     pub rows: Vec<Vec<Option<String>>>,
     pub primary_key: Option<String>,
+    // The opaque paging token for the next page (DynamoDB `LastEvaluatedKey` -> PartiQL nextToken).
+    // None for the offset-paged SQL/Mongo engines (which page by offset, not a token) and omitted
+    // from the wire JSON when absent, so those engines are unaffected.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_token: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1654,6 +1659,7 @@ pub(crate) async fn read_table_rows(
             columns: Vec::new(),
             rows: Vec::new(),
             primary_key: None,
+            next_token: None,
         });
     }
 
@@ -1726,6 +1732,7 @@ pub(crate) async fn read_table_rows(
         columns,
         rows,
         primary_key,
+        next_token: None,
     })
 }
 

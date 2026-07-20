@@ -1,5 +1,6 @@
 mod backup;
 mod db;
+mod dynamo;
 mod logging;
 mod mongo;
 mod mssql;
@@ -16,6 +17,7 @@ use db::{
     ObjectKind, QueryOutcome, RowMutation, Sort, TableRows, TableSchema, TableStructure,
     DEFAULT_ROW_LIMIT,
 };
+use dynamo::DynamoConfig;
 use mongo::MongoConfig;
 use mssql::MssqlConfig;
 
@@ -55,6 +57,11 @@ async fn connect_database(
             Ok(mssql_config) => mssql::connect(connection_id.clone(), mssql_config).await,
             Err(error) => Err(error.to_string()),
         }
+    } else if engine == "dynamodb" {
+        match serde_json::from_value::<DynamoConfig>(config) {
+            Ok(dynamo_config) => dynamo::connect(connection_id.clone(), dynamo_config).await,
+            Err(error) => Err(error.to_string()),
+        }
     } else {
         match serde_json::from_value::<ConnectionConfig>(config) {
             Ok(sql_config) => connect_database_db(connection_id.clone(), sql_config).await,
@@ -83,6 +90,10 @@ async fn disconnect_database(connection_id: String) {
         mongo::disconnect(connection_id).await;
         return;
     }
+    if dynamo::is_connected(&connection_id) {
+        dynamo::disconnect(connection_id).await;
+        return;
+    }
     if mssql::is_connected(&connection_id) {
         mssql::disconnect(connection_id).await;
         return;
@@ -99,6 +110,7 @@ async fn fetch_table(
     offset: Option<u32>,
     filter: Option<String>,
     sort: Option<Sort>,
+    next_token: Option<String>,
 ) -> Result<TableRows, String> {
     if mongo::is_connected(&connection_id) {
         return mongo::fetch_documents(
@@ -110,6 +122,19 @@ async fn fetch_table(
             sort,
         )
         .await;
+    }
+    if dynamo::is_connected(&connection_id) {
+        // DynamoDB pages by an opaque token, not offset, and has no server-side sort - so `offset`
+        // and `sort` are ignored here; the FE threads `nextToken` from the previous page instead.
+        return dynamo::fetch_table_rows(
+            connection_id,
+            table,
+            limit.unwrap_or(DEFAULT_ROW_LIMIT),
+            next_token,
+            filter,
+        )
+        .await
+        .map(|(rows, _token)| rows);
     }
     if mssql::is_connected(&connection_id) {
         return mssql::fetch_table_rows(
@@ -145,6 +170,11 @@ async fn count_table(
     if mongo::is_connected(&connection_id) {
         return mongo::count_documents(connection_id, table, filter).await;
     }
+    if dynamo::is_connected(&connection_id) {
+        // Approximate DescribeTable.ItemCount (fast/free); filter is ignored (an exact filtered
+        // count would be a full table scan).
+        return dynamo::count_table_rows(connection_id, table).await;
+    }
     if mssql::is_connected(&connection_id) {
         return mssql::count_table_rows(connection_id, schema, table, filter).await;
     }
@@ -165,6 +195,8 @@ async fn apply_mutations(
     let started = std::time::Instant::now();
     let result = if mongo::is_connected(&connection_id) {
         mongo::apply_mutations(connection_id.clone(), table, mutations).await
+    } else if dynamo::is_connected(&connection_id) {
+        dynamo::apply_mutations(connection_id.clone(), table, mutations).await
     } else if mssql::is_connected(&connection_id) {
         mssql::apply_mutations(connection_id.clone(), schema, table, mutations).await
     } else {
@@ -192,7 +224,9 @@ async fn execute_sql(
     request_id: String,
 ) -> Result<Vec<QueryOutcome>, String> {
     let started = std::time::Instant::now();
-    let result = if mssql::is_connected(&connection_id) {
+    let result = if dynamo::is_connected(&connection_id) {
+        dynamo::run_query(connection_id.clone(), sql, DEFAULT_ROW_LIMIT, request_id).await
+    } else if mssql::is_connected(&connection_id) {
         mssql::run_query(connection_id.clone(), sql, DEFAULT_ROW_LIMIT, request_id).await
     } else {
         run_query(connection_id.clone(), sql, DEFAULT_ROW_LIMIT, request_id).await
@@ -257,6 +291,9 @@ async fn fetch_schema(connection_id: String) -> Result<Vec<TableSchema>, String>
     if mongo::is_connected(&connection_id) {
         return mongo::fetch_schema(connection_id).await;
     }
+    if dynamo::is_connected(&connection_id) {
+        return dynamo::fetch_schema(connection_id).await;
+    }
     if mssql::is_connected(&connection_id) {
         return mssql::fetch_schema(connection_id).await;
     }
@@ -274,6 +311,9 @@ async fn fetch_table_structure(
     if mongo::is_connected(&connection_id) {
         return mongo::fetch_table_structure(connection_id, table).await;
     }
+    if dynamo::is_connected(&connection_id) {
+        return dynamo::fetch_table_structure(connection_id, table).await;
+    }
     if mssql::is_connected(&connection_id) {
         return mssql::fetch_table_structure(connection_id, schema, table).await;
     }
@@ -288,7 +328,7 @@ async fn fetch_database_objects(
     connection_id: String,
     kind: ObjectKind,
 ) -> Result<Vec<DatabaseObject>, String> {
-    if mongo::is_connected(&connection_id) {
+    if mongo::is_connected(&connection_id) || dynamo::is_connected(&connection_id) {
         return Ok(Vec::new());
     }
     if mssql::is_connected(&connection_id) {
@@ -306,6 +346,9 @@ async fn begin_transaction(connection_id: String) -> Result<(), String> {
     if mongo::is_connected(&connection_id) {
         return Err("manual-commit transactions are not supported for MongoDB".to_string());
     }
+    if dynamo::is_connected(&connection_id) {
+        return Err("manual-commit transactions are not supported for DynamoDB".to_string());
+    }
     let started = std::time::Instant::now();
     let result = if mssql::is_connected(&connection_id) {
         mssql::begin_transaction(connection_id.clone()).await
@@ -320,6 +363,9 @@ async fn begin_transaction(connection_id: String) -> Result<(), String> {
 async fn commit_transaction(connection_id: String) -> Result<(), String> {
     if mongo::is_connected(&connection_id) {
         return Err("manual-commit transactions are not supported for MongoDB".to_string());
+    }
+    if dynamo::is_connected(&connection_id) {
+        return Err("manual-commit transactions are not supported for DynamoDB".to_string());
     }
     let started = std::time::Instant::now();
     let result = if mssql::is_connected(&connection_id) {
@@ -336,6 +382,9 @@ async fn rollback_transaction(connection_id: String) -> Result<(), String> {
     if mongo::is_connected(&connection_id) {
         return Err("manual-commit transactions are not supported for MongoDB".to_string());
     }
+    if dynamo::is_connected(&connection_id) {
+        return Err("manual-commit transactions are not supported for DynamoDB".to_string());
+    }
     let started = std::time::Instant::now();
     let result = if mssql::is_connected(&connection_id) {
         mssql::rollback_transaction(connection_id.clone()).await
@@ -348,8 +397,9 @@ async fn rollback_transaction(connection_id: String) -> Result<(), String> {
 
 #[tauri::command]
 fn transaction_state(connection_id: String) -> bool {
-    // Mongo never has an open manual-commit tx; the SQL registry returns false for any unknown id.
-    if mongo::is_connected(&connection_id) {
+    // Mongo/DynamoDB never have an open manual-commit tx; the SQL registry returns false for any
+    // unknown id.
+    if mongo::is_connected(&connection_id) || dynamo::is_connected(&connection_id) {
         return false;
     }
     if mssql::is_connected(&connection_id) {
@@ -378,6 +428,12 @@ async fn estimate_backup_rows(config: serde_json::Value) -> Result<i64, String> 
             Err(error) => Err(error.to_string()),
         };
     }
+    if engine == "dynamodb" {
+        return match serde_json::from_value::<DynamoConfig>(config) {
+            Ok(dynamo_config) => backup::estimate_dynamo_rows(dynamo_config).await,
+            Err(error) => Err(error.to_string()),
+        };
+    }
     match serde_json::from_value::<ConnectionConfig>(config) {
         Ok(sql_config) => backup::estimate_sql_rows(sql_config).await,
         Err(error) => Err(error.to_string()),
@@ -403,6 +459,10 @@ async fn backup_database(
     } else if engine == "sqlserver" {
         serde_json::from_value::<MssqlConfig>(config)
             .map(|mssql_config| backup::backup_spec_mssql(&mssql_config, &path))
+            .map_err(|error| error.to_string())
+    } else if engine == "dynamodb" {
+        serde_json::from_value::<DynamoConfig>(config)
+            .map(|dynamo_config| backup::backup_spec_dynamo(&dynamo_config, &path))
             .map_err(|error| error.to_string())
     } else {
         serde_json::from_value::<ConnectionConfig>(config)

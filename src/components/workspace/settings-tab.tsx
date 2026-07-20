@@ -24,6 +24,7 @@ const ENGINE_LABELS: Record<DbEngine, string> = {
   sqlite: "SQLite",
   mongodb: "MongoDB",
   sqlserver: "SQL Server",
+  dynamodb: "DynamoDB",
 };
 
 // The canonical default port per network engine, seeded when the user switches the Type select
@@ -49,6 +50,11 @@ type ConnectionForm = {
   password: string;
   file: string;
   uri: string;
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken: string;
+  endpoint: string;
 };
 
 function formFromNode(node: DatabaseNode): ConnectionForm {
@@ -60,6 +66,11 @@ function formFromNode(node: DatabaseNode): ConnectionForm {
     password: "",
     file: "",
     uri: "",
+    region: "",
+    accessKeyId: "",
+    secretAccessKey: "",
+    sessionToken: "",
+    endpoint: "",
   };
   if (node.engine === "sqlite") {
     return { ...base, engine: "sqlite", file: node.file };
@@ -74,6 +85,17 @@ function formFromNode(node: DatabaseNode): ConnectionForm {
       user: node.user,
       password: node.password,
       uri: node.uri ?? "",
+    };
+  }
+  if (node.engine === "dynamodb") {
+    return {
+      ...base,
+      engine: "dynamodb",
+      region: node.region,
+      accessKeyId: node.accessKeyId,
+      secretAccessKey: node.secretAccessKey,
+      sessionToken: node.sessionToken ?? "",
+      endpoint: node.endpoint ?? "",
     };
   }
   return {
@@ -100,6 +122,16 @@ function configFromForm(form: ConnectionForm): ConnectionConfig {
       user: form.user,
       password: form.password,
       ...(form.uri.trim() ? { uri: form.uri } : {}),
+    };
+  }
+  if (form.engine === "dynamodb") {
+    return {
+      engine: "dynamodb",
+      region: form.region,
+      accessKeyId: form.accessKeyId,
+      secretAccessKey: form.secretAccessKey,
+      ...(form.sessionToken.trim() ? { sessionToken: form.sessionToken } : {}),
+      ...(form.endpoint.trim() ? { endpoint: form.endpoint } : {}),
     };
   }
   return {
@@ -375,9 +407,11 @@ function DefaultSchemaField({
 function PasswordField({
   value,
   onChange,
+  id = "conn-password",
 }: {
   value: string;
   onChange: (value: string) => void;
+  id?: string;
 }) {
   const [isVisible, setIsVisible] = useState(false);
   const Icon = isVisible ? EyeOff : Eye;
@@ -385,7 +419,7 @@ function PasswordField({
   return (
     <div className="relative">
       <Input
-        id="conn-password"
+        id={id}
         type={isVisible ? "text" : "password"}
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -423,6 +457,7 @@ function ConnectionForm({ node }: { node: DatabaseNode }) {
   const isConnecting = connectionStatus.get(nodeId) === "connecting";
   const isSqlite = form.engine === "sqlite";
   const isMongo = form.engine === "mongodb";
+  const isDynamo = form.engine === "dynamodb";
 
   const update = <K extends keyof ConnectionForm>(
     key: K,
@@ -443,6 +478,10 @@ function ConnectionForm({ node }: { node: DatabaseNode }) {
   const isConnectable = (() => {
     if (isSqlite) {
       return form.file.length > 0;
+    }
+    // DynamoDB needs only a region; blank keys fall through to the default AWS credential chain.
+    if (isDynamo) {
+      return form.region.trim().length > 0;
     }
     // Mongo connects with EITHER a non-empty uri (which overrides everything) OR host + database.
     if (isMongo) {
@@ -467,12 +506,17 @@ function ConnectionForm({ node }: { node: DatabaseNode }) {
       </Field>
       <AccentField nodeId={nodeId} accentColor={node.accentColor} />
       <ReadOnlyField nodeId={nodeId} readOnly={node.readOnly} />
-      <ManualCommitField nodeId={nodeId} manualCommit={node.manualCommit} />
-      <DefaultSchemaField
-        nodeId={nodeId}
-        defaultSchema={node.defaultSchema}
-        schemas={schemaOptions(node.tables)}
-      />
+      {/* DynamoDB has no interactive transaction and no schema level, so both are N/A there. */}
+      {!isDynamo ? (
+        <>
+          <ManualCommitField nodeId={nodeId} manualCommit={node.manualCommit} />
+          <DefaultSchemaField
+            nodeId={nodeId}
+            defaultSchema={node.defaultSchema}
+            schemas={schemaOptions(node.tables)}
+          />
+        </>
+      ) : null}
       <Field label="Type" htmlFor="conn-engine">
         <Select
           value={form.engine}
@@ -487,6 +531,7 @@ function ConnectionForm({ node }: { node: DatabaseNode }) {
             <SelectItem value="sqlite">SQLite</SelectItem>
             <SelectItem value="mongodb">MongoDB</SelectItem>
             <SelectItem value="sqlserver">SQL Server</SelectItem>
+            <SelectItem value="dynamodb">DynamoDB</SelectItem>
           </SelectContent>
         </Select>
       </Field>
@@ -500,6 +545,50 @@ function ConnectionForm({ node }: { node: DatabaseNode }) {
             placeholder="/path/to/database.sqlite"
           />
         </Field>
+      ) : isDynamo ? (
+        <>
+          <Field label="Region" htmlFor="conn-region">
+            <Input
+              id="conn-region"
+              value={form.region}
+              onChange={(event) => update("region", event.target.value)}
+              placeholder="eu-west-1"
+            />
+          </Field>
+          <Field label="Access key id" htmlFor="conn-access-key">
+            <Input
+              id="conn-access-key"
+              value={form.accessKeyId}
+              onChange={(event) => update("accessKeyId", event.target.value)}
+              className="font-mono"
+              placeholder="(blank = default credential chain)"
+            />
+          </Field>
+          <Field label="Secret access key" htmlFor="conn-secret-key">
+            <PasswordField
+              id="conn-secret-key"
+              value={form.secretAccessKey}
+              onChange={(value) => update("secretAccessKey", value)}
+            />
+          </Field>
+          <Field label="Session token (optional)" htmlFor="conn-session-token">
+            <Input
+              id="conn-session-token"
+              value={form.sessionToken}
+              onChange={(event) => update("sessionToken", event.target.value)}
+              className="font-mono"
+            />
+          </Field>
+          <Field label="Endpoint URL (optional)" htmlFor="conn-endpoint">
+            <Input
+              id="conn-endpoint"
+              value={form.endpoint}
+              onChange={(event) => update("endpoint", event.target.value)}
+              className="font-mono"
+              placeholder="http://localhost:8009"
+            />
+          </Field>
+        </>
       ) : (
         <>
           <Field label="Host" htmlFor="conn-host">

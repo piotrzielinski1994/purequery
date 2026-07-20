@@ -905,3 +905,162 @@ describe("SettingsTab SQL Server engine (TC-001)", () => {
     );
   });
 });
+
+// A DynamoDB database node: the AWS shape (region + keys + optional session token/endpoint), NOT
+// the network host/port/user/password shape.
+function dynamoNode(overrides?: {
+  region?: string;
+  accessKeyId?: string;
+  secretAccessKey?: string;
+  sessionToken?: string;
+  endpoint?: string;
+}): DatabaseNode {
+  return {
+    kind: "database",
+    id: "db-dynamo",
+    name: "prod_dynamo_euw1",
+    accentColor: null,
+    readOnly: false,
+    manualCommit: false,
+    defaultSchema: null,
+    engine: "dynamodb",
+    region: overrides?.region ?? "eu-west-1",
+    accessKeyId: overrides?.accessKeyId ?? "AKIA",
+    secretAccessKey: overrides?.secretAccessKey ?? "shh",
+    ...(overrides?.sessionToken !== undefined
+      ? { sessionToken: overrides.sessionToken }
+      : {}),
+    ...(overrides?.endpoint !== undefined
+      ? { endpoint: overrides.endpoint }
+      : {}),
+    tables: [],
+    views: [],
+    sql: "",
+    savedScripts: [],
+    savedJsScripts: [],
+    variables: [],
+    result: sqliteResult,
+  };
+}
+
+function renderDynamoSettings(
+  overrides?: Parameters<typeof dynamoNode>[0],
+) {
+  const tree: TreeNode[] = [dynamoNode(overrides)];
+  return render(
+    <WorkspaceProvider tree={tree} initialActiveTabId="db-dynamo">
+      <SettingsTab />
+    </WorkspaceProvider>,
+  );
+}
+
+describe("SettingsTab DynamoDB engine (TC-001, TC-013)", () => {
+  // TC-001, AC-002 - behavior (dynamo shows the AWS field group, not the network fields)
+  it("should show region/access key/secret key/session token/endpoint for a dynamodb node", () => {
+    renderDynamoSettings();
+    expect(
+      screen.getByRole("textbox", { name: /region/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: /access key id/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Secret access key", { exact: true }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: /session token/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: /endpoint/i }),
+    ).toBeInTheDocument();
+  });
+
+  // TC-001, AC-002 - behavior (dynamo hides the network host/port/user + the mongo/sqlite fields)
+  it("should hide host/port/user/connection-string/file fields for a dynamodb node", () => {
+    renderDynamoSettings();
+    expect(screen.queryByRole("textbox", { name: /host/i })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /port/i })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /^user$/i })).toBeNull();
+    expect(
+      screen.queryByRole("textbox", { name: /connection string/i }),
+    ).toBeNull();
+    expect(
+      screen.queryByLabelText("Database file", { exact: true }),
+    ).toBeNull();
+  });
+
+  // TC-013, AC-002, AC-017 - behavior (manual commit + default schema are N/A for dynamo, hidden)
+  it("should hide the Manual commit and Default schema controls for a dynamodb node", () => {
+    renderDynamoSettings();
+    expect(screen.queryByRole("switch", { name: /manual commit/i })).toBeNull();
+    expect(
+      screen.queryByRole("combobox", { name: /default schema/i }),
+    ).toBeNull();
+  });
+
+  // TC-001, AC-001 - behavior (the engine selector shows DynamoDB)
+  it("should show DynamoDB in the engine selector for a dynamodb node", () => {
+    renderDynamoSettings();
+    expect(
+      screen.getByRole("combobox", { name: /type/i }),
+    ).toHaveTextContent(/dynamodb/i);
+  });
+
+  // TC-001, AC-002 - behavior (the region seeds from the node)
+  it("should seed the region from the node", () => {
+    renderDynamoSettings({ region: "us-east-1" });
+    expect(screen.getByRole("textbox", { name: /region/i })).toHaveValue(
+      "us-east-1",
+    );
+  });
+
+  // TC-001, AC-002 - behavior (region set -> Connect enabled even with blank keys)
+  it("should enable Connect when the region is set even with blank keys", () => {
+    renderDynamoSettings({ accessKeyId: "", secretAccessKey: "" });
+    expect(screen.getByRole("button", { name: /^connect$/i })).toBeEnabled();
+  });
+
+  // TC-001, AC-002 - behavior (empty region -> Connect disabled)
+  it("should disable Connect when the region is empty", async () => {
+    const user = userEvent.setup();
+    renderDynamoSettings();
+    await user.clear(screen.getByRole("textbox", { name: /region/i }));
+    expect(screen.getByRole("button", { name: /^connect$/i })).toBeDisabled();
+  });
+
+  // TC-001, AC-003 - behavior (Connect sends the dynamodb engine + region + keys + endpoint)
+  it("should invoke connectDatabase with the dynamodb engine and its fields when Connect is clicked", async () => {
+    const user = userEvent.setup();
+    mockConnect.mockResolvedValueOnce({
+      tables: [{ schema: null, name: "users" }],
+      views: [],
+    });
+    renderDynamoSettings({ endpoint: "http://localhost:8009" });
+
+    await user.click(screen.getByRole("button", { name: /^connect$/i }));
+
+    expect(mockConnect).toHaveBeenCalledWith(
+      "db-dynamo",
+      expect.objectContaining({
+        engine: "dynamodb",
+        region: "eu-west-1",
+        accessKeyId: "AKIA",
+        secretAccessKey: "shh",
+        endpoint: "http://localhost:8009",
+      }),
+    );
+  });
+
+  // TC-001, AC-005 - behavior (blank optional keys/token/endpoint are omitted from the config)
+  it("should omit blank session token and endpoint from the sent config", async () => {
+    const user = userEvent.setup();
+    mockConnect.mockResolvedValueOnce({ tables: [], views: [] });
+    renderDynamoSettings();
+
+    await user.click(screen.getByRole("button", { name: /^connect$/i }));
+
+    const sent = mockConnect.mock.calls[0][1];
+    expect(sent).not.toHaveProperty("sessionToken");
+    expect(sent).not.toHaveProperty("endpoint");
+  });
+});

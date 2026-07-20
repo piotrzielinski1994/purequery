@@ -522,6 +522,7 @@ pub async fn read_table_page(
             columns: Vec::new(),
             rows: Vec::new(),
             primary_key: None,
+            next_token: None,
         });
     }
 
@@ -577,6 +578,7 @@ pub async fn read_table_page(
         columns,
         rows,
         primary_key,
+        next_token: None,
     })
 }
 

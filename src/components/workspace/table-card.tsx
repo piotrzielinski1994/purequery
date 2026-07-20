@@ -487,6 +487,8 @@ function LiveTable({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [structureShortcuts, toggleStructureView]);
   const isMongo = config.engine === "mongodb";
+  // DynamoDB: no general ORDER BY (sort disabled) and token paging instead of offset.
+  const isDynamo = config.engine === "dynamodb";
   const structure = useQuery<TableStructure, Error>({
     queryKey: ["table-structure", tableId],
     queryFn: () => fetchTableStructure(connectionId, tableName, schema),
@@ -544,7 +546,10 @@ function LiveTable({
     // recorded - a new sort/filter (new key), the next page, a Save-triggered refetch. A cache hit
     // (revisiting the tab) never calls queryFn, so it correctly logs nothing.
     queryFn: async ({ pageParam }) => {
-      const offset = pageParam as number;
+      // DynamoDB pages by an opaque token (pageParam is the previous page's nextToken, or null for
+      // the first page); the SQL/Mongo engines page by a numeric offset.
+      const offset = isDynamo ? 0 : (pageParam as number);
+      const nextToken = isDynamo ? (pageParam as string | null) : null;
       const querySql = preview.fetch(tableName, filter, sort, pageSize, offset);
       const seq = (fetchSeq.current += 1);
       try {
@@ -554,6 +559,7 @@ function LiveTable({
           sort,
           limit: pageSize,
           offset,
+          nextToken,
         });
         addHistoryEntry({
           id: `fetch-${tableId}-${seq}`,
@@ -574,12 +580,15 @@ function LiveTable({
         throw error;
       }
     },
-    initialPageParam: 0,
-    // A full page (= the chosen page size) means there may be more; a short page is the last.
+    initialPageParam: isDynamo ? null : 0,
+    // DynamoDB: another page exists only when the scan returned a nextToken; the SQL/Mongo engines
+    // infer "more" from a full page (a short page is the last) and advance the offset.
     getNextPageParam: (lastPage, pages) =>
-      lastPage.rows.length < pageSize
-        ? undefined
-        : pages.length * pageSize,
+      isDynamo
+        ? (lastPage.nextToken ?? undefined)
+        : lastPage.rows.length < pageSize
+          ? undefined
+          : pages.length * pageSize,
     // Keep the prior page on screen while a new sort/filter loads, so the headers (and the
     // user's click target) don't unmount and flash a loading state mid-sort.
     placeholderData: keepPreviousData,
@@ -1220,8 +1229,8 @@ function LiveTable({
             edits={edits}
             onCommitEdit={commitEdit}
             columnMeta={columnMeta}
-            sort={sort}
-            onSortColumn={cycleSort}
+            sort={isDynamo ? null : sort}
+            onSortColumn={isDynamo ? undefined : cycleSort}
             isDraftRow={editable ? isDraftRow : undefined}
             isDeletedRow={editable ? isDeletedRow : undefined}
             onDeleteRow={editable ? deleteRow : undefined}
@@ -1263,7 +1272,10 @@ function LiveTable({
       <div className="flex h-9 shrink-0 items-stretch border-t bg-muted/30">
         <span className="flex items-center px-3 text-xs text-muted-foreground">
           {rows.length}
-          {typeof totalRows === "number" ? ` of ${totalRows}` : ""} rows
+          {typeof totalRows === "number"
+            ? ` of ${isDynamo ? "~" : ""}${totalRows}`
+            : ""}{" "}
+          rows
         </span>
         <label className="flex items-stretch border-l border-l-border text-xs text-muted-foreground">
           <span className="flex items-center pl-3">Page size</span>

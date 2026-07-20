@@ -62,10 +62,30 @@ export type PersistedMongoDatabase = {
   variables?: Variable[];
 };
 
+export type PersistedDynamoDatabase = {
+  kind: "database";
+  id: string;
+  name: string;
+  engine: "dynamodb";
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken?: string;
+  endpoint?: string;
+  accentColor?: string;
+  readOnly?: boolean;
+  manualCommit?: boolean;
+  defaultSchema?: string;
+  savedScripts?: SavedScript[];
+  savedJsScripts?: SavedJsScript[];
+  variables?: Variable[];
+};
+
 export type PersistedDatabase =
   | PersistedNetworkDatabase
   | PersistedSqliteDatabase
-  | PersistedMongoDatabase;
+  | PersistedMongoDatabase
+  | PersistedDynamoDatabase;
 
 const NETWORK_ENGINES = new Set<DbEngine>(["postgres", "mysql", "sqlserver"]);
 
@@ -206,6 +226,40 @@ export function mergeDatabaseFile(value: unknown): PersistedDatabase | null {
         }
       : null;
   }
+  if (engine === "dynamodb") {
+    const { region, accessKeyId, secretAccessKey } = value;
+    if (
+      typeof region !== "string" ||
+      typeof accessKeyId !== "string" ||
+      typeof secretAccessKey !== "string"
+    ) {
+      return null;
+    }
+    const sessionToken =
+      typeof value.sessionToken === "string"
+        ? { sessionToken: value.sessionToken }
+        : undefined;
+    const endpoint =
+      typeof value.endpoint === "string" ? { endpoint: value.endpoint } : undefined;
+    return {
+      kind: "database",
+      id,
+      name,
+      engine: "dynamodb",
+      region,
+      accessKeyId,
+      secretAccessKey,
+      ...sessionToken,
+      ...endpoint,
+      ...accent,
+      ...readOnly,
+      ...manualCommit,
+      ...defaultSchema,
+      ...scripts,
+      ...jsScripts,
+      ...variables,
+    };
+  }
   const { host, port, database, user, password } = value;
   if (engine === "mongodb") {
     if (
@@ -291,6 +345,19 @@ export function hydrateDatabase(node: PersistedDatabase): DatabaseNode {
   if (node.engine === "sqlite") {
     return { ...runtime, engine: "sqlite", file: node.file };
   }
+  if (node.engine === "dynamodb") {
+    return {
+      ...runtime,
+      engine: "dynamodb",
+      region: node.region,
+      accessKeyId: node.accessKeyId,
+      secretAccessKey: node.secretAccessKey,
+      ...(node.sessionToken !== undefined
+        ? { sessionToken: node.sessionToken }
+        : {}),
+      ...(node.endpoint !== undefined ? { endpoint: node.endpoint } : {}),
+    };
+  }
   if (node.engine === "mongodb") {
     return {
       ...runtime,
@@ -344,6 +411,26 @@ export function dehydrateDatabase(node: DatabaseNode): PersistedDatabase {
       name: node.name,
       engine: "sqlite",
       file: node.file,
+      ...accent,
+      ...readOnly,
+      ...manualCommit,
+      ...defaultSchema,
+      ...scripts,
+      ...jsScripts,
+      ...variables,
+    };
+  }
+  if (node.engine === "dynamodb") {
+    return {
+      kind: "database",
+      id: node.id,
+      name: node.name,
+      engine: "dynamodb",
+      region: node.region,
+      accessKeyId: node.accessKeyId,
+      secretAccessKey: node.secretAccessKey,
+      ...(node.sessionToken ? { sessionToken: node.sessionToken } : {}),
+      ...(node.endpoint ? { endpoint: node.endpoint } : {}),
       ...accent,
       ...readOnly,
       ...manualCommit,

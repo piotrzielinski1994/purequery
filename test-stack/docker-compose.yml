@@ -123,3 +123,37 @@ services:
           echo "waiting for sqlserver auth ($$i)..."; sleep 3
         done
         echo "sqlserver never became ready"; exit 1
+
+  # DynamoDB Local - the first KEY-VALUE / NoSQL AWS engine. Port 8009 (host) so it never clashes
+  # with the default 8000. Runs in-memory (-inMemory); dummy AWS credentials are accepted by the
+  # local engine regardless of value. The one-shot `dynamodb-seed` sidecar (aws-cli) waits for the
+  # port then creates + populates the tables via db-init/dynamodb/seed.sh.
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    container_name: purequery-test-dynamodb
+    command: ["-jar", "DynamoDBLocal.jar", "-inMemory", "-sharedDb"]
+    ports:
+      - "8009:8000"
+    healthcheck:
+      # dynamodb-local has no shell tooling; probe the port over bash's /dev/tcp (the image has bash).
+      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/8000' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # aws-cli image seeds DynamoDB Local: waits for health, then runs db-init/dynamodb/seed.sh against
+  # the local endpoint with dummy credentials.
+  dynamodb-seed:
+    image: amazon/aws-cli:latest
+    container_name: purequery-test-dynamodb-seed
+    depends_on:
+      dynamodb:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: dummy
+      AWS_SECRET_ACCESS_KEY: dummy
+      AWS_DEFAULT_REGION: eu-west-1
+      AWS_ENDPOINT_URL: http://dynamodb:8000
+    volumes:
+      - ./db-init/dynamodb:/seed:ro
+    entrypoint: ["/bin/sh", "/seed/seed.sh"]

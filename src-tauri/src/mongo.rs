@@ -575,6 +575,7 @@ pub async fn fetch_documents(
         columns,
         rows,
         primary_key,
+        next_token: None,
     })
 }
 
