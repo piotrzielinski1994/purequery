@@ -1025,6 +1025,36 @@ describe("TableCard cell editing", () => {
     const editedCell = within(record).getByText("1500");
     expect(editedCell).toHaveClass("bg-amber-500/15");
   });
+
+  // behavior (a cell can be edited directly in the single-record view, like the grid)
+  it("should stage an edit made in the record view", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(
+      rowsResult(["id", "price"], [["1", "999"]], "id"),
+    );
+    renderLive();
+
+    // wait for load, then switch to single-record view
+    await screen.findByText("999");
+    await user.keyboard("{Tab}");
+
+    const record = screen.getByRole("list", { name: /record/i });
+    await user.dblClick(within(record).getByText("999"));
+    const input = screen.getByDisplayValue("999");
+    await user.clear(input);
+    await user.type(input, "1500");
+    await user.keyboard("{Enter}");
+
+    // the edit staged: the record cell shows the new value, dirty-highlighted, and the
+    // Changes tab appears (the shared pending-edits pipeline).
+    const editedCell = within(
+      screen.getByRole("list", { name: /record/i }),
+    ).getByText("1500");
+    expect(editedCell).toHaveClass("bg-amber-500/15");
+    expect(
+      screen.getByRole("tab", { name: /changes \(1\)/i }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("TableCard filter with unsaved edits", () => {

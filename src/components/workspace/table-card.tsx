@@ -157,28 +157,73 @@ function RecordView({
   columns,
   row,
   isDirtyColumn,
+  editable = false,
+  onCommitEdit,
 }: {
   columns: string[];
   row: Cell[];
   isDirtyColumn: (column: string) => boolean;
+  editable?: boolean;
+  onCommitEdit?: (column: string, value: string) => void;
 }) {
+  const [editing, setEditing] = useState<string | null>(null);
   return (
     <ul aria-label="Record" className="flex flex-col text-sm">
-      {columns.map((name, index) => (
-        <li key={name} className="flex border-b last:border-0">
-          <span className="w-48 shrink-0 border-r px-3 py-1.5 font-mono font-medium text-muted-foreground">
-            {name}
-          </span>
-          <span
-            className={cn(
-              "flex-1 px-3 py-1.5 font-mono break-all",
-              isDirtyColumn(name) && "bg-amber-500/15",
-            )}
-          >
-            {renderCell(row[index] ?? null)}
-          </span>
-        </li>
-      ))}
+      {columns.map((name, index) => {
+        const isEditing = editable && editing === name;
+        return (
+          <li key={name} className="flex border-b last:border-0">
+            <span className="w-48 shrink-0 border-r px-3 py-1.5 font-mono font-medium text-muted-foreground">
+              {name}
+            </span>
+            <span
+              onDoubleClick={() => {
+                if (editable) {
+                  setEditing(name);
+                }
+              }}
+              className="flex-1 px-0 py-0 font-mono break-all"
+            >
+              {isEditing ? (
+                <input
+                  aria-label={`Edit ${name}`}
+                  autoFocus
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  data-1p-ignore
+                  data-lpignore="true"
+                  defaultValue={row[index] ?? ""}
+                  onBlur={(event) => {
+                    onCommitEdit?.(name, event.target.value);
+                    setEditing(null);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      onCommitEdit?.(name, event.currentTarget.value);
+                      setEditing(null);
+                    }
+                    if (event.key === "Escape") {
+                      setEditing(null);
+                    }
+                  }}
+                  className="w-full bg-background px-3 py-1.5 font-mono outline-none"
+                />
+              ) : (
+                <span
+                  className={cn(
+                    "block px-3 py-1.5",
+                    isDirtyColumn(name) && "bg-amber-500/15",
+                  )}
+                >
+                  {renderCell(row[index] ?? null)}
+                </span>
+              )}
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -361,6 +406,8 @@ function TableView({
           columns={columns}
           row={columns.map((column) => editValueAt(index, column))}
           isDirtyColumn={(column) => isDirtyAt(index, column)}
+          editable={editable}
+          onCommitEdit={(column, value) => onCommitEdit(index, column, value)}
         />
       </ScrollArea>
     );
