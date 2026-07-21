@@ -1,4 +1,4 @@
-import { createContext, useContext, type KeyboardEvent } from "react";
+import { createContext, type KeyboardEvent, useContext } from "react";
 import { matchesAny } from "@/lib/shortcuts/match-hotkey";
 
 // Shared state between SidebarTree (which owns the roving anchor, the row-element

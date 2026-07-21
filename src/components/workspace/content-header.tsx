@@ -1,14 +1,14 @@
-import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Table, X } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { useWorkspace } from "@/components/workspace/workspace-context";
-import { Tab, TabBar } from "@/components/workspace/tab-bar";
-import { openContextMenuOnKey } from "@/components/workspace/tree-nav";
-import { useSettingsOptional } from "@/lib/settings/settings-context";
-import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
-import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import { EngineIcon } from "@/components/workspace/engine-icon";
 import { Button } from "@/components/ui/button";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import {
   Dialog,
   DialogContent,
@@ -17,19 +17,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+import { EngineIcon } from "@/components/workspace/engine-icon";
 import { SqlText } from "@/components/workspace/sql-text";
+import { Tab, TabBar } from "@/components/workspace/tab-bar";
+import { openContextMenuOnKey } from "@/components/workspace/tree-nav";
+import { useWorkspace } from "@/components/workspace/workspace-context";
+import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
+import { useSettingsOptional } from "@/lib/settings/settings-context";
+import { resolveShortcuts } from "@/lib/shortcuts/resolve";
 import {
   commitTransaction,
   rollbackTransaction,
   transactionState,
 } from "@/lib/tauri";
-import { Plus, Table, X } from "lucide-react";
 
 // The F12 Commit/Rollback toolbar for the active manual-commit database. Polls `transactionState`
 // (keyed by db id) and renders the controls + an "uncommitted changes" cue only while a transaction
@@ -51,10 +51,7 @@ function ManualCommitControls({ databaseId }: { databaseId: string }) {
 
   const statements = txStatements.get(databaseId) ?? [];
 
-  const finish = async (
-    run: (id: string) => Promise<void>,
-    verb: string,
-  ) => {
+  const finish = async (run: (id: string) => Promise<void>, verb: string) => {
     try {
       await run(databaseId);
     } catch (error) {

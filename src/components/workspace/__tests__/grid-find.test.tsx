@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { useState } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
+import { describe, expect, it } from "vitest";
 
 import { DataGrid } from "@/components/workspace/data-grid";
 
@@ -41,7 +41,9 @@ const rowFor = (name: string) =>
 // The deepest element whose entire text is an "N/total" count, normalized (spaces stripped).
 function countText(): string {
   const els = Array.from(document.querySelectorAll<HTMLElement>("*")).reverse();
-  const match = els.find((el) => /^\s*\d+\s*\/\s*\d+\s*$/.test(el.textContent ?? ""));
+  const match = els.find((el) =>
+    /^\s*\d+\s*\/\s*\d+\s*$/.test(el.textContent ?? ""),
+  );
   return (match?.textContent ?? "").replace(/\s+/g, "");
 }
 

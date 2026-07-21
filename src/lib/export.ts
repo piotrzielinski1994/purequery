@@ -18,7 +18,9 @@ export function toCsv(columns: string[], rows: Cell[][]): string {
 
 export function toJson(columns: string[], rows: Cell[][]): string {
   const objects = rows.map((row) =>
-    Object.fromEntries(columns.map((name, index) => [name, row[index] ?? null])),
+    Object.fromEntries(
+      columns.map((name, index) => [name, row[index] ?? null]),
+    ),
   );
   return JSON.stringify(objects, null, 2);
 }

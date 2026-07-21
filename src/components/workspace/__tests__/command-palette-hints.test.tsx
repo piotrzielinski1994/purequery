@@ -1,20 +1,14 @@
-import { describe, it, expect } from "vitest";
-import {
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
 import { formatForDisplay } from "@tanstack/react-hotkeys";
-
-import { QueryWrapper } from "@/test/query-wrapper";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
-import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
-import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings/settings";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 import { resolveShortcuts } from "@/lib/shortcuts/resolve";
+import { QueryWrapper } from "@/test/query-wrapper";
 
 function openPalette() {
   fireEvent.keyDown(window, { key: "k", metaKey: true });
@@ -39,14 +33,16 @@ function renderLayout(overrides: Record<string, string[]> = {}) {
 }
 
 function hintFor(commandName: string): string | null {
-  const item = screen.getByText(commandName).closest("[data-slot='command-item']");
+  const item = screen
+    .getByText(commandName)
+    .closest("[data-slot='command-item']");
   if (item === null) {
     return null;
   }
   return (
-    within(item as HTMLElement)
-      .queryByText((_, node) => node?.getAttribute("data-slot") === "command-shortcut")
-      ?.textContent ?? null
+    within(item as HTMLElement).queryByText(
+      (_, node) => node?.getAttribute("data-slot") === "command-shortcut",
+    )?.textContent ?? null
   );
 }
 
@@ -59,7 +55,9 @@ describe("CommandPalette derived hints", () => {
 
     openPalette();
 
-    const expected = formatForDisplay(resolveShortcuts({})["toggle-sidebar"][0]);
+    const expected = formatForDisplay(
+      resolveShortcuts({})["toggle-sidebar"][0],
+    );
     expect(hintFor("Toggle sidebar")).toBe(expected);
   });
 

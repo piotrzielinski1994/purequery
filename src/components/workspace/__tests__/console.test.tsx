@@ -1,16 +1,15 @@
-import { describe, it, expect } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
+import { describe, expect, it } from "vitest";
 import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
+  fixtureConsoleLines,
+  fixtureTree,
+} from "@/components/workspace/__tests__/fixtures";
 import { Console } from "@/components/workspace/console";
 import {
-  fixtureTree,
-  fixtureConsoleLines,
-} from "@/components/workspace/__tests__/fixtures";
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 
 // SQL is rendered through SqlText, which splits each statement into per-token <span>s, so a plain
 // getByText on the whole statement fails ("broken up by multiple elements"). Match on the element's
@@ -146,7 +145,9 @@ describe("Console", () => {
 
     await user.click(screen.getByRole("button", { name: "seed" }));
     await user.click(screen.getByRole("tab", { name: /history/i }));
-    expect(screen.getByText(sqlText(/explain analyze select from email/i))).toBeInTheDocument();
+    expect(
+      screen.getByText(sqlText(/explain analyze select from email/i)),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /clear/i }));
 
@@ -167,7 +168,9 @@ describe("Console", () => {
 
     await user.click(screen.getByRole("button", { name: "seed" }));
     await user.click(screen.getByRole("tab", { name: /changes/i }));
-    expect(screen.getByText(sqlText(/UPDATE "product" SET "duration"/i))).toBeInTheDocument();
+    expect(
+      screen.getByText(sqlText(/UPDATE "product" SET "duration"/i)),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /clear/i }));
 

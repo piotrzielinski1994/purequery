@@ -82,7 +82,10 @@ export function filterLogLines(lines: LogLine[], query: string): LogLine[] {
 // validity signal - not restricted to known filter fields), `value` = the text after that colon,
 // `plain` = a bare term / whitespace. Concatenating the `text` of all segments reproduces the query
 // verbatim (the overlay aligns 1:1 with the input).
-export type HighlightSegment = { text: string; kind: "key" | "value" | "plain" };
+export type HighlightSegment = {
+  text: string;
+  kind: "key" | "value" | "plain";
+};
 
 export function highlightLogSearch(query: string): HighlightSegment[] {
   if (query === "") {

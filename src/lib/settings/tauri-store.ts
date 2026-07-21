@@ -45,7 +45,10 @@ export function createTauriSettingsStore(): SettingsStore {
     // theme.json / keymap.json) - each is then device-syncable on its own.
     const settingsPayload: Settings = {
       ...settings,
-      theme: { mode: settings.theme.mode, colors: DEFAULT_SETTINGS.theme.colors },
+      theme: {
+        mode: settings.theme.mode,
+        colors: DEFAULT_SETTINGS.theme.colors,
+      },
       shortcuts: {},
     };
     await persist(settingsStore, SETTINGS_KEY, settingsPayload);

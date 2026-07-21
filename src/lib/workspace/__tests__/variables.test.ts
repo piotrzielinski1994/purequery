@@ -1,11 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 // F18 query variables pure core. Neither `parseVariableRefs` nor `substituteVariables` exists yet -
 // the import fails until variables.ts ships, so each test is RED on the missing feature, not a typo.
 import {
   parseVariableRefs,
-  substituteVariables,
   type SubstitutionResult,
+  substituteVariables,
 } from "@/lib/workspace/variables";
 
 type Variable = { name: string; value: string };
@@ -14,7 +14,9 @@ type Variable = { name: string; value: string };
 // test reads the branch it expects and fails loudly if the other branch came back.
 function okSql(result: SubstitutionResult): string {
   if (!result.ok) {
-    throw new Error(`expected ok, got err(missing=${result.missing.join(",")})`);
+    throw new Error(
+      `expected ok, got err(missing=${result.missing.join(",")})`,
+    );
   }
   return result.sql;
 }
@@ -111,9 +113,10 @@ describe("substituteVariables err paths (AC-003)", () => {
 
   // AC-003 - behavior: missing names are distinct and in appearance order.
   it("should return distinct missing names in appearance order", () => {
-    expect(
-      errMissing(substituteVariables("{{x}} {{y}} {{x}}", [])),
-    ).toEqual(["x", "y"]);
+    expect(errMissing(substituteVariables("{{x}} {{y}} {{x}}", []))).toEqual([
+      "x",
+      "y",
+    ]);
   });
 
   // TC-008 - behavior: a defined-but-empty-string value counts as DEFINED (substitutes empty text,

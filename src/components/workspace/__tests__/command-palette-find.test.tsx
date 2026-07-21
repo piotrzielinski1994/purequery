@@ -1,17 +1,16 @@
-import { describe, it, expect } from "vitest";
 import {
   fireEvent,
+  type RenderOptions,
   render as rtlRender,
   screen,
   within,
-  type RenderOptions,
 } from "@testing-library/react";
 import type { ReactNode } from "react";
-
-import { QueryWrapper } from "@/test/query-wrapper";
+import { describe, expect, it } from "vitest";
+import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
-import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { QueryWrapper } from "@/test/query-wrapper";
 
 function render(ui: ReactNode, options?: RenderOptions) {
   return rtlRender(ui, { wrapper: QueryWrapper, ...options });

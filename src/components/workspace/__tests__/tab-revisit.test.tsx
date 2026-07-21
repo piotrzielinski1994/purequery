@@ -1,13 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { StrictMode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { StrictMode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Console } from "@/components/workspace/console";
 import { DatabaseCard } from "@/components/workspace/database-card";
 import { TableCard } from "@/components/workspace/table-card";
-import { Console } from "@/components/workspace/console";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { connectDatabase, fetchTable } from "@/lib/tauri";
 import type {
   ConnectionConfig,

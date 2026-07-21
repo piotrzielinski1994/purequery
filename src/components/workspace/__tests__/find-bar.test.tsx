@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 // Shared presentational find bar - reused by the grid and (styled) by the editor search panel.
 // Purely driven by props; it computes nothing. Design.md compliant: no rounded corners, theme

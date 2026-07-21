@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
 import { EditorView } from "@codemirror/view";
+import { render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 // The editable JSON view of the loaded rows. It does not exist yet; the import fails until
 // json-view.tsx ships, so each test fails on the missing component, not a typo.

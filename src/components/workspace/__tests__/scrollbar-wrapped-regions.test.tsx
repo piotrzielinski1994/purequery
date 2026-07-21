@@ -1,12 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { describe, expect, it } from "vitest";
+import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
 import { DatabaseCard } from "@/components/workspace/database-card";
 import { TableCard } from "@/components/workspace/table-card";
-import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 
 function withClient(node: React.ReactNode) {
   const queryClient = new QueryClient({

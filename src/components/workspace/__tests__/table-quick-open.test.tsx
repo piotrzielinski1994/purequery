@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 // Imported before the component exists so the first RED run fails on the missing
 // module, not a typo. TableQuickOpen is a cmdk dialog: it renders one row per

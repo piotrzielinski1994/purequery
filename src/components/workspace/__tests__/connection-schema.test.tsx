@@ -1,12 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useConnectionActions } from "@/components/workspace/use-connection";
+import {
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 import { connectDatabase, fetchSchema } from "@/lib/tauri";
 import type {
   ConnectionConfig,
@@ -110,7 +109,10 @@ describe("connect schema fetch", () => {
   // TC-011 / AC-007 - behavior: a successful connect stores the fetched schema keyed by db id.
   it("should store the fetched schema for the database when connect succeeds", async () => {
     const user = userEvent.setup();
-    mockConnect.mockResolvedValue({ tables: [{ schema: null, name: "users" }], views: [] });
+    mockConnect.mockResolvedValue({
+      tables: [{ schema: null, name: "users" }],
+      views: [],
+    });
     mockFetchSchema.mockResolvedValue(schema);
     renderProbe();
 
@@ -126,7 +128,10 @@ describe("connect schema fetch", () => {
   // TC-011 / AC-007 - behavior: disconnect clears the stored schema.
   it("should clear the stored schema when the database is disconnected", async () => {
     const user = userEvent.setup();
-    mockConnect.mockResolvedValue({ tables: [{ schema: null, name: "users" }], views: [] });
+    mockConnect.mockResolvedValue({
+      tables: [{ schema: null, name: "users" }],
+      views: [],
+    });
     mockFetchSchema.mockResolvedValue(schema);
     renderProbe();
 
@@ -145,7 +150,10 @@ describe("connect schema fetch", () => {
   // schema (no throw), so the editor still works with keyword completion.
   it("should store an empty schema when the schema fetch fails", async () => {
     const user = userEvent.setup();
-    mockConnect.mockResolvedValue({ tables: [{ schema: null, name: "users" }], views: [] });
+    mockConnect.mockResolvedValue({
+      tables: [{ schema: null, name: "users" }],
+      views: [],
+    });
     mockFetchSchema.mockRejectedValue("schema boom");
     renderProbe();
 

@@ -1,14 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 // Pure lib for the JSON view: serialise loaded rows to a pretty JSON array, parse an
 // edited array back as an ADT, and diff the edited array against the originals by primary
 // key into staged-mutation intents. None of this exists yet; the import fails until
 // json-edit.ts ships, so each test fails on the missing feature, not a typo.
 import {
-  rowsToJson,
-  parseJsonRows,
   diffToMutations,
   jsonMutationId,
+  parseJsonRows,
+  rowsToJson,
 } from "@/lib/workspace/json-edit";
 
 describe("rowsToJson + parseJsonRows", () => {
@@ -166,7 +166,12 @@ describe("diffToMutations (sql)", () => {
       throw new Error("expected Ok");
     }
     expect(result.value).toEqual([
-      { type: "cell", rowIndex: 0, column: "prefs", newValue: '{"vip":true,"seat":1}' },
+      {
+        type: "cell",
+        rowIndex: 0,
+        column: "prefs",
+        newValue: '{"vip":true,"seat":1}',
+      },
     ]);
   });
 

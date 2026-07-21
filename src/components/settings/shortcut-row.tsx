@@ -1,14 +1,14 @@
-import { useState } from "react";
 import { formatForDisplay } from "@tanstack/react-hotkeys";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useSettings } from "@/lib/settings/settings-context";
-import { findConflict } from "@/lib/shortcuts/resolve";
 import { useRecordHotkey } from "@/lib/shortcuts/record-hotkey";
 import {
   SHORTCUT_ACTIONS,
   type ShortcutAction,
   type ShortcutActionId,
 } from "@/lib/shortcuts/registry";
+import { findConflict } from "@/lib/shortcuts/resolve";
 
 function actionName(id: ShortcutActionId): string {
   return SHORTCUT_ACTIONS.find((action) => action.id === id)?.name ?? id;

@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
-import { render } from "@testing-library/react";
-import { EditorView } from "@codemirror/view";
-import { language } from "@codemirror/language";
 import { CompletionContext } from "@codemirror/autocomplete";
+import { language } from "@codemirror/language";
+import { EditorView } from "@codemirror/view";
+import { render } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 // Imported even though they do not exist yet: the test must fail on the missing
 // feature (module/component/types), not on a typo. Once sql-editor.tsx + the
@@ -120,9 +120,10 @@ describe("SqlEditor", () => {
     );
 
     const state = liveView(container).state;
-    const source = state.languageDataAt<
-      (ctx: CompletionContext) => unknown
-    >("autocomplete", state.doc.length)[0];
+    const source = state.languageDataAt<(ctx: CompletionContext) => unknown>(
+      "autocomplete",
+      state.doc.length,
+    )[0];
     expect(source).toBeTypeOf("function");
 
     const ctx = new CompletionContext(state, state.doc.length, true);
@@ -146,9 +147,10 @@ describe("SqlEditor", () => {
     );
 
     const state = liveView(container).state;
-    const source = state.languageDataAt<
-      (ctx: CompletionContext) => unknown
-    >("autocomplete", doc.length)[0];
+    const source = state.languageDataAt<(ctx: CompletionContext) => unknown>(
+      "autocomplete",
+      doc.length,
+    )[0];
 
     const ctx = new CompletionContext(state, doc.length, true);
     const result = (await source(ctx)) as {
@@ -172,9 +174,10 @@ describe("SqlEditor", () => {
     );
 
     const state = liveView(container).state;
-    const sources = state.languageDataAt<
-      (ctx: CompletionContext) => unknown
-    >("autocomplete", doc.length);
+    const sources = state.languageDataAt<(ctx: CompletionContext) => unknown>(
+      "autocomplete",
+      doc.length,
+    );
     const ctx = new CompletionContext(state, doc.length, true);
     const results = (await Promise.all(
       sources.map((source) => source(ctx)),
@@ -213,9 +216,10 @@ describe("SqlEditor", () => {
     );
 
     const state = liveView(container).state;
-    const sources = state.languageDataAt<
-      (ctx: CompletionContext) => unknown
-    >("autocomplete", doc.length);
+    const sources = state.languageDataAt<(ctx: CompletionContext) => unknown>(
+      "autocomplete",
+      doc.length,
+    );
     const ctx = new CompletionContext(state, doc.length, true);
     const results = (await Promise.all(
       sources.map((source) => source(ctx)),
@@ -254,9 +258,10 @@ describe("SqlEditor", () => {
     );
 
     const state = liveView(container).state;
-    const sources = state.languageDataAt<
-      (ctx: CompletionContext) => unknown
-    >("autocomplete", doc.length);
+    const sources = state.languageDataAt<(ctx: CompletionContext) => unknown>(
+      "autocomplete",
+      doc.length,
+    );
     const ctx = new CompletionContext(state, doc.length, true);
     const results = (await Promise.all(
       sources.map((source) => source(ctx)),
@@ -297,9 +302,10 @@ describe("SqlEditor", () => {
     );
 
     const state = liveView(container).state;
-    const sources = state.languageDataAt<
-      (ctx: CompletionContext) => unknown
-    >("autocomplete", doc.length);
+    const sources = state.languageDataAt<(ctx: CompletionContext) => unknown>(
+      "autocomplete",
+      doc.length,
+    );
     const ctx = new CompletionContext(state, doc.length, true);
     const results = (await Promise.all(
       sources.map((source) => source(ctx)),
@@ -317,13 +323,19 @@ describe("SqlEditor", () => {
   it("should complete SQL keywords when no schema is available", async () => {
     const doc = "SEL";
     const { container } = render(
-      <SqlEditor value={doc} onChange={() => {}} engine="postgres" schema={[]} />,
+      <SqlEditor
+        value={doc}
+        onChange={() => {}}
+        engine="postgres"
+        schema={[]}
+      />,
     );
 
     const state = liveView(container).state;
-    const sources = state.languageDataAt<
-      (ctx: CompletionContext) => unknown
-    >("autocomplete", doc.length);
+    const sources = state.languageDataAt<(ctx: CompletionContext) => unknown>(
+      "autocomplete",
+      doc.length,
+    );
 
     const ctx = new CompletionContext(state, doc.length, true);
     const results = (await Promise.all(
@@ -340,13 +352,19 @@ describe("SqlEditor", () => {
   it("should not offer obscure dialect reserved words as keyword completions", async () => {
     const doc = "s";
     const { container } = render(
-      <SqlEditor value={doc} onChange={() => {}} engine="postgres" schema={[]} />,
+      <SqlEditor
+        value={doc}
+        onChange={() => {}}
+        engine="postgres"
+        schema={[]}
+      />,
     );
 
     const state = liveView(container).state;
-    const sources = state.languageDataAt<
-      (ctx: CompletionContext) => unknown
-    >("autocomplete", doc.length);
+    const sources = state.languageDataAt<(ctx: CompletionContext) => unknown>(
+      "autocomplete",
+      doc.length,
+    );
 
     const ctx = new CompletionContext(state, doc.length, true);
     const results = (await Promise.all(
@@ -377,9 +395,10 @@ describe("SqlEditor", () => {
     );
 
     const state = liveView(container).state;
-    const sources = state.languageDataAt<
-      (ctx: CompletionContext) => unknown
-    >("autocomplete", doc.length);
+    const sources = state.languageDataAt<(ctx: CompletionContext) => unknown>(
+      "autocomplete",
+      doc.length,
+    );
 
     const ctx = new CompletionContext(state, doc.length, true);
     const results = (await Promise.all(
@@ -409,9 +428,10 @@ describe("SqlEditor", () => {
     );
 
     const state = liveView(container).state;
-    const sources = state.languageDataAt<
-      (ctx: CompletionContext) => unknown
-    >("autocomplete", doc.length);
+    const sources = state.languageDataAt<(ctx: CompletionContext) => unknown>(
+      "autocomplete",
+      doc.length,
+    );
 
     const ctx = new CompletionContext(state, doc.length, true);
     const results = (await Promise.all(
@@ -431,9 +451,10 @@ describe("SqlEditor MongoDB completion", () => {
     doc: string,
   ): Promise<string[]> {
     const state = liveView(container).state;
-    const sources = state.languageDataAt<
-      (ctx: CompletionContext) => unknown
-    >("autocomplete", doc.length);
+    const sources = state.languageDataAt<(ctx: CompletionContext) => unknown>(
+      "autocomplete",
+      doc.length,
+    );
     const ctx = new CompletionContext(state, doc.length, true);
     const results = (await Promise.all(
       sources.map((source) => source(ctx)),

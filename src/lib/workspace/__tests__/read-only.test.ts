@@ -1,12 +1,11 @@
-import { describe, it, expect } from "vitest";
-
+import { describe, expect, it } from "vitest";
+import type { DatabaseNode } from "@/lib/workspace/model";
 import {
   dehydrateDatabase,
   hydrateDatabase,
   mergeDatabaseFile,
   type PersistedDatabase,
 } from "@/lib/workspace/workspace";
-import type { DatabaseNode } from "@/lib/workspace/model";
 
 // F11 read-only connection: a per-database `readOnly` boolean. Persisted as an OPTIONAL field on the
 // three Persisted* database shapes (omitted when false, like accentColor); runtime always present.
@@ -90,8 +89,8 @@ describe("dehydrateDatabase readOnly (AC-002)", () => {
       readOnly: true,
     } as PersistedDatabase;
 
-    expect(dehydrateDatabase(hydrateDatabase(mergeDatabaseFile(record)!))).toEqual(
-      record,
-    );
+    expect(
+      dehydrateDatabase(hydrateDatabase(mergeDatabaseFile(record)!)),
+    ).toEqual(record);
   });
 });

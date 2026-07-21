@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-
+import { describe, expect, it } from "vitest";
+import type { DatabaseNode, FolderNode, TreeNode } from "@/lib/workspace/model";
 // Imported before it exists so RED fails on the missing export. moveNodes moves
 // a SET of nodes (a sidebar multi-selection) in one drop: descendants of a moved
 // folder ride along (deduped), order follows the tree's document order, and a
@@ -7,11 +7,6 @@ import { describe, it, expect } from "vitest";
 // RAW pre-removal slot in the destination parent's original children; moveNodes
 // compensates for any dragged siblings removed before it.
 import { moveNodes } from "@/lib/workspace/move";
-import type {
-  DatabaseNode,
-  FolderNode,
-  TreeNode,
-} from "@/lib/workspace/model";
 
 const database = (id: string): DatabaseNode => ({
   kind: "database",
@@ -85,11 +80,7 @@ describe("moveNodes reparenting a selection", () => {
 
   // behavior: dragged ids given out of order still insert in document order.
   it("should insert the moved nodes in document order regardless of the drag-id order", () => {
-    const tree: TreeNode[] = [
-      database("a"),
-      database("b"),
-      folder("dst", []),
-    ];
+    const tree: TreeNode[] = [database("a"), database("b"), folder("dst", [])];
 
     const result = moveNodes(tree, ["b", "a"], { parentId: "dst", index: 0 });
 
@@ -99,10 +90,7 @@ describe("moveNodes reparenting a selection", () => {
   // behavior: a selected folder AND its selected child -> only the folder moves,
   // the child rides along (deduped, not moved twice).
   it("should move only the ancestor when both an ancestor and its descendant are selected", () => {
-    const tree: TreeNode[] = [
-      folder("A", [database("d1")]),
-      folder("C", []),
-    ];
+    const tree: TreeNode[] = [folder("A", [database("d1")]), folder("C", [])];
 
     const result = moveNodes(tree, ["A", "d1"], { parentId: "C", index: 0 });
 
@@ -134,10 +122,7 @@ describe("moveNodes reordering siblings", () => {
 describe("moveNodes illegal moves", () => {
   // behavior: dropping the selection into one of the dragged folders is a cycle.
   it("should return the tree unchanged if the target is inside a dragged folder", () => {
-    const tree: TreeNode[] = [
-      folder("A", [folder("B", [])]),
-      database("d1"),
-    ];
+    const tree: TreeNode[] = [folder("A", [folder("B", [])]), database("d1")];
 
     const result = moveNodes(tree, ["A", "d1"], { parentId: "B", index: 0 });
 

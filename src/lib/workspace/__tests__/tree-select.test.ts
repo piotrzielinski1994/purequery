@@ -1,19 +1,15 @@
-import { describe, it, expect } from "vitest";
-
-// Imported before the module exists so RED fails on the missing module, not a
-// typo. flattenSelectable lists the selectable (folder/database) ids in visible
-// DFS order (children only under expanded folders; tables are never selectable);
-// rangeBetween slices the inclusive range used by shift-click.
-import {
-  flattenSelectable,
-  rangeBetween,
-} from "@/lib/workspace/tree-select";
+import { describe, expect, it } from "vitest";
 import type {
   DatabaseNode,
   FolderNode,
   TableNode,
   TreeNode,
 } from "@/lib/workspace/model";
+// Imported before the module exists so RED fails on the missing module, not a
+// typo. flattenSelectable lists the selectable (folder/database) ids in visible
+// DFS order (children only under expanded folders; tables are never selectable);
+// rangeBetween slices the inclusive range used by shift-click.
+import { flattenSelectable, rangeBetween } from "@/lib/workspace/tree-select";
 
 const database = (id: string, tables: TableNode[] = []): DatabaseNode => ({
   kind: "database",
@@ -89,9 +85,7 @@ describe("flattenSelectable", () => {
 
   // behavior: tables are never selectable, even under a connected database.
   it("should never list table leaves", () => {
-    const tree: TreeNode[] = [
-      database("d1", [table("t1"), table("t2")]),
-    ];
+    const tree: TreeNode[] = [database("d1", [table("t1"), table("t2")])];
 
     expect(flattenSelectable(tree, new Set(["d1"]))).toEqual(["d1"]);
   });

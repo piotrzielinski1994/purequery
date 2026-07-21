@@ -1,20 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { EditorView } from "@codemirror/view";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { EditorView } from "@codemirror/view";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { SqlTab } from "@/components/workspace/sql-tab";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Console } from "@/components/workspace/console";
+import { SqlTab } from "@/components/workspace/sql-tab";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import {
-  executeSql,
+  applyRowMutations,
   cancelQuery,
   connectDatabase,
-  disconnectDatabase,
-  fetchTable,
   countTable,
-  applyRowMutations,
+  disconnectDatabase,
+  executeSql,
+  fetchTable,
   type QueryOutcome,
 } from "@/lib/tauri";
 import type { ConnectionConfig, TreeNode } from "@/lib/workspace/model";
@@ -162,7 +161,10 @@ describe("SqlTab multi-statement / cancel (F5)", () => {
     ]);
     const { container } = renderSql({ connected: true });
 
-    replaceDoc(liveView(container), "UPDATE t SET x = 1;\nSELECT id, name FROM users");
+    replaceDoc(
+      liveView(container),
+      "UPDATE t SET x = 1;\nSELECT id, name FROM users",
+    );
     await user.click(screen.getByRole("button", { name: /run/i }));
 
     // grid shows the SECOND (row-returning) statement's result
@@ -330,9 +332,8 @@ describe("SqlTab multi-statement / cancel (F5)", () => {
 // the REAL module, so they assert against the production wrappers, not the mock above.
 describe("tauri boundary signatures (F5, TC-013)", () => {
   it("should expose connect/disconnect/cancel and id-first command wrappers", async () => {
-    const real = await vi.importActual<typeof import("@/lib/tauri")>(
-      "@/lib/tauri",
-    );
+    const real =
+      await vi.importActual<typeof import("@/lib/tauri")>("@/lib/tauri");
 
     // new commands exist
     expect(typeof real.disconnectDatabase).toBe("function");

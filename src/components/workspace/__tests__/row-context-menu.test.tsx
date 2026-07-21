@@ -1,17 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { SidebarTree } from "@/components/workspace/sidebar-tree";
-import { ContentHeader } from "@/components/workspace/content-header";
-import { connectDatabase } from "@/lib/tauri";
-import type {
-  ConnectionConfig,
-  TreeNode,
-} from "@/lib/workspace/model";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { ContentHeader } from "@/components/workspace/content-header";
+import { SidebarTree } from "@/components/workspace/sidebar-tree";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { connectDatabase } from "@/lib/tauri";
+import type { ConnectionConfig, TreeNode } from "@/lib/workspace/model";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(),
@@ -101,7 +103,9 @@ describe("row context menu - database row", () => {
     openRowMenu("admin_db");
 
     expect(menuItem(/^connect$/i)).toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: /^disconnect$/i })).toBeNull();
+    expect(
+      screen.queryByRole("menuitem", { name: /^disconnect$/i }),
+    ).toBeNull();
   });
 
   // AC-103 - behavior (connected -> "Disconnect")
@@ -268,7 +272,9 @@ describe("row context menu - delete confirm dialog", () => {
     const user = userEvent.setup();
     renderTree({ expanded: ["folder-staging"] });
 
-    expect(screen.getByRole("treeitem", { name: "admin_db" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("treeitem", { name: "admin_db" }),
+    ).toBeInTheDocument();
 
     openRowMenu("staging");
     await user.click(menuItem(/^delete$/i));
@@ -288,7 +294,9 @@ describe("row context menu - delete confirm dialog", () => {
     // fixtureTree: folder-prod > folder-team > app_db
     renderTree({ expanded: ["folder-prod", "folder-team"] });
 
-    expect(screen.getByRole("treeitem", { name: "app_db" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("treeitem", { name: "app_db" }),
+    ).toBeInTheDocument();
 
     openRowMenu("prod");
     await user.click(menuItem(/^delete$/i));
@@ -338,7 +346,9 @@ describe("row context menu - delete confirm dialog", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
-    expect(screen.getByRole("treeitem", { name: "admin_db" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("treeitem", { name: "admin_db" }),
+    ).toBeInTheDocument();
   });
 
   // AC-108, E-106 - behavior (Cancel button closes the dialog, node remains)
@@ -355,7 +365,9 @@ describe("row context menu - delete confirm dialog", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
-    expect(screen.getByRole("treeitem", { name: "admin_db" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("treeitem", { name: "admin_db" }),
+    ).toBeInTheDocument();
   });
 });
 

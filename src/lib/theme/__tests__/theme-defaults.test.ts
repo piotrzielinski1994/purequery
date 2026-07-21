@@ -1,14 +1,13 @@
 /// <reference types="node" />
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it, expect } from "vitest";
-
+import { describe, expect, it } from "vitest";
+import type { AppTokenName, EditorTokenName } from "@/lib/settings/settings";
 import {
   APP_TOKENS,
-  EDITOR_TOKENS,
   DEFAULT_THEME_COLORS,
+  EDITOR_TOKENS,
 } from "@/lib/theme/theme-defaults";
-import type { AppTokenName, EditorTokenName } from "@/lib/settings/settings";
 
 // theme-defaults.ts is the single source of truth for the built-in (non-sparse)
 // color values. App-token light values mirror index.css `:root`, dark mirror

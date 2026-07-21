@@ -1,12 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { TableCard } from "@/components/workspace/table-card";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Console } from "@/components/workspace/console";
-import { fetchTable, countTable } from "@/lib/tauri";
+import { TableCard } from "@/components/workspace/table-card";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { countTable, fetchTable } from "@/lib/tauri";
 import type {
   ConnectionConfig,
   TableColumn,
@@ -141,7 +146,9 @@ describe("Read-only table gate (AC-003, TC-001)", () => {
   // AC-003, TC-001 - behavior (a read-only database with a PK table exposes NO Add row control,
   // even though a writable PK table does - so the absence is the gate, not a missing feature).
   it("should not render the Add row control when the database is read-only", async () => {
-    mockFetch.mockResolvedValueOnce(rowsResult(["id", "name"], [["1", "Ada"]], "id"));
+    mockFetch.mockResolvedValueOnce(
+      rowsResult(["id", "name"], [["1", "Ada"]], "id"),
+    );
     const writable = renderLive(false);
     await screen.findByText("Ada");
     expect(
@@ -149,7 +156,9 @@ describe("Read-only table gate (AC-003, TC-001)", () => {
     ).toBeInTheDocument();
     writable.unmount();
 
-    mockFetch.mockResolvedValue(rowsResult(["id", "name"], [["1", "Ada"]], "id"));
+    mockFetch.mockResolvedValue(
+      rowsResult(["id", "name"], [["1", "Ada"]], "id"),
+    );
     renderLive(true);
 
     await screen.findByText("Ada");
@@ -160,7 +169,9 @@ describe("Read-only table gate (AC-003, TC-001)", () => {
   // where a writable PK table does)
   it("should not open a Delete or Clone row menu when the database is read-only", async () => {
     const user = userEvent.setup();
-    mockFetch.mockResolvedValueOnce(rowsResult(["id", "name"], [["1", "Ada"]], "id"));
+    mockFetch.mockResolvedValueOnce(
+      rowsResult(["id", "name"], [["1", "Ada"]], "id"),
+    );
     const writable = renderLive(false);
     await screen.findByText("Ada");
     fireEvent.contextMenu(gridRows()[0]);
@@ -170,7 +181,9 @@ describe("Read-only table gate (AC-003, TC-001)", () => {
     await user.keyboard("{Escape}");
     writable.unmount();
 
-    mockFetch.mockResolvedValue(rowsResult(["id", "name"], [["1", "Ada"]], "id"));
+    mockFetch.mockResolvedValue(
+      rowsResult(["id", "name"], [["1", "Ada"]], "id"),
+    );
     renderLive(true);
 
     await screen.findByText("Ada");
@@ -184,13 +197,17 @@ describe("Read-only table gate (AC-003, TC-001)", () => {
   // mode, so no editable input appears; a writable table does open one)
   it("should not enter cell edit mode on double-click when the database is read-only", async () => {
     const user = userEvent.setup();
-    mockFetch.mockResolvedValueOnce(rowsResult(["id", "name"], [["1", "Ada"]], "id"));
+    mockFetch.mockResolvedValueOnce(
+      rowsResult(["id", "name"], [["1", "Ada"]], "id"),
+    );
     const writable = renderLive(false);
     await user.dblClick(await screen.findByText("Ada"));
     expect(screen.getByDisplayValue("Ada")).toBeInTheDocument();
     writable.unmount();
 
-    mockFetch.mockResolvedValue(rowsResult(["id", "name"], [["1", "Ada"]], "id"));
+    mockFetch.mockResolvedValue(
+      rowsResult(["id", "name"], [["1", "Ada"]], "id"),
+    );
     renderLive(true);
 
     await user.dblClick(await screen.findByText("Ada"));
@@ -201,7 +218,9 @@ describe("Read-only table gate (AC-003, TC-001)", () => {
   // AC-003 - behavior (the JSON view is a non-editable viewer for a read-only database, where a
   // writable table's JSON view is contenteditable - the flag flips the JSON editor to read-only).
   it("should render the JSON view non-editable when the database is read-only", async () => {
-    mockFetch.mockResolvedValueOnce(rowsResult(["id", "name"], [["1", "Ada"]], "id"));
+    mockFetch.mockResolvedValueOnce(
+      rowsResult(["id", "name"], [["1", "Ada"]], "id"),
+    );
     const writable = renderLive(false, true);
     await waitFor(() => {
       expect(
@@ -210,7 +229,9 @@ describe("Read-only table gate (AC-003, TC-001)", () => {
     });
     writable.unmount();
 
-    mockFetch.mockResolvedValue(rowsResult(["id", "name"], [["1", "Ada"]], "id"));
+    mockFetch.mockResolvedValue(
+      rowsResult(["id", "name"], [["1", "Ada"]], "id"),
+    );
     renderLive(true, true);
 
     await waitFor(() => {
@@ -227,7 +248,9 @@ describe("Read-only table gate (AC-003, TC-001)", () => {
 describe("Read-only OFF keeps writes (AC-005, TC-004)", () => {
   // AC-005, TC-004 - behavior (a writable database still exposes the Add row control - no regression)
   it("should still render the Add row control when the database is not read-only", async () => {
-    mockFetch.mockResolvedValue(rowsResult(["id", "name"], [["1", "Ada"]], "id"));
+    mockFetch.mockResolvedValue(
+      rowsResult(["id", "name"], [["1", "Ada"]], "id"),
+    );
     renderLive(false);
 
     await screen.findByText("Ada");

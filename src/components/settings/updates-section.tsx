@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { useUpdater } from "@/lib/updater/updater-context";
 import { showUpdateToast } from "@/lib/updater/show-update-toast";
+import { useUpdater } from "@/lib/updater/updater-context";
 
 export function UpdatesSection() {
   const { controller, getVersion } = useUpdater();

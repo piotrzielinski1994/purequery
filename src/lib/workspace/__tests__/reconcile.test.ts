@@ -1,11 +1,10 @@
-import { describe, it, expect } from "vitest";
-
+import { describe, expect, it } from "vitest";
+import type { FileMap } from "@/lib/workspace/disk-format";
 import {
   emptyDirsAfterRemoval,
   parentDir,
   planReconcile,
 } from "@/lib/workspace/reconcile";
-import type { FileMap } from "@/lib/workspace/disk-format";
 
 describe("planReconcile write set", () => {
   // TC-008 - behavior: a new file lands in write

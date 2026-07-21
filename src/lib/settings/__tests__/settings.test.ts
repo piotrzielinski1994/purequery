@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_SETTINGS,
@@ -148,7 +148,9 @@ describe("mergeSettings", () => {
   // behavior: a non-integer / non-positive rowLimit falls back to the default (200)
   it("should fall back to the default rowLimit if it is not a positive integer", () => {
     expect(mergeSettings(DEFAULT_SETTINGS, { rowLimit: 0 }).rowLimit).toBe(200);
-    expect(mergeSettings(DEFAULT_SETTINGS, { rowLimit: -5 }).rowLimit).toBe(200);
+    expect(mergeSettings(DEFAULT_SETTINGS, { rowLimit: -5 }).rowLimit).toBe(
+      200,
+    );
     expect(mergeSettings(DEFAULT_SETTINGS, { rowLimit: 1.5 }).rowLimit).toBe(
       200,
     );

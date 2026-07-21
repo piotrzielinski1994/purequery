@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { highlightSql, type SqlSegment } from "@/lib/workspace/sql-highlight";
 
@@ -87,7 +87,10 @@ describe("highlightSql", () => {
   it("should keep a semicolon inside a quoted identifier in one segment", () => {
     const segments = highlightSql('"col;with;semis"');
     expect(segments).toHaveLength(1);
-    expect(segments[0]).toEqual({ text: '"col;with;semis"', kind: "identifier" });
+    expect(segments[0]).toEqual({
+      text: '"col;with;semis"',
+      kind: "identifier",
+    });
   });
 
   // behavior (adjacent plain characters - spaces, parens, commas - merge into one plain segment)

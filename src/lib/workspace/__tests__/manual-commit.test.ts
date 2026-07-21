@@ -1,12 +1,11 @@
-import { describe, it, expect } from "vitest";
-
+import { describe, expect, it } from "vitest";
+import type { DatabaseNode } from "@/lib/workspace/model";
 import {
   dehydrateDatabase,
   hydrateDatabase,
   mergeDatabaseFile,
   type PersistedDatabase,
 } from "@/lib/workspace/workspace";
-import type { DatabaseNode } from "@/lib/workspace/model";
 
 // F12 manual-commit mode: a per-database `manualCommit` boolean, persisted as an OPTIONAL field on
 // the Persisted* database shapes (omitted when false, like readOnly/accentColor); runtime always
@@ -100,8 +99,8 @@ describe("dehydrateDatabase manualCommit (AC-001, TC-007)", () => {
       manualCommit: true,
     } as PersistedDatabase;
 
-    expect(dehydrateDatabase(hydrateDatabase(mergeDatabaseFile(record)!))).toEqual(
-      record,
-    );
+    expect(
+      dehydrateDatabase(hydrateDatabase(mergeDatabaseFile(record)!)),
+    ).toEqual(record);
   });
 });

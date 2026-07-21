@@ -35,6 +35,9 @@ export function substituteVariables(
   }
   return {
     ok: true,
-    sql: sql.replace(VARIABLE_REF, (_match, name: string) => values.get(name) ?? ""),
+    sql: sql.replace(
+      VARIABLE_REF,
+      (_match, name: string) => values.get(name) ?? "",
+    ),
   };
 }

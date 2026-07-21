@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -6,11 +5,9 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { Plus, RefreshCw, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { SqlEditor } from "@/components/workspace/sql-editor";
 import {
   Dialog,
   DialogContent,
@@ -19,17 +16,42 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  type Cell,
+  type ColumnMeta,
+  type CopyFormat,
   copyRowsToClipboard,
   copySqlToClipboard,
   DataGrid,
   exportRowsToFile,
   renderCell,
-  type Cell,
-  type ColumnMeta,
-  type CopyFormat,
 } from "@/components/workspace/data-grid";
+import { JsonView } from "@/components/workspace/json-view";
+import {
+  type MockColumnMeta,
+  MockDataDialog,
+} from "@/components/workspace/mock-data-dialog";
+import {
+  fkFilter,
+  queryPreview,
+  rowsToInsertSql,
+} from "@/components/workspace/query-preview";
+import { SqlEditor } from "@/components/workspace/sql-editor";
+import { StructureView } from "@/components/workspace/structure-view";
+import {
+  type PendingMutation,
+  useJsonView,
+  useMockData,
+  useStructureView,
+  useWorkspace,
+} from "@/components/workspace/workspace-context";
 import type { ExportFormat } from "@/lib/export-file";
+import { toResult } from "@/lib/result";
+import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
+import { useSettingsOptional } from "@/lib/settings/settings-context";
+import { matchesAny } from "@/lib/shortcuts/match-hotkey";
+import { resolveShortcuts } from "@/lib/shortcuts/resolve";
 import {
   applyRowMutations,
   beginTransaction,
@@ -38,41 +60,14 @@ import {
   fetchTableStructure,
   type RowMutation,
 } from "@/lib/tauri";
-import { toResult } from "@/lib/result";
-import {
-  nextRowSelection,
-  type RowSelectionState,
-  type RowSelectMode,
-} from "@/lib/workspace/row-select";
-import {
-  useJsonView,
-  useMockData,
-  useStructureView,
-  useWorkspace,
-  type PendingMutation,
-} from "@/components/workspace/workspace-context";
-import {
-  MockDataDialog,
-  type MockColumnMeta,
-} from "@/components/workspace/mock-data-dialog";
-import {
-  fkFilter,
-  queryPreview,
-  rowsToInsertSql,
-} from "@/components/workspace/query-preview";
+import { cn } from "@/lib/utils";
 import { fkTargetTableId } from "@/lib/workspace/foreign-key-nav";
-import { JsonView } from "@/components/workspace/json-view";
-import { StructureView } from "@/components/workspace/structure-view";
+import { isEditableTarget } from "@/lib/workspace/is-editable-target";
 import {
   diffToMutations,
-  jsonMutationId,
   type JsonRow,
+  jsonMutationId,
 } from "@/lib/workspace/json-edit";
-import { isEditableTarget } from "@/lib/workspace/is-editable-target";
-import { useSettingsOptional } from "@/lib/settings/settings-context";
-import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
-import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import { matchesAny } from "@/lib/shortcuts/match-hotkey";
 import type {
   ConnectionConfig,
   ForeignKey,
@@ -82,6 +77,11 @@ import type {
   TableSchema,
   TableStructure,
 } from "@/lib/workspace/model";
+import {
+  nextRowSelection,
+  type RowSelectionState,
+  type RowSelectMode,
+} from "@/lib/workspace/row-select";
 
 const EMPTY_SCHEMA: TableSchema[] = [];
 
@@ -279,7 +279,7 @@ function TableView({
   jsonRows?: Cell[][];
   // Stage the edited rows (live path only). Returns an error to show inline, else null/void.
   // Absent => the JSON view is a read-only viewer.
-  onSaveJson?: (edited: JsonRow[]) => string | null | void;
+  onSaveJson?: (edited: JsonRow[]) => string | null | undefined;
 }) {
   const { isJsonView, toggleJsonView } = useJsonView();
   const [isRecordView, setIsRecordView] = useState(false);
@@ -298,8 +298,7 @@ function TableView({
     rows: Cell[][];
     selection: RowSelectionState;
   }>({ rows, selection: EMPTY_SELECTION });
-  const selection =
-    stamped.rows === rows ? stamped.selection : EMPTY_SELECTION;
+  const selection = stamped.rows === rows ? stamped.selection : EMPTY_SELECTION;
   const handleSelectRow = useCallback(
     (index: number, mode: RowSelectMode) =>
       setStamped((current) => ({
@@ -519,7 +518,8 @@ function LiveTable({
   const structureShortcuts = settings?.shortcuts ?? DEFAULT_SETTINGS.shortcuts;
   const rowLimit = settings?.rowLimit ?? ROW_LIMIT;
   useEffect(() => {
-    const binding = resolveShortcuts(structureShortcuts)["toggle-structure-view"];
+    const binding =
+      resolveShortcuts(structureShortcuts)["toggle-structure-view"];
     const onKeyDown = (event: KeyboardEvent) => {
       if (!matchesAny(event, binding)) {
         return;
@@ -598,7 +598,8 @@ function LiveTable({
       const offset = isDynamo ? 0 : (pageParam as number);
       const nextToken = isDynamo ? (pageParam as string | null) : null;
       const querySql = preview.fetch(tableName, filter, sort, pageSize, offset);
-      const seq = (fetchSeq.current += 1);
+      fetchSeq.current += 1;
+      const seq = fetchSeq.current;
       try {
         const page = await fetchTable(connectionId, tableName, {
           schema,
@@ -653,7 +654,6 @@ function LiveTable({
     queryFn: () => countTable(connectionId, tableName, filter, schema),
     staleTime: Infinity,
   });
-
 
   const cycleSort = useCallback(
     (column: string) =>
@@ -774,10 +774,7 @@ function LiveTable({
       ),
     [inserts, columnNames],
   );
-  const gridRows = useMemo(
-    () => [...rows, ...draftRows],
-    [rows, draftRows],
-  );
+  const gridRows = useMemo(() => [...rows, ...draftRows], [rows, draftRows]);
 
   const copySql = useCallback(
     (rowIndices: number[]) => {
@@ -816,14 +813,7 @@ function LiveTable({
         filter: fkFilter(config.engine, fk.referencedColumns, values),
       });
     },
-    [
-      gridRows,
-      columnNames,
-      connectionId,
-      config.engine,
-      nodesById,
-      navigateTo,
-    ],
+    [gridRows, columnNames, connectionId, config.engine, nodesById, navigateTo],
   );
 
   const isDraftRow = useCallback(
@@ -833,7 +823,9 @@ function LiveTable({
   const isDeletedRow = useCallback(
     (rowIndex: number) => {
       const pkValue = pkIndex >= 0 ? rows[rowIndex]?.[pkIndex] : null;
-      return pkValue !== null && pkValue !== undefined && deletedPks.has(pkValue);
+      return (
+        pkValue !== null && pkValue !== undefined && deletedPks.has(pkValue)
+      );
     },
     [deletedPks, rows, pkIndex],
   );
@@ -961,7 +953,15 @@ function LiveTable({
         sql: preview.insert(tableName, values),
       });
     },
-    [rows, columnNames, primaryKey, tableId, tableName, preview, upsertPendingEdit],
+    [
+      rows,
+      columnNames,
+      primaryKey,
+      tableId,
+      tableName,
+      preview,
+      upsertPendingEdit,
+    ],
   );
 
   const deleteRow = useCallback(
@@ -976,7 +976,9 @@ function LiveTable({
       // Deleting a row supersedes any pending cell edits to it.
       tableEdits
         .filter((edit) => edit.kind === "cell" && edit.rowIndex === rowIndex)
-        .forEach((edit) => discardPendingEdit(edit.id));
+        .forEach((edit) => {
+          discardPendingEdit(edit.id);
+        });
       upsertPendingEdit({
         kind: "delete",
         id: `${tableId}:delete:${pkValue}`,
@@ -1004,7 +1006,9 @@ function LiveTable({
   // exactly like a single delete).
   const deleteRows = useCallback(
     (rowIndices: number[]) => {
-      rowIndices.forEach((rowIndex) => deleteRow(rowIndex));
+      rowIndices.forEach((rowIndex) => {
+        deleteRow(rowIndex);
+      });
     },
     [deleteRow],
   );
@@ -1090,19 +1094,21 @@ function LiveTable({
     // Manual-commit (F12): record the applied statements ONLY after apply succeeded, so the Commit
     // modal lists exactly what COMMIT will persist (a failed apply returns above and appends nothing).
     if (manualCommit) {
-      savedSqls.forEach((entry) => appendTxStatement(connectionId, entry.sql));
+      savedSqls.forEach((entry) => {
+        appendTxStatement(connectionId, entry.sql);
+      });
     }
     const at = new Date().toLocaleTimeString();
     const savedAt = Date.now();
-    savedSqls.forEach((entry) =>
+    savedSqls.forEach((entry) => {
       addHistoryEntry({
         id: `save-${entry.id}-${savedAt}`,
         sql: entry.sql,
         status: "success",
         message: "OK",
         at,
-      }),
-    );
+      });
+    });
     toast.success(`Saved ${result.value} change(s)`);
     queryClient.invalidateQueries({ queryKey: ["table-rows", tableId] });
     queryClient.invalidateQueries({ queryKey: ["table-count", tableId] });
@@ -1242,16 +1248,24 @@ function LiveTable({
               tableId,
               tableName,
               pkValue,
-              document: JSON.stringify(editedByPk.get(String(pkValue)), null, 2),
+              document: JSON.stringify(
+                editedByPk.get(String(pkValue)),
+                null,
+                2,
+              ),
               sql: `db.${tableName}.replaceOne({ _id: ${JSON.stringify(pkValue)} }, ...)`,
             };
           }
+          default:
+            return null;
         }
       })
       .filter((mutation): mutation is PendingMutation => mutation !== null);
 
     const nextIds = new Set(built.map((mutation) => mutation.id));
-    built.forEach((mutation) => upsertPendingEdit(mutation));
+    built.forEach((mutation) => {
+      upsertPendingEdit(mutation);
+    });
     jsonStagedIds.current.forEach((id) => {
       if (!nextIds.has(id)) {
         discardPendingEdit(id);
@@ -1443,9 +1457,7 @@ export function TableCard() {
   const schema =
     (databaseId ? databaseSchemas.get(databaseId) : undefined) ?? EMPTY_SCHEMA;
   const tableId = isTable ? activeNode.id : undefined;
-  const hasPendingEdits = pendingEdits.some(
-    (edit) => edit.tableId === tableId,
-  );
+  const hasPendingEdits = pendingEdits.some((edit) => edit.tableId === tableId);
 
   // The APPLIED filter lives in the provider keyed by tableId, so it survives this card unmounting
   // on a content-tab switch (the card is a singleton keyed on the active node). The editor DRAFT is
@@ -1529,7 +1541,7 @@ export function TableCard() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [tableId, refreshShortcuts, queryClient]);
 
-  if (!activeNode || activeNode.kind !== "table") {
+  if (activeNode?.kind !== "table") {
     return null;
   }
 
@@ -1602,10 +1614,7 @@ export function TableCard() {
           </div>
         )}
       </div>
-      <Dialog
-        open={isDiscardPromptOpen}
-        onOpenChange={setIsDiscardPromptOpen}
-      >
+      <Dialog open={isDiscardPromptOpen} onOpenChange={setIsDiscardPromptOpen}>
         <DialogContent onOpenAutoFocus={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Discard unsaved changes?</DialogTitle>

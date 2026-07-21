@@ -1,17 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  fixtureTree,
   adminDb,
+  fixtureTree,
   scratchDb,
 } from "@/components/workspace/__tests__/fixtures";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
+import { countTable, fetchTable } from "@/lib/tauri";
 import type { ConnectionConfig } from "@/lib/workspace/model";
-import { fetchTable, countTable } from "@/lib/tauri";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(() => Promise.resolve({ tables: [], views: [] })),

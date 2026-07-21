@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { type ReactNode, useEffect, useState } from "react";
 import { installBrowserDefaultGuards } from "@/lib/browser-defaults";
 
 export function AppProviders({ children }: { children: ReactNode }) {

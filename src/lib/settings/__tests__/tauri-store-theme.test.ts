@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Themes feature. The Tauri adapter splits theme.colors into a separate
 // theme.json store (key "colors"), leaving only theme: { mode } in settings.json.
@@ -52,8 +52,8 @@ vi.mock("@/lib/logging/file-log", () => ({
   logMessage: vi.fn(),
 }));
 
-import { createTauriSettingsStore } from "@/lib/settings/tauri-store";
 import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings/settings";
+import { createTauriSettingsStore } from "@/lib/settings/tauri-store";
 
 const SETTINGS_FILE = "settings.json";
 const THEME_FILE = "theme.json";

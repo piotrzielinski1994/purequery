@@ -1,9 +1,8 @@
-import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen, waitFor, act } from "@testing-library/react";
-
-import { SettingsProvider } from "@/lib/settings/settings-context";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { DEFAULT_SETTINGS, type ThemeMode } from "@/lib/settings/settings";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 import {
   ThemeProvider,
   useTheme,
@@ -200,7 +199,9 @@ describe("ThemeProvider", () => {
 describe("useTheme / useThemeOptional outside a provider", () => {
   // behavior: useTheme throws when used outside a ThemeProvider.
   it("should throw if useTheme is used outside a ThemeProvider", () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
 
     expect(() => render(<ThemeProbe />)).toThrow(/ThemeProvider/i);
 
@@ -214,7 +215,9 @@ describe("useTheme / useThemeOptional outside a provider", () => {
     // react-hooks lint forbids mutating any outer binding from inside a component.
     function OptionalProbe() {
       const value = useThemeOptional();
-      return <span data-testid="optional">{value === null ? "null" : "set"}</span>;
+      return (
+        <span data-testid="optional">{value === null ? "null" : "set"}</span>
+      );
     }
 
     render(<OptionalProbe />);

@@ -1,23 +1,24 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { EditorView } from "@codemirror/view";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { EditorView } from "@codemirror/view";
-
-import { QueryWrapper } from "@/test/query-wrapper";
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { DatabaseCard } from "@/components/workspace/database-card";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { DatabaseCard } from "@/components/workspace/database-card";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { connectDatabase, executeMongo } from "@/lib/tauri";
 import type {
   ConnectionConfig,
   DatabaseNode,
   TreeNode,
 } from "@/lib/workspace/model";
-import { connectDatabase, executeMongo } from "@/lib/tauri";
+import { QueryWrapper } from "@/test/query-wrapper";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(),
   fetchSchema: vi.fn(() => Promise.resolve([])),
-  fetchTable: vi.fn(() => Promise.resolve({ columns: [], rows: [], primaryKey: null })),
+  fetchTable: vi.fn(() =>
+    Promise.resolve({ columns: [], rows: [], primaryKey: null }),
+  ),
   countTable: vi.fn(() => Promise.resolve(0)),
   applyRowMutations: vi.fn(),
   executeSql: vi.fn(() => Promise.resolve([])),
@@ -252,7 +253,10 @@ describe("DatabaseCard MongoDB engine (TC-012)", () => {
 describe("DatabaseCard auto-connect", () => {
   // behavior (opening a database view connects it automatically, no manual Connect)
   it("should auto-connect the database when its view is opened", async () => {
-    mockConnect.mockResolvedValue({ tables: [{ schema: null, name: "product" }], views: [] });
+    mockConnect.mockResolvedValue({
+      tables: [{ schema: null, name: "product" }],
+      views: [],
+    });
     renderCard("db-app");
 
     await waitFor(() => {
@@ -269,7 +273,10 @@ describe("DatabaseCard auto-connect", () => {
 
   // behavior (auto-connect fires once, not on every render)
   it("should auto-connect only once for the same database", async () => {
-    mockConnect.mockResolvedValue({ tables: [{ schema: null, name: "product" }], views: [] });
+    mockConnect.mockResolvedValue({
+      tables: [{ schema: null, name: "product" }],
+      views: [],
+    });
     renderCard("db-app");
 
     await waitFor(() => {
@@ -297,7 +304,10 @@ describe("DatabaseCard auto-connect", () => {
       user: "saved_user",
       password: "saved_pw",
     };
-    mockConnect.mockResolvedValue({ tables: [{ schema: null, name: "restored_table" }], views: [] });
+    mockConnect.mockResolvedValue({
+      tables: [{ schema: null, name: "restored_table" }],
+      views: [],
+    });
     renderCard("db-app", [["db-app", saved]]);
 
     await waitFor(() => {

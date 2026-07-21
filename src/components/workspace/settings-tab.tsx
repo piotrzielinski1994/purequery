@@ -1,3 +1,5 @@
+import { Eye, EyeOff } from "lucide-react";
+import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -8,15 +10,13 @@ import {
 } from "@/components/ui/select";
 import { useConnectionActions } from "@/components/workspace/use-connection";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import { schemaOptions } from "@/lib/workspace/tree-schema";
 import { cn } from "@/lib/utils";
 import type {
   ConnectionConfig,
   DatabaseNode,
   DbEngine,
 } from "@/lib/workspace/model";
-import { Eye, EyeOff } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { schemaOptions } from "@/lib/workspace/tree-schema";
 
 const ENGINE_LABELS: Record<DbEngine, string> = {
   postgres: "Postgres",
@@ -382,10 +382,7 @@ function DefaultSchemaField({
       <Select
         value={defaultSchema ?? ALL_SCHEMAS}
         onValueChange={(value) =>
-          setDatabaseDefaultSchema(
-            nodeId,
-            value === ALL_SCHEMAS ? null : value,
-          )
+          setDatabaseDefaultSchema(nodeId, value === ALL_SCHEMAS ? null : value)
         }
       >
         <SelectTrigger id="conn-default-schema" className="w-full">
@@ -441,7 +438,7 @@ function PasswordField({
 export function SettingsTab() {
   const { activeNode } = useWorkspace();
 
-  if (!activeNode || activeNode.kind !== "database") {
+  if (activeNode?.kind !== "database") {
     return null;
   }
 
@@ -471,7 +468,7 @@ function ConnectionForm({ node }: { node: DatabaseNode }) {
       ...current,
       engine,
       port: DEFAULT_PORTS.has(current.port)
-        ? DEFAULT_PORT_BY_ENGINE[engine] ?? current.port
+        ? (DEFAULT_PORT_BY_ENGINE[engine] ?? current.port)
         : current.port,
     }));
 

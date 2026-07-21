@@ -1,5 +1,11 @@
-import { describe, it, expect } from "vitest";
-
+import { describe, expect, it } from "vitest";
+import { resolveShortcuts } from "@/lib/shortcuts/resolve";
+import type {
+  DatabaseNode,
+  FolderNode,
+  TableNode,
+  TreeNode,
+} from "@/lib/workspace/model";
 // Imported before the module exists so RED fails on the missing module, not a typo. Slice B's pure
 // core lives here: `flattenVisible` (visible rows in DFS order INCLUDING table leaves - the basis
 // for arrow FOCUS movement, distinct from `flattenSelectable` which excludes tables and stays the
@@ -12,13 +18,6 @@ import {
   treeMoveTarget,
 } from "@/lib/workspace/tree-navigate";
 import { flattenSelectable } from "@/lib/workspace/tree-select";
-import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import type {
-  DatabaseNode,
-  FolderNode,
-  TableNode,
-  TreeNode,
-} from "@/lib/workspace/model";
 
 const database = (id: string, tables: TableNode[] = []): DatabaseNode => ({
   kind: "database",
@@ -246,9 +245,10 @@ describe("resolveTreeKey - expand/collapse (B-03)", () => {
 
   // behavior: a database expands like a folder (B-03 covers folder/db), descending to its tables.
   it("should expand a collapsed database if ArrowRight", () => {
-    expect(
-      resolve(keyEvent("ArrowRight"), "d1", new Set(["f1"])),
-    ).toEqual({ type: "expand", id: "d1" });
+    expect(resolve(keyEvent("ArrowRight"), "d1", new Set(["f1"]))).toEqual({
+      type: "expand",
+      id: "d1",
+    });
   });
 
   it("should focus the first table if ArrowRight on an expanded database", () => {
@@ -346,7 +346,9 @@ describe("resolveTreeKey - custom bindings (rebindable)", () => {
   // old default stops firing. detectPlatform is "mac" here, but purequery's matcher treats Mod = meta ||
   // ctrl, so a "Mod+..." binding fires on Ctrl.
   it("should honour a rebound tree-move-down key and drop the old default", () => {
-    const custom = resolveShortcuts({ "tree-move-down": ["Mod+Shift+ArrowDown"] });
+    const custom = resolveShortcuts({
+      "tree-move-down": ["Mod+Shift+ArrowDown"],
+    });
     // The old Alt+ArrowDown no longer moves.
     expect(
       resolve(keyEvent("ArrowDown", { alt: true }), "d1", expandedAll, custom),

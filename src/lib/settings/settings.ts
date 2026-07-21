@@ -97,7 +97,10 @@ export type SettingsStore = {
 };
 
 function emptyThemeColors(): ThemeColors {
-  return { light: { tokens: {}, editor: {} }, dark: { tokens: {}, editor: {} } };
+  return {
+    light: { tokens: {}, editor: {} },
+    dark: { tokens: {}, editor: {} },
+  };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -140,15 +143,17 @@ function mergeShortcuts(value: unknown): ShortcutOverrides {
   if (!isRecord(value)) {
     return {};
   }
-  return Object.entries(value).reduce<ShortcutOverrides>((acc, [id, raw]) => {
-    if (!SHORTCUT_ACTION_IDS.has(id)) {
-      return acc;
-    }
-    const merged = mergeShortcutValue(raw);
-    return merged === null
-      ? acc
-      : { ...acc, [id as keyof ShortcutOverrides]: merged };
-  }, {});
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([id, raw]) => {
+      if (!SHORTCUT_ACTION_IDS.has(id)) {
+        return [];
+      }
+      const merged = mergeShortcutValue(raw);
+      return merged === null
+        ? []
+        : [[id as keyof ShortcutOverrides, merged] as const];
+    }),
+  );
 }
 
 const THEME_MODES = new Set<string>(["light", "dark", "system"]);
@@ -215,17 +220,20 @@ function mergeLayouts(value: unknown): Settings["layouts"] {
   if (!isRecord(value)) {
     return {};
   }
-  return GROUP_KEYS.reduce<Settings["layouts"]>((acc, key) => {
-    const layout = value[key];
-    return isPanelLayout(layout) ? { ...acc, [key]: layout } : acc;
-  }, {});
+  return Object.fromEntries(
+    GROUP_KEYS.flatMap((key) => {
+      const layout = value[key];
+      return isPanelLayout(layout) ? [[key, layout] as const] : [];
+    }),
+  );
 }
 
 function mergeSplitOrientation(
   value: unknown,
   fallback: SplitOrientation,
 ): SplitOrientation {
-  return typeof value === "string" && SPLIT_ORIENTATIONS.has(value as SplitOrientation)
+  return typeof value === "string" &&
+    SPLIT_ORIENTATIONS.has(value as SplitOrientation)
     ? (value as SplitOrientation)
     : fallback;
 }
@@ -241,15 +249,12 @@ function mergeTokenMap<K extends string>(
   if (!isRecord(value)) {
     return {};
   }
-  return Object.entries(value).reduce<Partial<Record<K, string>>>(
-    (acc, [key, val]) => {
-      if (!known.has(key) || typeof val !== "string") {
-        return acc;
-      }
-      return { ...acc, [key]: val };
-    },
-    {},
-  );
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [K, string] =>
+        known.has(entry[0]) && typeof entry[1] === "string",
+    ),
+  ) as Partial<Record<K, string>>;
 }
 
 function mergeOverrides(value: unknown): ThemeColorOverrides {

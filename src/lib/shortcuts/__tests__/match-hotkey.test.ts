@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { matchesHotkey, matchesAny } from "@/lib/shortcuts/match-hotkey";
+import { matchesAny, matchesHotkey } from "@/lib/shortcuts/match-hotkey";
 
 const ev = (over: Partial<Parameters<typeof matchesHotkey>[0]>) => ({
   key: "",
@@ -30,7 +30,10 @@ describe("matchesHotkey", () => {
   // AC-010 - behavior: shift must match exactly.
   it("should match Mod+Shift+N only if shift is also held", () => {
     expect(
-      matchesHotkey(ev({ key: "n", metaKey: true, shiftKey: true }), "Mod+Shift+N"),
+      matchesHotkey(
+        ev({ key: "n", metaKey: true, shiftKey: true }),
+        "Mod+Shift+N",
+      ),
     ).toBe(true);
     expect(matchesHotkey(ev({ key: "n", metaKey: true }), "Mod+Shift+N")).toBe(
       false,
@@ -47,9 +50,9 @@ describe("matchesHotkey", () => {
   // AC-010 - behavior: a bare key matches only with no modifiers.
   it("should match a bare Backspace only if no modifier is held", () => {
     expect(matchesHotkey(ev({ key: "Backspace" }), "Backspace")).toBe(true);
-    expect(matchesHotkey(ev({ key: "Backspace", metaKey: true }), "Backspace")).toBe(
-      false,
-    );
+    expect(
+      matchesHotkey(ev({ key: "Backspace", metaKey: true }), "Backspace"),
+    ).toBe(false);
   });
 
   // AC-010 - behavior: explicit Ctrl binding requires Ctrl specifically (Ctrl+Tab).
@@ -99,7 +102,10 @@ describe("matchesHotkey", () => {
   // code only rescues the match; the modifiers must still line up.
   it("should not match Mod+Alt+= via code if alt is not held", () => {
     expect(
-      matchesHotkey(ev({ key: "≠", code: "Equal", metaKey: true }), "Mod+Alt+="),
+      matchesHotkey(
+        ev({ key: "≠", code: "Equal", metaKey: true }),
+        "Mod+Alt+=",
+      ),
     ).toBe(false);
   });
 });
@@ -107,23 +113,23 @@ describe("matchesHotkey", () => {
 describe("matchesAny", () => {
   // C-02, TC-C2 - behavior: an event matching the FIRST binding fires.
   it("should return true if the event matches the first binding in the list", () => {
-    expect(matchesAny(ev({ key: "j", metaKey: true }), ["Mod+J", "Mod+K"])).toBe(
-      true,
-    );
+    expect(
+      matchesAny(ev({ key: "j", metaKey: true }), ["Mod+J", "Mod+K"]),
+    ).toBe(true);
   });
 
   // C-02, TC-C2 - behavior: an event matching a LATER binding fires (proves the whole list scans).
   it("should return true if the event matches a later binding in the list", () => {
-    expect(matchesAny(ev({ key: "k", ctrlKey: true }), ["Mod+J", "Mod+K"])).toBe(
-      true,
-    );
+    expect(
+      matchesAny(ev({ key: "k", ctrlKey: true }), ["Mod+J", "Mod+K"]),
+    ).toBe(true);
   });
 
   // C-02 - behavior: an event matching none of the bindings does not fire.
   it("should return false if the event matches no binding in the list", () => {
-    expect(matchesAny(ev({ key: "q", metaKey: true }), ["Mod+J", "Mod+K"])).toBe(
-      false,
-    );
+    expect(
+      matchesAny(ev({ key: "q", metaKey: true }), ["Mod+J", "Mod+K"]),
+    ).toBe(false);
   });
 
   // C-04 - behavior: an empty list (disabled action) never fires.

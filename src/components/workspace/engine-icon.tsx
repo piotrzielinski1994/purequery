@@ -1,6 +1,6 @@
-import { SiPostgresql, SiMysql, SiSqlite, SiMongodb } from "react-icons/si";
-import { DiMsqlServer, DiAws } from "react-icons/di";
 import type { IconType } from "react-icons";
+import { DiAws, DiMsqlServer } from "react-icons/di";
+import { SiMongodb, SiMysql, SiPostgresql, SiSqlite } from "react-icons/si";
 import type { DbEngine } from "@/lib/workspace/model";
 
 // Per-engine brand glyph (simple-icons). Monochrome by default: simple-icons render with

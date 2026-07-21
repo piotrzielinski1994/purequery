@@ -1,9 +1,9 @@
 import { createRoute, Link } from "@tanstack/react-router";
-import { rootRoute } from "@/routes/__root";
-import { ThemeSection } from "@/components/settings/theme-section";
 import { RowLimitSection } from "@/components/settings/row-limit-section";
 import { ShortcutsSection } from "@/components/settings/shortcuts-section";
+import { ThemeSection } from "@/components/settings/theme-section";
 import { UpdatesSection } from "@/components/settings/updates-section";
+import { rootRoute } from "@/routes/__root";
 
 function SettingsPage() {
   return (

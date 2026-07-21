@@ -1,14 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
-import { useConnectionActions } from "@/components/workspace/use-connection";
-import { SidebarTree } from "@/components/workspace/sidebar-tree";
+import { describe, expect, it, vi } from "vitest";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { SidebarTree } from "@/components/workspace/sidebar-tree";
+import { useConnectionActions } from "@/components/workspace/use-connection";
+import {
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 import { connectDatabase } from "@/lib/tauri";
 import type {
   ConnectionConfig,
@@ -41,7 +40,11 @@ function findDatabase(
   id: string,
 ): NetworkDatabaseNode | undefined {
   for (const node of nodes) {
-    if (node.kind === "database" && node.id === id && node.engine === "postgres") {
+    if (
+      node.kind === "database" &&
+      node.id === id &&
+      node.engine === "postgres"
+    ) {
       return node;
     }
     if (node.kind === "folder") {
@@ -160,13 +163,19 @@ describe("SidebarTree empty workspace state", () => {
 describe("connect persists the edited config into the tree", () => {
   // AC-008 - side-effect-contract (the connect() action, not just updateDatabaseConfig)
   it("should fire onTreeChange with the connected config when connect succeeds", async () => {
-    mockConnect.mockResolvedValueOnce({ tables: [{ schema: null, name: "t1" }], views: [] });
+    mockConnect.mockResolvedValueOnce({
+      tables: [{ schema: null, name: "t1" }],
+      views: [],
+    });
     const onTreeChange = vi.fn<(tree: TreeNode[]) => void>();
 
     function ConnectProbe() {
       const { connect } = useConnectionActions();
       return (
-        <button type="button" onClick={() => connect("db-admin", editedConnection)}>
+        <button
+          type="button"
+          onClick={() => connect("db-admin", editedConnection)}
+        >
           connect db-admin
         </button>
       );

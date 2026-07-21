@@ -1,9 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
+  fkFilter,
   queryPreview,
   rowsToInsertSql,
-  fkFilter,
 } from "@/components/workspace/query-preview";
 
 describe("queryPreview SQL strategy", () => {
@@ -11,7 +11,13 @@ describe("queryPreview SQL strategy", () => {
   it("should build a schema-qualified SELECT for postgres", () => {
     const preview = queryPreview("postgres", "analytics");
     expect(
-      preview.fetch("users", "age > 30", { column: "age", descending: true }, 200, 200),
+      preview.fetch(
+        "users",
+        "age > 30",
+        { column: "age", descending: true },
+        200,
+        200,
+      ),
     ).toBe(
       'SELECT * FROM "analytics"."users" WHERE (age > 30) ORDER BY "age" DESC LIMIT 200 OFFSET 200',
     );
@@ -41,9 +47,7 @@ describe("queryPreview SQL type-aware value quoting", () => {
   // as a number, matching the typed bind actually sent)
   it("should emit numeric column values without quotes", () => {
     const preview = queryPreview("postgres", "public", resolveType);
-    expect(
-      preview.insert("t", { id: "123", count: "9", price: "19.99" }),
-    ).toBe(
+    expect(preview.insert("t", { id: "123", count: "9", price: "19.99" })).toBe(
       'INSERT INTO "public"."t" ("id", "count", "price") VALUES (123, 9, 19.99)',
     );
   });
@@ -102,8 +106,16 @@ describe("queryPreview MongoDB strategy (TC-013)", () => {
   // TC-013 - behavior (fetch reads as a db.coll.find(...).limit(...) string, not SQL)
   it("should build a db.collection.find preview string for a mongo collection", () => {
     expect(
-      preview.fetch("orders", '{ "status": "paid" }', { column: "total", descending: false }, 200, 0),
-    ).toBe('db.orders.find({ "status": "paid" }).sort({ total: 1 }).limit(200)');
+      preview.fetch(
+        "orders",
+        '{ "status": "paid" }',
+        { column: "total", descending: false },
+        200,
+        0,
+      ),
+    ).toBe(
+      'db.orders.find({ "status": "paid" }).sort({ total: 1 }).limit(200)',
+    );
   });
 
   // TC-013 - behavior (an empty filter previews as find({}))
@@ -116,7 +128,7 @@ describe("queryPreview MongoDB strategy (TC-013)", () => {
   // TC-013, AC-011 - behavior (a cell update reads as updateOne with $set, value as JSON literal)
   it("should build an updateOne $set preview with the value as a JSON literal", () => {
     expect(preview.update("orders", "total", "120", "_id", "65f")).toBe(
-      "db.orders.updateOne({ _id: \"65f\" }, { $set: { total: 120 } })",
+      'db.orders.updateOne({ _id: "65f" }, { $set: { total: 120 } })',
     );
   });
 
@@ -184,9 +196,9 @@ describe("rowsToInsertSql (F15 Copy as SQL)", () => {
   // behavior: columns appear in the given order in each row's value list.
   it("should preserve the column order in the VALUES list", () => {
     const preview = queryPreview("postgres", null);
-    expect(
-      rowsToInsertSql(preview, "t", ["b", "a"], [["2", "1"]]),
-    ).toBe('INSERT INTO "t" ("b", "a") VALUES (\'2\', \'1\');');
+    expect(rowsToInsertSql(preview, "t", ["b", "a"], [["2", "1"]])).toBe(
+      'INSERT INTO "t" ("b", "a") VALUES (\'2\', \'1\');',
+    );
   });
 
   // AC-003 - behavior: a null cell renders NULL unquoted, an embedded single quote is doubled.
@@ -194,23 +206,26 @@ describe("rowsToInsertSql (F15 Copy as SQL)", () => {
     const preview = queryPreview("postgres", null);
     expect(
       rowsToInsertSql(preview, "users", columns, [[null, "O'Brien"]]),
-    ).toBe(
-      'INSERT INTO "users" ("id", "name") VALUES (NULL, \'O\'\'Brien\');',
-    );
+    ).toBe('INSERT INTO "users" ("id", "name") VALUES (NULL, \'O\'\'Brien\');');
   });
 
   // AC-004 - behavior: a mongo preview emits db.<coll>.insertOne({ ... }) per document, \n-joined.
   it("should build a db.coll.insertOne per document for a mongodb preview", () => {
     const preview = queryPreview("mongodb", null);
     expect(
-      rowsToInsertSql(preview, "orders", ["status", "total"], [
-        ["paid", "99"],
-        ["open", "10"],
-      ]),
+      rowsToInsertSql(
+        preview,
+        "orders",
+        ["status", "total"],
+        [
+          ["paid", "99"],
+          ["open", "10"],
+        ],
+      ),
     ).toBe(
       [
-        "db.orders.insertOne({ status: \"paid\", total: 99 });",
-        "db.orders.insertOne({ status: \"open\", total: 10 });",
+        'db.orders.insertOne({ status: "paid", total: 99 });',
+        'db.orders.insertOne({ status: "open", total: 10 });',
       ].join("\n"),
     );
   });

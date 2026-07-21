@@ -1,14 +1,12 @@
-import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsTab } from "@/components/workspace/settings-tab";
 import { __resetInFlightConnects } from "@/components/workspace/use-connection";
-import { findNode } from "@/lib/workspace/tree-edit";
+import {
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 import type {
   ConnectionConfig,
   DatabaseNode,
@@ -16,6 +14,7 @@ import type {
   TableNode,
   TreeNode,
 } from "@/lib/workspace/model";
+import { findNode } from "@/lib/workspace/tree-edit";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(),
@@ -203,7 +202,9 @@ describe("SettingsTab Default schema control (AC-003, TC-003)", () => {
 
     expect(screen.getByTestId("ds")).toHaveTextContent("public");
     await user.click(defaultSchemaCombobox());
-    await user.click(await screen.findByRole("option", { name: /all schemas/i }));
+    await user.click(
+      await screen.findByRole("option", { name: /all schemas/i }),
+    );
 
     await waitFor(() => {
       expect(screen.getByTestId("ds")).toHaveTextContent("null");

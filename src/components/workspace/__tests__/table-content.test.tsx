@@ -1,20 +1,25 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { EditorView } from "@codemirror/view";
-
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
-import { TableCard } from "@/components/workspace/table-card";
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Console } from "@/components/workspace/console";
-import { SettingsProvider } from "@/lib/settings/settings-context";
+import { TableCard } from "@/components/workspace/table-card";
+import {
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
-import { toast } from "sonner";
-import { fetchTable, countTable, applyRowMutations } from "@/lib/tauri";
+import { SettingsProvider } from "@/lib/settings/settings-context";
+import { applyRowMutations, countTable, fetchTable } from "@/lib/tauri";
 import type {
   ConnectionConfig,
   TableColumn,
@@ -196,7 +201,9 @@ describe("TableCard live content", () => {
 
   // behavior (the header row sticks to the top so vertical scroll keeps it visible)
   it("should render a sticky header row", async () => {
-    mockFetch.mockResolvedValueOnce(rowsResult(["id", "price"], [["1", "999"]]));
+    mockFetch.mockResolvedValueOnce(
+      rowsResult(["id", "price"], [["1", "999"]]),
+    );
     renderLive();
 
     const header = await screen.findByRole("columnheader", { name: "id" });
@@ -212,7 +219,11 @@ describe("TableCard live content", () => {
     mockFetch.mockResolvedValueOnce(
       rowsResult(
         [
-          column("id", { dataType: "int4", nullable: false, isPrimaryKey: true }),
+          column("id", {
+            dataType: "int4",
+            nullable: false,
+            isPrimaryKey: true,
+          }),
           column("name", { dataType: "text", nullable: false }),
         ],
         [["1", "Widget"]],
@@ -231,7 +242,11 @@ describe("TableCard live content", () => {
     mockFetch.mockResolvedValueOnce(
       rowsResult(
         [
-          column("id", { dataType: "int4", nullable: false, isPrimaryKey: true }),
+          column("id", {
+            dataType: "int4",
+            nullable: false,
+            isPrimaryKey: true,
+          }),
           column("note", { dataType: "text", nullable: true }),
         ],
         [["1", "hi"]],
@@ -404,7 +419,7 @@ describe("TableCard live content", () => {
   // behavior (a failed fetch is logged to History as an error)
   it("should log a failed table fetch to History as an error", async () => {
     const user = userEvent.setup();
-    mockFetch.mockRejectedValue("relation \"nope\" does not exist");
+    mockFetch.mockRejectedValue('relation "nope" does not exist');
     renderLive();
 
     await screen.findByText(/relation "nope" does not exist/i);
@@ -476,7 +491,9 @@ describe("TableCard sorting", () => {
       expect(mockFetch).toHaveBeenLastCalledWith(
         "db-ppp",
         "product",
-        expect.objectContaining({ sort: { column: "price", descending: false } }),
+        expect.objectContaining({
+          sort: { column: "price", descending: false },
+        }),
       );
     });
     await user.click(screen.getByRole("columnheader", { name: "price" }));
@@ -547,9 +564,7 @@ describe("TableCard pagination", () => {
     renderLive();
 
     await screen.findByText("1");
-    expect(
-      screen.queryByRole("button", { name: /load more/i }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /load more/i })).toBeNull();
   });
 
   // behavior (AC-003: changing the sort resets pagination to the first page)
@@ -676,9 +691,7 @@ describe("TableCard pagination", () => {
       configurable: true,
       value: { writeText },
     });
-    mockFetch.mockResolvedValue(
-      rowsResult(["id", "name"], [["1", "Ada"]]),
-    );
+    mockFetch.mockResolvedValue(rowsResult(["id", "name"], [["1", "Ada"]]));
     renderLive();
 
     await screen.findByText("Ada");
@@ -1124,9 +1137,7 @@ describe("TableCard filter with unsaved edits", () => {
     });
     // edits are gone (no Save bar, no Changes tab)
     expect(screen.queryByRole("button", { name: /save/i })).toBeNull();
-    expect(
-      screen.queryByRole("tab", { name: /changes \(\d+\)/i }),
-    ).toBeNull();
+    expect(screen.queryByRole("tab", { name: /changes \(\d+\)/i })).toBeNull();
   });
 
   // behavior (cancelling keeps edits and does not filter)

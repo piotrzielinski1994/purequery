@@ -7,8 +7,8 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import {
-  scoreQuickOpen,
   type QuickOpenEntry,
+  scoreQuickOpen,
 } from "@/lib/workspace/quick-open";
 
 type TableQuickOpenProps = {

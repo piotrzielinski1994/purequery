@@ -1,17 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { useEffect } from "react";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-import {
-  WorkspaceProvider,
-  useStructureView,
-} from "@/components/workspace/workspace-context";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TableCard } from "@/components/workspace/table-card";
-import { SettingsProvider } from "@/lib/settings/settings-context";
+import {
+  useStructureView,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings/settings";
-import { fetchTable, countTable, fetchTableStructure } from "@/lib/tauri";
+import { SettingsProvider } from "@/lib/settings/settings-context";
+import { countTable, fetchTable, fetchTableStructure } from "@/lib/tauri";
 import type {
   ConnectionConfig,
   TableRows,

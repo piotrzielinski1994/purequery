@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { DEFAULT_SETTINGS, mergeSettings } from "@/lib/settings/settings";
 
@@ -56,15 +56,17 @@ describe("mergeSettings shortcuts (array model)", () => {
 
   // C-07, TC-C7 - behavior: an entirely-invalid legacy string is dropped (key absent).
   it("should drop a known-action entry whose legacy string hotkey is invalid", () => {
-    expect(shortcutsOf({ shortcuts: { "toggle-sidebar": "NotAKey++" } })).toEqual(
-      {},
-    );
+    expect(
+      shortcutsOf({ shortcuts: { "toggle-sidebar": "NotAKey++" } }),
+    ).toEqual({});
   });
 
   // C-07 - behavior: an unknown action id is dropped.
   it("should drop an unknown action id", () => {
     expect(
-      shortcutsOf({ shortcuts: { bogus: ["Mod+Q"], "toggle-sidebar": "Mod+B" } }),
+      shortcutsOf({
+        shortcuts: { bogus: ["Mod+Q"], "toggle-sidebar": "Mod+B" },
+      }),
     ).toEqual({ "toggle-sidebar": ["Mod+B"] });
   });
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   dehydrateDatabase,
@@ -52,9 +52,9 @@ describe("variables persistence (AC-005, TC-010)", () => {
       variables: [{ name: "userId", value: "42" }],
     } as PersistedDatabase;
 
-    expect(dehydrateDatabase(hydrateDatabase(mergeDatabaseFile(record)!))).toEqual(
-      record,
-    );
+    expect(
+      dehydrateDatabase(hydrateDatabase(mergeDatabaseFile(record)!)),
+    ).toEqual(record);
   });
 
   // TC-010 - behavior: an empty variables list is omitted from the dehydrated form (like savedScripts).

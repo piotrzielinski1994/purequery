@@ -1,12 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-
-import {
-  createUpdateController,
-  createNoopUpdateController,
-} from "@/lib/updater/update-controller";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   UpdateControllerDeps,
   UpdateInfo,
+} from "@/lib/updater/update-controller";
+import {
+  createNoopUpdateController,
+  createUpdateController,
 } from "@/lib/updater/update-controller";
 
 // The controller wraps the Tauri updater/process plugins behind an injectable

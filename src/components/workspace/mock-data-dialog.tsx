@@ -1,7 +1,6 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -17,7 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DataGrid, type Cell } from "@/components/workspace/data-grid";
+import { type Cell, DataGrid } from "@/components/workspace/data-grid";
+import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
+import { useSettingsOptional } from "@/lib/settings/settings-context";
 import {
   autoStrategy,
   generateRows,
@@ -25,8 +27,6 @@ import {
   type MockColumnConfig,
   type MockStrategyKind,
 } from "@/lib/workspace/mock-data";
-import { useSettingsOptional } from "@/lib/settings/settings-context";
-import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
 
 // Every strategy the picker offers, in menu order.
 const STRATEGY_OPTIONS: { value: MockStrategyKind; label: string }[] = [
@@ -127,7 +127,9 @@ export function MockDataDialog({
     }
     setError(null);
     setPreview(
-      result.value.map((row) => columns.map((column) => row[column.name] ?? null)),
+      result.value.map((row) =>
+        columns.map((column) => row[column.name] ?? null),
+      ),
     );
   };
 

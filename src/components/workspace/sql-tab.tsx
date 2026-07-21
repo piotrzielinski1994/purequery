@@ -1,35 +1,26 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { EditorView } from "@codemirror/view";
-import { toast } from "sonner";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  type Cell,
+  type CopyFormat,
   copyRowsToClipboard,
   DataGrid,
   exportRowsToFile,
-  type Cell,
-  type CopyFormat,
 } from "@/components/workspace/data-grid";
-import type { ExportFormat } from "@/lib/export-file";
-import {
-  nextRowSelection,
-  type RowSelectionState,
-  type RowSelectMode,
-} from "@/lib/workspace/row-select";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { HorizontalSplit } from "@/components/workspace/horizontal-split";
 import { SaveScriptDialog } from "@/components/workspace/save-script-dialog";
+import { SqlEditor, selectedOrAllSql } from "@/components/workspace/sql-editor";
 import { Tab, TabBar } from "@/components/workspace/tab-bar";
-import {
-  SqlEditor,
-  selectedOrAllSql,
-} from "@/components/workspace/sql-editor";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import { isWriteSql, isWriteMongo } from "@/lib/script/dispatch";
-import { substituteVariables } from "@/lib/workspace/variables";
-import { useSettingsOptional } from "@/lib/settings/settings-context";
+import type { ExportFormat } from "@/lib/export-file";
+import { isWriteMongo, isWriteSql } from "@/lib/script/dispatch";
 import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
+import { useSettingsOptional } from "@/lib/settings/settings-context";
 import {
   beginTransaction,
   cancelQuery,
@@ -44,12 +35,21 @@ import type {
   TableSchema,
   Variable,
 } from "@/lib/workspace/model";
+import {
+  nextRowSelection,
+  type RowSelectionState,
+  type RowSelectMode,
+} from "@/lib/workspace/row-select";
+import { substituteVariables } from "@/lib/workspace/variables";
 
 const noop = () => {};
 const alwaysFalse = () => false;
 // The SQL result grid is read-only but row-selectable (for Copy CSV/JSON on a selection); a stable
 // empty selection is the default and the reset value when the row array changes.
-const EMPTY_SELECTION: RowSelectionState = { selected: new Set<number>(), anchor: null };
+const EMPTY_SELECTION: RowSelectionState = {
+  selected: new Set<number>(),
+  anchor: null,
+};
 
 const UNTITLED = "untitled";
 
@@ -312,7 +312,7 @@ function SqlResult({
 export function SqlTab() {
   const { activeNode, connections, databaseSchemas } = useWorkspace();
 
-  if (!activeNode || activeNode.kind !== "database") {
+  if (activeNode?.kind !== "database") {
     return null;
   }
 
@@ -431,15 +431,15 @@ function SqlPane({
     onSuccess: (outcomes, query) => {
       // One History entry per statement so each is individually visible, each logging its OWN
       // statement text (not the whole buffer). The single-statement case logs one entry as before.
-      outcomes.forEach((outcome, index) =>
+      outcomes.forEach((outcome, index) => {
         addHistoryEntry({
           id: `ok-${query}-${index}-${outcome.message}`,
           sql: outcome.statement || query,
           status: "success",
           message: outcome.message,
           at: new Date().toLocaleTimeString(),
-        }),
-      );
+        });
+      });
       // Manual-commit (F12): record only the write statements that ACTUALLY SUCCEEDED into the
       // open-transaction list, so the Commit modal shows exactly what COMMIT will persist - not
       // failed/retried attempts (a failed run lands in onError and is never appended). Reads are
@@ -451,9 +451,9 @@ function SqlPane({
       if (node.manualCommit) {
         outcomes
           .filter((outcome) => isWriteSql(outcome.statement || query))
-          .forEach((outcome) =>
-            appendTxStatement(connectionId, outcome.statement || query),
-          );
+          .forEach((outcome) => {
+            appendTxStatement(connectionId, outcome.statement || query);
+          });
       }
     },
     // A cancelled run is a neutral outcome, not an error - it is NOT logged to History.

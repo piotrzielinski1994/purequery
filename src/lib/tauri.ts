@@ -160,7 +160,11 @@ export function executeSql(
   sql: string,
   requestId: string,
 ): Promise<QueryOutcome[]> {
-  return invoke<QueryOutcome[]>("execute_sql", { connectionId, sql, requestId });
+  return invoke<QueryOutcome[]>("execute_sql", {
+    connectionId,
+    sql,
+    requestId,
+  });
 }
 
 export function cancelQuery(requestId: string): Promise<void> {

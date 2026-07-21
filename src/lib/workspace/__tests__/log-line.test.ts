@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 // F18 - pure parser for the Session Logs tab. Turns a pre-formatted plugin message
 // (`[ts][LEVEL] msg`) + an optional numeric plugin level into a structured LogLine.
@@ -31,8 +31,14 @@ describe("parseLogLine - formatter shapes (AC-03)", () => {
     expect(line.raw).toBe(CONNECT_OK);
     expect(line.timestamp).toBe(TS);
     expect(line.level).toBe("info");
-    expect(line.message).toBe("connect connection_id=db1 engine=postgres tables=12 (34ms)");
-    expect(line.kv).toEqual({ connection_id: "db1", engine: "postgres", tables: "12" });
+    expect(line.message).toBe(
+      "connect connection_id=db1 engine=postgres tables=12 (34ms)",
+    );
+    expect(line.kv).toEqual({
+      connection_id: "db1",
+      engine: "postgres",
+      tables: "12",
+    });
   });
 
   // AC-03 - behavior: a connect-error line is error level; the space-bearing error tail
@@ -65,7 +71,9 @@ describe("parseLogLine - formatter shapes (AC-03)", () => {
     const line = parseLogLine(QUERY_OK, 3);
 
     expect(line.level).toBe("info");
-    expect(line.message).toBe("query kind=sql connection_id=db1 statements=3 rows=150 (42ms)");
+    expect(line.message).toBe(
+      "query kind=sql connection_id=db1 statements=3 rows=150 (42ms)",
+    );
     expect(line.kv).toEqual({
       kind: "sql",
       connection_id: "db1",
@@ -79,7 +87,9 @@ describe("parseLogLine - formatter shapes (AC-03)", () => {
     const line = parseLogLine(QUERY_ERR, 5);
 
     expect(line.level).toBe("error");
-    expect(line.message).toBe("query kind=mongo connection_id=db1 failed (5ms): bad filter");
+    expect(line.message).toBe(
+      "query kind=mongo connection_id=db1 failed (5ms): bad filter",
+    );
     expect(line.message).toContain("bad filter");
     expect(line.kv).toEqual({ kind: "mongo", connection_id: "db1" });
     expect(line.kv).not.toHaveProperty("filter");
@@ -90,7 +100,9 @@ describe("parseLogLine - formatter shapes (AC-03)", () => {
     const line = parseLogLine(MUTATIONS, 3);
 
     expect(line.level).toBe("info");
-    expect(line.message).toBe("mutations connection_id=db1 table=public.users affected=4 (7ms)");
+    expect(line.message).toBe(
+      "mutations connection_id=db1 table=public.users affected=4 (7ms)",
+    );
     expect(line.kv).toEqual({
       connection_id: "db1",
       table: "public.users",
@@ -139,7 +151,9 @@ describe("parseLogLine - level source precedence (AC-04)", () => {
   it("should take the level from the [LEVEL] token when no numeric level is given", () => {
     expect(parseLogLine(CONNECT_ERR).level).toBe("error");
     expect(
-      parseLogLine("[2026-07-10T12:34:56Z][WARN] slow query connection_id=db2 (5200ms)").level,
+      parseLogLine(
+        "[2026-07-10T12:34:56Z][WARN] slow query connection_id=db2 (5200ms)",
+      ).level,
     ).toBe("warn");
   });
 

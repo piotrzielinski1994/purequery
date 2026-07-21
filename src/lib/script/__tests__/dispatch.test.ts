@@ -1,6 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { isWriteSql, isWriteMongo, MONGO_WRITE_OPS } from "@/lib/script/dispatch";
+import {
+  isWriteMongo,
+  isWriteSql,
+  MONGO_WRITE_OPS,
+} from "@/lib/script/dispatch";
 
 // The write keywords the read-only guard rejects when they lead the statement (AC-006 / TC-003).
 const WRITE_KEYWORDS = [

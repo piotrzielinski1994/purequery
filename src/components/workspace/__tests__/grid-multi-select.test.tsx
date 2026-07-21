@@ -1,13 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
-import { useState } from "react";
 import {
+  createEvent,
+  fireEvent,
   render,
   screen,
   within,
-  fireEvent,
-  createEvent,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
+import { describe, expect, it, vi } from "vitest";
 
 import { DataGrid } from "@/components/workspace/data-grid";
 
@@ -205,7 +205,9 @@ describe("grid cell / selection copy", () => {
       />,
     );
 
-    fireEvent.contextMenu(screen.getByText("[NULL]").closest("td") as HTMLElement);
+    fireEvent.contextMenu(
+      screen.getByText("[NULL]").closest("td") as HTMLElement,
+    );
     await user.click(
       screen.queryByRole("menuitem", { name: /^copy cell$/i }) ??
         screen.getByText("Copy cell"),
@@ -350,14 +352,14 @@ describe("grid bulk delete", () => {
   it("should show a single Delete item when only one row is selected", async () => {
     const user = userEvent.setup();
     const onDeleteRow = vi.fn();
-    render(<MultiSelectGrid onDeleteRows={vi.fn()} onDeleteRow={onDeleteRow} />);
+    render(
+      <MultiSelectGrid onDeleteRows={vi.fn()} onDeleteRow={onDeleteRow} />,
+    );
 
     await user.click(rowFor("Ada"));
     fireEvent.contextMenu(rowFor("Ada"));
 
-    expect(
-      within(document.body).queryByText(/delete \d+ rows/i),
-    ).toBeNull();
+    expect(within(document.body).queryByText(/delete \d+ rows/i)).toBeNull();
     const item =
       screen.queryByRole("menuitem", { name: /^delete$/i }) ??
       screen.getByText("Delete");

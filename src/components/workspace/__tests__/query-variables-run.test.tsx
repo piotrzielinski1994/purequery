@@ -1,15 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { EditorView } from "@codemirror/view";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { EditorView } from "@codemirror/view";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { SqlTab } from "@/components/workspace/sql-tab";
+import { toast } from "sonner";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Console } from "@/components/workspace/console";
 import { ContentHeader } from "@/components/workspace/content-header";
-import { executeSql, executeMongo } from "@/lib/tauri";
-import { toast } from "sonner";
+import { SqlTab } from "@/components/workspace/sql-tab";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { executeMongo, executeSql } from "@/lib/tauri";
 import type { ConnectionConfig, TreeNode } from "@/lib/workspace/model";
 
 // F18 substitution at the SQL/Query Run boundary (AC-008 / AC-009 / AC-010, TC-013..016). A defined
@@ -29,7 +28,12 @@ vi.mock("@/lib/tauri", () => ({
 }));
 
 vi.mock("sonner", () => ({
-  toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), dismiss: vi.fn() },
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    dismiss: vi.fn(),
+  },
 }));
 
 const mockExecute = vi.mocked(executeSql);
@@ -56,10 +60,7 @@ const mongoConfig: ConnectionConfig = {
 
 type Variable = { name: string; value: string };
 
-function pgTree(
-  variables: Variable[],
-  manualCommit: boolean,
-): TreeNode[] {
+function pgTree(variables: Variable[], manualCommit: boolean): TreeNode[] {
   return [
     {
       kind: "database",

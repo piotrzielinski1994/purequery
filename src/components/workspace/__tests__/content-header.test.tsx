@@ -1,14 +1,13 @@
-import { describe, it, expect } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { describe, expect, it } from "vitest";
+import {
+  expandedToAppDb,
+  fixtureTree,
+} from "@/components/workspace/__tests__/fixtures";
 import { ContentHeader } from "@/components/workspace/content-header";
 import { SidebarTree } from "@/components/workspace/sidebar-tree";
-import {
-  fixtureTree,
-  expandedToAppDb,
-} from "@/components/workspace/__tests__/fixtures";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 
 async function expandDbTables(
   user: ReturnType<typeof userEvent.setup>,

@@ -1,11 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { SidebarTree } from "@/components/workspace/sidebar-tree";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { SidebarTree } from "@/components/workspace/sidebar-tree";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(),
@@ -148,7 +147,9 @@ describe("sidebar keyboard bulk delete", () => {
       expect(screen.queryByRole("treeitem", { name: "prod" })).toBeNull();
     });
     expect(screen.queryByRole("treeitem", { name: "scratch_db" })).toBeNull();
-    expect(screen.getByRole("treeitem", { name: "staging" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("treeitem", { name: "staging" }),
+    ).toBeInTheDocument();
   });
 
   // AC-209 - behavior (Backspace with no selection does nothing)
@@ -181,10 +182,9 @@ describe("sidebar keyboard bulk delete", () => {
 
     expect(screen.queryByRole("dialog")).toBeNull();
     // the selection is untouched and the text input handled the keystroke
-    expect(screen.getByRole("treeitem", { name: "scratch_db" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(
+      screen.getByRole("treeitem", { name: "scratch_db" }),
+    ).toHaveAttribute("aria-selected", "true");
   });
 });
 

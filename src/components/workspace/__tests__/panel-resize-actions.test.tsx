@@ -1,14 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, within, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { QueryWrapper } from "@/test/query-wrapper";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
-import { SettingsProvider, useSettings } from "@/lib/settings/settings-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings/settings";
-import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { SettingsProvider, useSettings } from "@/lib/settings/settings-context";
+import { QueryWrapper } from "@/test/query-wrapper";
 
 // react-resizable-panels measures the group/panels via offsetWidth/offsetHeight,
 // which jsdom reports as 0 (so getLayout() returns {} and setLayout() no-ops).

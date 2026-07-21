@@ -1,5 +1,5 @@
-import type { DbEngine } from "@/lib/workspace/model";
 import type { ScriptRpc } from "@/lib/script/protocol";
+import type { DbEngine } from "@/lib/workspace/model";
 
 // The reply a host returns for one `db.*` RPC: either a result value or an error string (a
 // read-only-guard rejection or a backend failure). The worker resolves/rejects the script's `await`.
@@ -63,9 +63,11 @@ export function createWorkerRunner(): ScriptRunner {
           .then((reply) => reply as RpcReply)
           // A rejected onRpc must still post a reply, or the worker awaits one that never comes
           // (deadlock -> the run hangs forever). Convert it to an error reply.
-          .catch((error): RpcReply => ({
-            error: error instanceof Error ? error.message : String(error),
-          }))
+          .catch(
+            (error): RpcReply => ({
+              error: error instanceof Error ? error.message : String(error),
+            }),
+          )
           .then((reply) =>
             next.postMessage({ kind: "reply", id: message.id, ...reply }),
           );

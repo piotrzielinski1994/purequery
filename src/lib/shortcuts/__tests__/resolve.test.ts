@@ -1,13 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   SHORTCUT_ACTIONS,
   type ShortcutOverrides,
 } from "@/lib/shortcuts/registry";
 import {
-  safeNormalize,
-  resolveShortcuts,
   findConflict,
+  resolveShortcuts,
+  safeNormalize,
 } from "@/lib/shortcuts/resolve";
 
 const defaultFor = (id: (typeof SHORTCUT_ACTIONS)[number]["id"]) =>

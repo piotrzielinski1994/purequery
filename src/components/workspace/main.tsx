@@ -5,8 +5,8 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { Content } from "@/components/workspace/content";
 import { Console } from "@/components/workspace/console";
+import { Content } from "@/components/workspace/content";
 import {
   useChrome,
   useWorkspace,

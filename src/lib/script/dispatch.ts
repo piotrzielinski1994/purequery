@@ -75,7 +75,9 @@ export const MONGO_WRITE_OPS = [
 export function isWriteMongo(command: string): boolean {
   const leading = stripLeading(command);
   // Grab the method name in `db.<collection>.<method>(` - the collection may be quoted (dots/dashes).
-  const match = leading.match(/^db\.(?:"[^"]*"|'[^']*'|[^.(]+)\.([A-Za-z]+)\s*\(/);
+  const match = leading.match(
+    /^db\.(?:"[^"]*"|'[^']*'|[^.(]+)\.([A-Za-z]+)\s*\(/,
+  );
   if (!match) {
     return false;
   }

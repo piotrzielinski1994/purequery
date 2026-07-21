@@ -83,10 +83,7 @@ function isNumericText(value: string): boolean {
 // bare literal (so the editor highlights them as a number/keyword), every other type is a quoted
 // string. Without a resolved type (Mongo path, or a value whose column is unknown) it falls back to
 // the always-quote `sqlLiteral`, preserving the prior behaviour.
-function sqlValue(
-  value: Cell,
-  dataType: string | undefined,
-): string {
+function sqlValue(value: Cell, dataType: string | undefined): string {
   if (value === null) {
     return "NULL";
   }
@@ -166,7 +163,7 @@ function mongoPreview(): QueryPreview {
   const idFilter = (pkValue: Cell) => `{ _id: ${mongoLiteral(pkValue)} }`;
   return {
     fetch: (collection, filter, sort, limit, offset) => {
-      const find = filter && filter.trim() ? filter.trim() : "{}";
+      const find = filter?.trim() ? filter.trim() : "{}";
       const sortClause = sort
         ? `.sort({ ${sort.column}: ${sort.descending ? -1 : 1} })`
         : "";
@@ -200,7 +197,7 @@ function mongoPreview(): QueryPreview {
         return "Filter must be valid JSON";
       }
     },
-    filterPlaceholder: '{ } find filter (JSON) - Enter to run',
+    filterPlaceholder: "{ } find filter (JSON) - Enter to run",
   };
 }
 

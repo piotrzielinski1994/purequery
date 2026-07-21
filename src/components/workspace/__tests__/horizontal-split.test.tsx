@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { HorizontalSplit } from "@/components/workspace/horizontal-split";
 
@@ -51,10 +51,7 @@ describe("HorizontalSplit", () => {
 
   describe("dragging the separator", () => {
     beforeEach(() => {
-      vi.spyOn(
-        HTMLElement.prototype,
-        "getBoundingClientRect",
-      ).mockReturnValue({
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
         left: 0,
         width: 1000,
         top: 0,

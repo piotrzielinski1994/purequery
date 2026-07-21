@@ -1,13 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { useState } from "react";
-import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-
-import { DataGrid, exportRowsToFile } from "@/components/workspace/data-grid";
-import { toCsv, toJson } from "@/lib/export";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { toast } from "sonner";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DataGrid, exportRowsToFile } from "@/components/workspace/data-grid";
+import { toCsv, toJson } from "@/lib/export";
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   save: vi.fn(),
@@ -164,7 +169,9 @@ describe("grid export to file from context menu", () => {
     // Ada (index 0) is the initial selection; right-click Linus (index 1), an unselected row.
     fireEvent.contextMenu(rowFor("Linus"));
 
-    expect(within(document.body).queryByText(/export csv.*\(\d+ rows\)/i)).toBeNull();
+    expect(
+      within(document.body).queryByText(/export csv.*\(\d+ rows\)/i),
+    ).toBeNull();
     const item =
       screen.queryByRole("menuitem", { name: /^export csv/i }) ??
       screen.getByText(/^export csv/i);
@@ -270,7 +277,9 @@ describe("grid export to file from context menu", () => {
   it("should offer Export items on the read-only SQL result grid and write its rows", async () => {
     vi.mocked(save).mockResolvedValueOnce("/tmp/results.csv");
     const user = userEvent.setup();
-    render(<ExportGrid editable={false} onExportRows={makeExportRows("results")} />);
+    render(
+      <ExportGrid editable={false} onExportRows={makeExportRows("results")} />,
+    );
 
     fireEvent.contextMenu(rowFor("Ada"));
     expect(

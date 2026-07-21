@@ -1,10 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   PANEL_RESIZE_STEP,
+  type PanelResizeTarget,
   resolveFocusedPanel,
   stepLayout,
-  type PanelResizeTarget,
 } from "@/lib/workspace/panel-resize";
 
 // Build a focusable element nested inside a `data-panel id="<id>"` wrapper (the

@@ -1,11 +1,10 @@
-import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { TableCard } from "@/components/workspace/table-card";
+import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it } from "vitest";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { TableCard } from "@/components/workspace/table-card";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 
 function renderTable(activeTabId?: string, initialJsonView = false) {
   const queryClient = new QueryClient({
@@ -46,17 +45,13 @@ describe("TableCard", () => {
     expect(
       screen.getByRole("textbox", { name: /rows as json/i }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("columnheader", { name: /email/i }),
-    ).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: /email/i })).toBeNull();
   });
 
   // AC-006 — behavior (toggle off: the grid is shown, not the JSON editor).
   it("should render the grid not the JSON view when JSON view is off", () => {
     renderTable("tbl-users", false);
-    expect(
-      screen.queryByRole("textbox", { name: /rows as json/i }),
-    ).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /rows as json/i })).toBeNull();
     expect(
       screen.getByRole("columnheader", { name: /email/i }),
     ).toBeInTheDocument();
@@ -104,7 +99,9 @@ describe("TableCard", () => {
     const user = userEvent.setup();
     renderTable("tbl-users");
 
-    const row = screen.getByText("ada@example.com").closest("tr") as HTMLElement;
+    const row = screen
+      .getByText("ada@example.com")
+      .closest("tr") as HTMLElement;
     await user.click(row);
 
     expect(row).toHaveAttribute("aria-selected", "true");

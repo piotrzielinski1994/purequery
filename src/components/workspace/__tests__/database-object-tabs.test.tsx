@@ -1,16 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-
-import { QueryWrapper } from "@/test/query-wrapper";
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseCard } from "@/components/workspace/database-card";
-import type { DatabaseNode, DbEngine, TreeNode } from "@/lib/workspace/model";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { connectDatabase } from "@/lib/tauri";
+import type { DatabaseNode, DbEngine, TreeNode } from "@/lib/workspace/model";
+import { QueryWrapper } from "@/test/query-wrapper";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(() => Promise.resolve({ tables: [], views: [] })),
   fetchSchema: vi.fn(() => Promise.resolve([])),
-  fetchTable: vi.fn(() => Promise.resolve({ columns: [], rows: [], primaryKey: null })),
+  fetchTable: vi.fn(() =>
+    Promise.resolve({ columns: [], rows: [], primaryKey: null }),
+  ),
   countTable: vi.fn(() => Promise.resolve(0)),
   fetchDatabaseObjects: vi.fn(() => Promise.resolve([])),
   applyRowMutations: vi.fn(),

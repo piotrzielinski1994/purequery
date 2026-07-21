@@ -1,10 +1,10 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
 import {
-  createRouter,
   createMemoryHistory,
+  createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { AppProviders } from "@/app/providers";
 import { rootRoute } from "@/routes/__root";
@@ -32,7 +32,9 @@ describe("workspace routing", () => {
     expect(
       await screen.findByRole("button", { name: /open workspace folder/i }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("tree", { name: /navigator/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("tree", { name: /navigator/i }),
+    ).not.toBeInTheDocument();
   });
 
   // AC-001 — behavior (the console region only mounts inside a loaded workspace, not the empty state)

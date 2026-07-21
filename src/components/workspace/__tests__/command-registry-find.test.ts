@@ -1,10 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { PALETTE_COMMANDS } from "@/components/workspace/command-registry";
 
 describe("Find palette command", () => {
-  const findCommand = () =>
-    PALETTE_COMMANDS.find((def) => def.name === "Find");
+  const findCommand = () => PALETTE_COMMANDS.find((def) => def.name === "Find");
 
   // behavior: a Find command is registered in the palette (AC-011, TC-009)
   it("should be registered", () => {

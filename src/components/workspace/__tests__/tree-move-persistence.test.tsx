@@ -1,15 +1,14 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
+import { describe, expect, it, vi } from "vitest";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import {
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
+import type { TreeNode } from "@/lib/workspace/model";
 import { findNode } from "@/lib/workspace/tree-edit";
 import { locateNode } from "@/lib/workspace/tree-locate";
-import type { TreeNode } from "@/lib/workspace/model";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(),

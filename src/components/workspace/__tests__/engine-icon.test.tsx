@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { EngineIcon } from "@/components/workspace/engine-icon";
 import type { DbEngine } from "@/lib/workspace/model";
@@ -41,7 +41,10 @@ describe("EngineIcon", () => {
   // behavior (passes through className so callers keep size/color utility classes)
   it("should apply the passed className", () => {
     const { container } = render(
-      <EngineIcon engine="mongodb" className="size-3.5 text-muted-foreground" />,
+      <EngineIcon
+        engine="mongodb"
+        className="size-3.5 text-muted-foreground"
+      />,
     );
     const svg = container.querySelector("svg");
     expect(svg?.getAttribute("class")).toContain("size-3.5");

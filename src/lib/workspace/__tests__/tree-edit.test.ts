@@ -1,20 +1,15 @@
-import { describe, it, expect } from "vitest";
-
+import { describe, expect, it } from "vitest";
+import type { DatabaseNode, FolderNode, TreeNode } from "@/lib/workspace/model";
 // Imported even though it does not exist yet: the test must fail on the missing
 // module, not on a typo. Once tree-edit.ts ships, these assertions pin the pure
 // tree ops (findNode / containsId / removeNode / insertNode) that moveNode is
 // built on. purequery node kinds are folder / database / table.
 import {
-  findNode,
   containsId,
-  removeNode,
+  findNode,
   insertNode,
+  removeNode,
 } from "@/lib/workspace/tree-edit";
-import type {
-  DatabaseNode,
-  FolderNode,
-  TreeNode,
-} from "@/lib/workspace/model";
 
 const database = (id: string, name = id): DatabaseNode => ({
   kind: "database",
@@ -57,7 +52,7 @@ const ids = (nodes: TreeNode[]): string[] => nodes.map((node) => node.id);
 
 const findFolder = (nodes: TreeNode[], id: string): FolderNode => {
   const found = findNode(nodes, id);
-  if (!found || found.kind !== "folder") {
+  if (found?.kind !== "folder") {
     throw new Error(`folder ${id} not found`);
   }
   return found;

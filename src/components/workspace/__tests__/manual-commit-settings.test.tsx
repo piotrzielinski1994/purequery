@@ -1,11 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
 import { SettingsTab } from "@/components/workspace/settings-tab";
 import { __resetInFlightConnects } from "@/components/workspace/use-connection";
-import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import type { TreeNode } from "@/lib/workspace/model";
 
 vi.mock("@/lib/tauri", () => ({

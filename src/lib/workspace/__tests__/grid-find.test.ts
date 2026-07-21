@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 // Pure match finder for the grid find bar. Scans every cell's text for a case-insensitive
 // substring of the query, returning one {rowIndex, columnId} per match in row-major then

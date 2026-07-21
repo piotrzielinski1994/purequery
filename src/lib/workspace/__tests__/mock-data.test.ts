@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 // Pure lib for the mock data generator (F17): auto-detect a per-column strategy from its type/name/PK,
 // and deterministically generate rows for a set of column configs. None of this exists yet - the
@@ -13,7 +13,9 @@ import {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function ok<T>(result: { ok: true; value: T } | { ok: false; error: string }): T {
+function ok<T>(
+  result: { ok: true; value: T } | { ok: false; error: string },
+): T {
   if (!result.ok) {
     throw new Error(`expected Ok, got Err: ${result.error}`);
   }
@@ -72,7 +74,8 @@ describe("autoStrategy (AC-003)", () => {
   // AC-003, TC-002 - behavior: a text column defaults to words.
   it("should default a text column to words", () => {
     expect(
-      autoStrategy({ name: "note", dataType: "text", isPrimaryKey: false }).kind,
+      autoStrategy({ name: "note", dataType: "text", isPrimaryKey: false })
+        .kind,
     ).toBe("words");
   });
 

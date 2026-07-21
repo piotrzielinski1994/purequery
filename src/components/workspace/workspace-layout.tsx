@@ -1,38 +1,38 @@
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import type { GroupImperativeHandle } from "react-resizable-panels";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { Sidebar } from "@/components/workspace/sidebar";
-import { Main } from "@/components/workspace/main";
 import { CommandPalette } from "@/components/workspace/command-palette";
-import { TableQuickOpen } from "@/components/workspace/table-quick-open";
+import { Main } from "@/components/workspace/main";
 import { NewFolderDialog } from "@/components/workspace/new-folder-dialog";
+import { Sidebar } from "@/components/workspace/sidebar";
+import { TableQuickOpen } from "@/components/workspace/table-quick-open";
+import { useConnectionActions } from "@/components/workspace/use-connection";
 import {
   useChrome,
   useQuickOpen,
   useWorkspace,
 } from "@/components/workspace/workspace-context";
+import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
+import { useSettingsOptional } from "@/lib/settings/settings-context";
+import { matchesAny } from "@/lib/shortcuts/match-hotkey";
+import type { ShortcutActionId } from "@/lib/shortcuts/registry";
+import { resolveShortcuts } from "@/lib/shortcuts/resolve";
+import { useThemeToggle } from "@/lib/theme/theme-context";
+import { connectionOf } from "@/lib/workspace/model";
+import {
+  PANEL_RESIZE_STEP,
+  type PanelResizeTarget,
+  resolveFocusedPanel,
+  stepLayout,
+} from "@/lib/workspace/panel-resize";
 import {
   buildQuickOpenEntries,
   quickOpenTarget,
 } from "@/lib/workspace/quick-open";
-import { useThemeToggle } from "@/lib/theme/theme-context";
-import { useSettingsOptional } from "@/lib/settings/settings-context";
-import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
-import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import { matchesAny } from "@/lib/shortcuts/match-hotkey";
-import type { ShortcutActionId } from "@/lib/shortcuts/registry";
-import { useConnectionActions } from "@/components/workspace/use-connection";
-import { connectionOf } from "@/lib/workspace/model";
-import {
-  PANEL_RESIZE_STEP,
-  resolveFocusedPanel,
-  stepLayout,
-  type PanelResizeTarget,
-} from "@/lib/workspace/panel-resize";
 
 export function WorkspaceLayout({
   onOpenWorkspace,

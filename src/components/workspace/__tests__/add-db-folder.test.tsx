@@ -1,24 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   fireEvent,
+  type RenderOptions,
   render as rtlRender,
   screen,
   waitFor,
   within,
-  type RenderOptions,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-
-import { QueryWrapper } from "@/test/query-wrapper";
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
+import { toast } from "sonner";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { ContentHeader } from "@/components/workspace/content-header";
 import { SettingsTab } from "@/components/workspace/settings-tab";
 import { SidebarTree } from "@/components/workspace/sidebar-tree";
-import { ContentHeader } from "@/components/workspace/content-header";
-import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { connectDatabase } from "@/lib/tauri";
-import { toast } from "sonner";
+import { QueryWrapper } from "@/test/query-wrapper";
 
 // Opening a database tab mounts useAutoConnect; mock the backend + toast like
 // settings-tab.test.tsx so a freshly-created database never hits the network.
@@ -66,9 +65,7 @@ describe("WorkspaceLayout - New database / New folder commands", () => {
 
     openPalette();
 
-    expect(
-      within(getPalette()).getByText("New database"),
-    ).toBeInTheDocument();
+    expect(within(getPalette()).getByText("New database")).toBeInTheDocument();
   });
 
   // AC-004, E-1 - behavior (command listed even with an empty tree)
@@ -99,9 +96,9 @@ describe("WorkspaceLayout - New database / New folder commands", () => {
     // palette closed, an open tab exists
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(
-      within(
-        screen.getByRole("tablist", { name: /open tabs/i }),
-      ).getAllByRole("tab"),
+      within(screen.getByRole("tablist", { name: /open tabs/i })).getAllByRole(
+        "tab",
+      ),
     ).toHaveLength(1);
 
     // the Settings sub-tab is the selected one
@@ -114,9 +111,7 @@ describe("WorkspaceLayout - New database / New folder commands", () => {
     expect(
       screen.getByRole("button", { name: /^connect$/i }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("combobox", { name: /type/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /type/i })).toBeInTheDocument();
 
     // the sidebar gained a database row
     expect(
@@ -444,9 +439,10 @@ describe("Settings Name field renames the database", () => {
 
     // the open tab title reflects the new name
     expect(
-      within(
-        screen.getByRole("tablist", { name: /open tabs/i }),
-      ).getByRole("tab", { name: "billing" }),
+      within(screen.getByRole("tablist", { name: /open tabs/i })).getByRole(
+        "tab",
+        { name: "billing" },
+      ),
     ).toBeInTheDocument();
   });
 });

@@ -1,18 +1,17 @@
-import { useEffect } from "react";
-import { describe, it, expect } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
+import { useEffect } from "react";
+import { describe, expect, it } from "vitest";
 import {
-  WorkspaceProvider,
-  useLogLines,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
+  fixtureConsoleLines,
+  fixtureTree,
+} from "@/components/workspace/__tests__/fixtures";
 import { Console } from "@/components/workspace/console";
 import {
-  fixtureTree,
-  fixtureConsoleLines,
-} from "@/components/workspace/__tests__/fixtures";
+  useLogLines,
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 
 // F18 Session Logs tab. `useLogLines` (logLines / appendLogLine / clearLogLines) and the fourth
 // "Logs" tab do not exist yet - this whole file fails RED on the missing export / missing tab,
@@ -28,7 +27,10 @@ const LOG_LINES: ReadonlyArray<{ raw: string; level: number }> = [
     raw: "[2026-07-10T12:34:56Z][ERROR] connect connection_id=db1 engine=mysql failed (40ms): connection refused",
     level: 5,
   },
-  { raw: "[2026-07-10T12:34:56Z][INFO] disconnect connection_id=db1", level: 3 },
+  {
+    raw: "[2026-07-10T12:34:56Z][INFO] disconnect connection_id=db1",
+    level: 3,
+  },
   {
     raw: "[2026-07-10T12:34:56Z][INFO] query kind=sql connection_id=db1 statements=3 rows=150 (42ms)",
     level: 3,
@@ -256,7 +258,10 @@ describe("Console Logs tab (F18)", () => {
         <button
           type="button"
           onClick={() =>
-            appendLogLine("[2026-07-10T12:34:56Z][INFO] disconnect connection_id=db1", 3)
+            appendLogLine(
+              "[2026-07-10T12:34:56Z][INFO] disconnect connection_id=db1",
+              3,
+            )
           }
         >
           append log

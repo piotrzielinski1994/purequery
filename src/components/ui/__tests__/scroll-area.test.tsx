@@ -1,8 +1,8 @@
 /// <reference types="node" />
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 

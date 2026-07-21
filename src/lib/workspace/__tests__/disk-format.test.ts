@@ -1,11 +1,6 @@
-import { describe, it, expect } from "vitest";
-
-import {
-  MANIFEST,
-  serialize,
-  deserialize,
-} from "@/lib/workspace/disk-format";
+import { describe, expect, it } from "vitest";
 import type { FileMap } from "@/lib/workspace/disk-format";
+import { deserialize, MANIFEST, serialize } from "@/lib/workspace/disk-format";
 import type {
   DatabaseNode,
   FolderNode,
@@ -50,11 +45,7 @@ function pgDatabase(overrides: Partial<DatabaseNode> = {}): DatabaseNode {
   } as DatabaseNode;
 }
 
-function folder(
-  id: string,
-  name: string,
-  children: TreeNode[],
-): FolderNode {
+function folder(id: string, name: string, children: TreeNode[]): FolderNode {
   return { kind: "folder", id, name, children };
 }
 
@@ -208,15 +199,9 @@ describe("disk-format serialize", () => {
 
     const map = serialize(tree);
 
-    expect(
-      (JSON.parse(map["a.db.json"]) as { order: number }).order,
-    ).toBe(0);
-    expect(
-      (JSON.parse(map["b.db.json"]) as { order: number }).order,
-    ).toBe(1);
-    expect(
-      (JSON.parse(map["c.db.json"]) as { order: number }).order,
-    ).toBe(2);
+    expect((JSON.parse(map["a.db.json"]) as { order: number }).order).toBe(0);
+    expect((JSON.parse(map["b.db.json"]) as { order: number }).order).toBe(1);
+    expect((JSON.parse(map["c.db.json"]) as { order: number }).order).toBe(2);
   });
 
   // AC-008 - behavior: same-named siblings get distinct slugged paths
@@ -244,10 +229,7 @@ describe("disk-format serialize", () => {
 
     const result = expectOk(deserialize(serialize(tree)));
 
-    expect(result.tree.map((node) => node.id).sort()).toEqual([
-      "db-1",
-      "db-2",
-    ]);
+    expect(result.tree.map((node) => node.id).sort()).toEqual(["db-1", "db-2"]);
   });
 });
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -7,7 +8,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 
 type SaveScriptDialogProps = {
   open: boolean;
@@ -46,7 +46,10 @@ export function SaveScriptDialog({
           <DialogTitle>Save script</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-1">
-          <label htmlFor="script-name" className="text-xs text-muted-foreground">
+          <label
+            htmlFor="script-name"
+            className="text-xs text-muted-foreground"
+          >
             Name
           </label>
           <Input

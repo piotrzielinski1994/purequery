@@ -1,19 +1,19 @@
-import { useMemo, useRef, useState, useEffect } from "react";
 import { Trash2, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tab, TabBar } from "@/components/workspace/tab-bar";
 import { SqlText } from "@/components/workspace/sql-text";
+import { Tab, TabBar } from "@/components/workspace/tab-bar";
 import {
   useChrome,
   useLogLines,
   useWorkspace,
 } from "@/components/workspace/workspace-context";
-import type { LogLine, LogLevel } from "@/lib/workspace/log-line";
+import { cn } from "@/lib/utils";
+import type { LogLevel, LogLine } from "@/lib/workspace/log-line";
 import {
   filterLogLines,
-  highlightLogSearch,
   type HighlightSegment,
+  highlightLogSearch,
 } from "@/lib/workspace/log-search";
 
 type ConsoleTab = "log" | "changes" | "history" | "logs";

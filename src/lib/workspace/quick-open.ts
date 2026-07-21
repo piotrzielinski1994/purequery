@@ -45,13 +45,15 @@ export function buildQuickOpenEntries(
         return [
           { id: node.id, kind: "database", name: node.name, breadcrumb },
           ...(isConnected
-            ? node.tables.map((table): QuickOpenEntry => ({
-                id: table.id,
-                kind: "table",
-                name: table.name,
-                breadcrumb: childBreadcrumb,
-                ...(table.schema !== null ? { schema: table.schema } : {}),
-              }))
+            ? node.tables.map(
+                (table): QuickOpenEntry => ({
+                  id: table.id,
+                  kind: "table",
+                  name: table.name,
+                  breadcrumb: childBreadcrumb,
+                  ...(table.schema !== null ? { schema: table.schema } : {}),
+                }),
+              )
             : []),
         ];
       }
@@ -64,13 +66,15 @@ export function buildQuickOpenEntries(
 // order (VSCode-style fuzzy). An empty query matches everything.
 function isSubsequence(query: string, haystack: string): boolean {
   const target = haystack.toLowerCase();
-  return [...query.toLowerCase()].reduce<number | null>((cursor, char) => {
-    if (cursor === null) {
-      return null;
-    }
-    const next = target.indexOf(char, cursor);
-    return next === -1 ? null : next + 1;
-  }, 0) !== null;
+  return (
+    [...query.toLowerCase()].reduce<number | null>((cursor, char) => {
+      if (cursor === null) {
+        return null;
+      }
+      const next = target.indexOf(char, cursor);
+      return next === -1 ? null : next + 1;
+    }, 0) !== null
+  );
 }
 
 // The rank for a query over a node's searchable fields: the highest field weight

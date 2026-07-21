@@ -1,10 +1,7 @@
 import { ShortcutRow } from "@/components/settings/shortcut-row";
 import { useSettings } from "@/lib/settings/settings-context";
+import { SHORTCUT_ACTIONS, type ShortcutScope } from "@/lib/shortcuts/registry";
 import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import {
-  SHORTCUT_ACTIONS,
-  type ShortcutScope,
-} from "@/lib/shortcuts/registry";
 
 const SCOPE_LABELS: Record<ShortcutScope, string> = {
   global: "Global",
@@ -14,7 +11,13 @@ const SCOPE_LABELS: Record<ShortcutScope, string> = {
   editor: "Query editor",
 };
 
-const SCOPE_ORDER: ShortcutScope[] = ["global", "tab", "grid", "tree", "editor"];
+const SCOPE_ORDER: ShortcutScope[] = [
+  "global",
+  "tab",
+  "grid",
+  "tree",
+  "editor",
+];
 
 export function ShortcutsSection() {
   const { settings } = useSettings();

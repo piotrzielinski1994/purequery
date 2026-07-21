@@ -1,10 +1,9 @@
-import { describe, it, expect } from "vitest";
-
+import { describe, expect, it } from "vitest";
+import type { DatabaseObject, ObjectKind } from "@/lib/workspace/model";
 // Pure per-engine availability table for the database object tabs (F14). Does not exist yet - the
 // import fails until object-tabs.ts ships, so each test fails on the missing symbol, not a typo.
 // objectTabsFor(engine) -> the ordered {kind,label}[] of object tabs an engine supports.
 import { objectListLabel, objectTabsFor } from "@/lib/workspace/object-tabs";
-import type { DatabaseObject, ObjectKind } from "@/lib/workspace/model";
 
 function kindsOf(engine: Parameters<typeof objectTabsFor>[0]): ObjectKind[] {
   return objectTabsFor(engine).map((tab) => tab.kind);

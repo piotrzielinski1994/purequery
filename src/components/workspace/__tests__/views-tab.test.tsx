@@ -1,9 +1,8 @@
-import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { ViewsTab } from "@/components/workspace/views-tab";
+import { describe, expect, it } from "vitest";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { ViewsTab } from "@/components/workspace/views-tab";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 
 function renderViews(activeTabId?: string) {
   return render(

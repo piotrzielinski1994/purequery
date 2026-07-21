@@ -65,7 +65,10 @@ export function StructureView({
       ) : null}
 
       {!isMongo ? (
-        <Section title="Constraints" isEmpty={structure.constraints.length === 0}>
+        <Section
+          title="Constraints"
+          isEmpty={structure.constraints.length === 0}
+        >
           <MetaTable headers={["name", "kind", "definition"]}>
             {structure.constraints.map((constraint) => (
               <tr key={constraint.name} className="border-b last:border-0">
@@ -95,11 +98,7 @@ function Section({
       <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         {title}
       </h3>
-      {isEmpty ? (
-        <p className="text-muted-foreground">None</p>
-      ) : (
-        children
-      )}
+      {isEmpty ? <p className="text-muted-foreground">None</p> : children}
     </section>
   );
 }
@@ -134,5 +133,9 @@ function Cell({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <td className={`px-3 py-1.5 font-mono break-all ${className}`}>{children}</td>;
+  return (
+    <td className={`px-3 py-1.5 font-mono break-all ${className}`}>
+      {children}
+    </td>
+  );
 }

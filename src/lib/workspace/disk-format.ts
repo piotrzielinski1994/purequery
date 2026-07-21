@@ -1,10 +1,10 @@
 import type { FolderNode, TreeNode } from "@/lib/workspace/model";
+import { slugify, uniqueSlug } from "@/lib/workspace/slug";
 import {
   dehydrateDatabase,
   hydrateDatabase,
   mergeDatabaseFile,
 } from "@/lib/workspace/workspace";
-import { slugify, uniqueSlug } from "@/lib/workspace/slug";
 
 export type FileMap = Record<string, string>;
 
@@ -83,8 +83,7 @@ function parseDatabase(files: FileMap, path: string): Ordered | null {
   if (merged === null) {
     return null;
   }
-  const order =
-    typeof parsed.order === "number" ? parsed.order : undefined;
+  const order = typeof parsed.order === "number" ? parsed.order : undefined;
   return { order, node: hydrateDatabase(merged) };
 }
 
@@ -125,15 +124,12 @@ function buildLevel(
     const folderJsonPath = `${dir}/folder.json`;
     const raw = files[folderJsonPath];
     const parsed =
-      raw === undefined
-        ? undefined
-        : tryParse<Record<string, unknown>>(raw);
+      raw === undefined ? undefined : tryParse<Record<string, unknown>>(raw);
     if (raw !== undefined && parsed === undefined) {
       skipped.push(folderJsonPath);
       return [];
     }
-    const id =
-      parsed && typeof parsed.id === "string" ? parsed.id : dir;
+    const id = parsed && typeof parsed.id === "string" ? parsed.id : dir;
     const name =
       parsed && typeof parsed.name === "string" ? parsed.name : segment;
     const order =

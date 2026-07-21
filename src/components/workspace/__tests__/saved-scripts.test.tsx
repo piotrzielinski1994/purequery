@@ -1,22 +1,20 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { EditorView } from "@codemirror/view";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { EditorView } from "@codemirror/view";
-import { useEffect, useRef, useState } from "react";
-
 import type { ReactNode } from "react";
-
-import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
-import { SqlTab } from "@/components/workspace/sql-tab";
-import { Content } from "@/components/workspace/content";
-import { createInMemoryWorkspaceFs } from "@/lib/workspace/in-memory-fs";
-import { deserialize, serialize } from "@/lib/workspace/disk-format";
-import { executeSql } from "@/lib/tauri";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Content } from "@/components/workspace/content";
+import { SqlTab } from "@/components/workspace/sql-tab";
+import {
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
+import { executeSql } from "@/lib/tauri";
+import { deserialize, serialize } from "@/lib/workspace/disk-format";
+import { createInMemoryWorkspaceFs } from "@/lib/workspace/in-memory-fs";
 import type {
   ConnectionConfig,
   DatabaseNode,
@@ -189,8 +187,7 @@ describe("saveScript context action", () => {
   }) {
     const { saveScript, nodesById } = useWorkspace();
     const node = nodesById.get(databaseId);
-    const scripts =
-      node && node.kind === "database" ? node.savedScripts : [];
+    const scripts = node && node.kind === "database" ? node.savedScripts : [];
     const calledRef = useRef(false);
     return (
       <div>
@@ -220,7 +217,10 @@ describe("saveScript context action", () => {
     onResult?: (result: boolean) => void;
   }) {
     return render(
-      <WorkspaceProvider tree={props.tree} initialActiveTabId={props.databaseId}>
+      <WorkspaceProvider
+        tree={props.tree}
+        initialActiveTabId={props.databaseId}
+      >
         <Probe
           databaseId={props.databaseId}
           name={props.name}
@@ -286,7 +286,10 @@ describe("saveScript context action", () => {
       const bScripts = b && b.kind === "database" ? b.savedScripts : [];
       return (
         <div>
-          <button type="button" onClick={() => saveScript("db-a", "only_a", "SELECT 1")}>
+          <button
+            type="button"
+            onClick={() => saveScript("db-a", "only_a", "SELECT 1")}
+          >
             save-on-a
           </button>
           <ul aria-label="a-scripts">
@@ -435,9 +438,10 @@ describe("SqlTab scripts toolbar", () => {
 
     await user.click(chip);
 
-    expect(
-      within(strip).getByRole("tab", { name: "revenue" }),
-    ).toHaveAttribute("aria-selected", "true");
+    expect(within(strip).getByRole("tab", { name: "revenue" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   // AC-002 - behavior (clicking "+" creates a fresh untitled document tab immediately, NO dialog,
@@ -459,7 +463,9 @@ describe("SqlTab scripts toolbar", () => {
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     const strip = screen.getByRole("tablist", { name: /saved scripts/i });
-    const untitled = await within(strip).findByRole("tab", { name: "untitled" });
+    const untitled = await within(strip).findByRole("tab", {
+      name: "untitled",
+    });
     expect(untitled).toHaveAttribute("aria-selected", "true");
   });
 
@@ -500,14 +506,18 @@ describe("SqlTab scripts toolbar", () => {
     });
 
     const strip = screen.getByRole("tablist", { name: /saved scripts/i });
-    expect(within(strip).getByRole("tab", { name: "drop" })).toBeInTheDocument();
+    expect(
+      within(strip).getByRole("tab", { name: "drop" }),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /delete drop/i }));
 
     await waitFor(() => {
       expect(within(strip).queryByRole("tab", { name: "drop" })).toBeNull();
     });
-    expect(within(strip).getByRole("tab", { name: "keep" })).toBeInTheDocument();
+    expect(
+      within(strip).getByRole("tab", { name: "keep" }),
+    ).toBeInTheDocument();
   });
 
   // AC-012 - behavior: Cmd/Ctrl+S on an UNTITLED active document opens the name dialog (its first
@@ -617,7 +627,9 @@ describe("SqlTab scripts toolbar", () => {
     await user.click(within(dialog).getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => {
-      expect(mockToast.error).toHaveBeenCalledWith('Script "revenue" already exists');
+      expect(mockToast.error).toHaveBeenCalledWith(
+        'Script "revenue" already exists',
+      );
     });
   });
 
@@ -677,7 +689,9 @@ describe("SqlTab scripts toolbar", () => {
       </WorkspaceStoreBridge>,
     );
 
-    const strip = await screen.findByRole("tablist", { name: /saved scripts/i });
+    const strip = await screen.findByRole("tablist", {
+      name: /saved scripts/i,
+    });
     await user.click(within(strip).getByRole("tab", { name: "asd2" }));
     replaceDoc(liveView(container), "select new_version");
 
@@ -736,7 +750,9 @@ describe("SqlTab editor buffer survives a content-tab switch", () => {
     await user.click(within(tabs).getByRole("tab", { name: /a/i }));
 
     await waitFor(() => {
-      expect(liveView(container).state.doc.toString()).toBe("SELECT typed_on_a");
+      expect(liveView(container).state.doc.toString()).toBe(
+        "SELECT typed_on_a",
+      );
     });
   });
 });
@@ -860,7 +876,9 @@ describe("SqlTab saved-scripts persistence integration", () => {
     // And a fresh mount from that same store shows the chip (reload survives).
     first.unmount();
     render(<StoreHarness store={store} />);
-    const strip = await screen.findByRole("tablist", { name: /saved scripts/i });
+    const strip = await screen.findByRole("tablist", {
+      name: /saved scripts/i,
+    });
     expect(
       await within(strip).findByRole("tab", { name: "lucky" }),
     ).toBeInTheDocument();
@@ -878,7 +896,9 @@ describe("SqlTab saved-scripts persistence integration", () => {
     );
 
     const first = render(<StoreHarness store={store} />);
-    const strip = await screen.findByRole("tablist", { name: /saved scripts/i });
+    const strip = await screen.findByRole("tablist", {
+      name: /saved scripts/i,
+    });
     expect(
       await within(strip).findByRole("tab", { name: "doomed" }),
     ).toBeInTheDocument();
@@ -897,7 +917,9 @@ describe("SqlTab saved-scripts persistence integration", () => {
     const reloadedStrip = await screen.findByRole("tablist", {
       name: /saved scripts/i,
     });
-    expect(within(reloadedStrip).queryByRole("tab", { name: "doomed" })).toBeNull();
+    expect(
+      within(reloadedStrip).queryByRole("tab", { name: "doomed" }),
+    ).toBeNull();
     expect(
       within(reloadedStrip).getByRole("tab", { name: "keep" }),
     ).toBeInTheDocument();

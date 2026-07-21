@@ -1,29 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
-import CodeMirror, { type BasicSetupOptions } from "@uiw/react-codemirror";
-import { EditorView } from "@codemirror/view";
-import type { Extension } from "@codemirror/state";
 import { json as jsonLanguage } from "@codemirror/lang-json";
 import { syntaxHighlighting } from "@codemirror/language";
+import type { Extension } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import { classHighlighter } from "@lezer/highlight";
-import {
-  makeSqlChrome,
-  makeSqlHighlight,
-  type EditorColors,
-} from "@/components/workspace/sql-editor-theme";
-import { useThemeOptional } from "@/lib/theme/theme-context";
-import { applyDefaults } from "@/lib/theme/overrides";
-import { DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
-import { useSettingsOptional } from "@/lib/settings/settings-context";
-import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
-import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import { toCodeMirrorKey } from "@/lib/shortcuts/to-codemirror-key";
+import CodeMirror, { type BasicSetupOptions } from "@uiw/react-codemirror";
+import { useEffect, useMemo, useState } from "react";
+import type { Cell } from "@/components/workspace/data-grid";
 import { editorFind } from "@/components/workspace/editor-find";
 import {
+  type EditorColors,
+  makeSqlChrome,
+  makeSqlHighlight,
+} from "@/components/workspace/sql-editor-theme";
+import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
+import { useSettingsOptional } from "@/lib/settings/settings-context";
+import { resolveShortcuts } from "@/lib/shortcuts/resolve";
+import { toCodeMirrorKey } from "@/lib/shortcuts/to-codemirror-key";
+import { applyDefaults } from "@/lib/theme/overrides";
+import { useThemeOptional } from "@/lib/theme/theme-context";
+import { DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
+import {
+  type JsonRow,
   parseJsonRows,
   rowsToJson,
-  type JsonRow,
 } from "@/lib/workspace/json-edit";
-import type { Cell } from "@/components/workspace/data-grid";
 
 const VIEWER_SETUP: BasicSetupOptions = {
   lineNumbers: false,
@@ -41,7 +41,7 @@ type JsonViewProps = {
   // pending bar is the single stage/commit gate (its Save shows the SQL before touching the DB, so
   // the mass-delete footgun is bounded by that explicit commit, not the JSON buffer). Absent =>
   // read-only viewer.
-  onSave?: (edited: JsonRow[]) => string | null | void;
+  onSave?: (edited: JsonRow[]) => string | null | undefined;
 };
 
 export function JsonView({ columns, rows, onSave }: JsonViewProps) {

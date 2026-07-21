@@ -1,19 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ContentHeader } from "@/components/workspace/content-header";
 import { TableCard } from "@/components/workspace/table-card";
 import {
-  fetchTable,
-  countTable,
-  fetchTableStructure,
-} from "@/lib/tauri";
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
+import { countTable, fetchTable, fetchTableStructure } from "@/lib/tauri";
 import type {
   ConnectionConfig,
   TableColumn,
@@ -77,7 +72,10 @@ const pgTree: TreeNode[] = [
     database: "ppp",
     user: "postgres",
     password: "postgres",
-    tables: [tableNode(ORDERS_ID, "orders"), tableNode(CUSTOMERS_ID, "customers")],
+    tables: [
+      tableNode(ORDERS_ID, "orders"),
+      tableNode(CUSTOMERS_ID, "customers"),
+    ],
     views: [],
     sql: "",
     savedScripts: [],
@@ -125,8 +123,14 @@ const customerFkStructure: TableStructure = {
 // (the content-header arrow buttons were removed). Back/Forward are disabled off canGoBack/canGoForward,
 // mirroring the palette command gates.
 function StateProbe() {
-  const { activeTabId, tableFilters, goBack, goForward, canGoBack, canGoForward } =
-    useWorkspace();
+  const {
+    activeTabId,
+    tableFilters,
+    goBack,
+    goForward,
+    canGoBack,
+    canGoForward,
+  } = useWorkspace();
   return (
     <div>
       <span data-testid="active-tab">{activeTabId ?? ""}</span>
@@ -172,9 +176,7 @@ const goToItem = (name: string) =>
 // Jump orders -> customers via the FK "Go to" item; shared setup for the back/forward assertions.
 async function jumpToCustomers() {
   const user = userEvent.setup();
-  mockFetch.mockResolvedValue(
-    rowsResult(["id", "customer_id"], [["1", "42"]]),
-  );
+  mockFetch.mockResolvedValue(rowsResult(["id", "customer_id"], [["1", "42"]]));
   mockStructure.mockResolvedValue(customerFkStructure);
   renderApp();
 
@@ -207,7 +209,9 @@ describe("FK navigation - back/forward history", () => {
     renderApp();
     await screen.findByRole("columnheader", { name: "customer_id" });
 
-    expect(screen.getByRole("button", { name: "Navigate back" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Navigate back" }),
+    ).toBeDisabled();
     expect(
       screen.getByRole("button", { name: "Navigate forward" }),
     ).toBeDisabled();

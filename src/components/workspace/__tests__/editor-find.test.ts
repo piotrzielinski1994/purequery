@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
 
 // AC-009/010 wire @codemirror/search into the full CodeMirror editors (SQL / JS / JSON) to power a
 // purequery-styled find panel. jsdom cannot drive the CM search UI interactively, so the light contract

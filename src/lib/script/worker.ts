@@ -8,7 +8,10 @@ import type { ScriptReply } from "@/lib/script/protocol";
 // thin, isolated executor so a runaway loop burns THIS thread, not the UI, and `terminate()` cancels.
 
 let nextId = 0;
-const pending = new Map<string, (reply: { result?: unknown; error?: string }) => void>();
+const pending = new Map<
+  string,
+  (reply: { result?: unknown; error?: string }) => void
+>();
 
 function post(message: unknown) {
   (self as DedicatedWorkerGlobalScope).postMessage(message);
@@ -57,8 +60,10 @@ const consoleShim = {
 
 async function execute(code: string) {
   try {
-    const AsyncFunction = Object.getPrototypeOf(async function () {})
-      .constructor as new (...args: string[]) => (
+    const AsyncFunction = Object.getPrototypeOf(async () => {})
+      .constructor as new (
+      ...args: string[]
+    ) => (
       db: typeof scriptDb,
       console: typeof consoleShim,
       print: (value: unknown) => void,

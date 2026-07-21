@@ -1,19 +1,20 @@
 import {
-  memo,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type MouseEvent,
-} from "react";
-import {
   createColumnHelper,
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
+import {
+  type MouseEvent,
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -21,27 +22,26 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { FindBar } from "@/components/workspace/find-bar";
 import { toCsv, toJson } from "@/lib/export";
 import {
+  type ExportFormat,
   exportFileName,
   exportFilters,
-  type ExportFormat,
 } from "@/lib/export-file";
-import { save } from "@tauri-apps/plugin-dialog";
-import { writeTextFile } from "@tauri-apps/plugin-fs";
-import { isEditableTarget } from "@/lib/workspace/is-editable-target";
-import { resolveShortcuts } from "@/lib/shortcuts/resolve";
 import { matchesAny } from "@/lib/shortcuts/match-hotkey";
 import type { ShortcutOverrides } from "@/lib/shortcuts/registry";
-import { FindBar } from "@/components/workspace/find-bar";
-import { findMatches } from "@/lib/workspace/grid-find";
-import type { RowSelectMode } from "@/lib/workspace/row-select";
+import { resolveShortcuts } from "@/lib/shortcuts/resolve";
+import { cn } from "@/lib/utils";
 import {
   foreignKeyForColumn,
   isForeignKeyNavigable,
   navigableForeignKeys,
 } from "@/lib/workspace/foreign-key-nav";
+import { findMatches } from "@/lib/workspace/grid-find";
+import { isEditableTarget } from "@/lib/workspace/is-editable-target";
 import type { ForeignKey, Sort, TableColumn } from "@/lib/workspace/model";
+import type { RowSelectMode } from "@/lib/workspace/row-select";
 
 // Which selection mode a row click implies: Shift = range, Cmd/Ctrl = toggle, plain = replace.
 function rowSelectModeOf(event: {
@@ -274,9 +274,10 @@ function DataGridImpl({
   // The in-grid find bar (null = closed). Cmd+F opens it when the grid holds focus; the query is
   // matched against every cell (case-insensitive) and the active match's cell is highlighted +
   // scrolled into view. It never filters - all rows stay rendered (design.md non-destructive).
-  const [find, setFind] = useState<{ query: string; activeIndex: number } | null>(
-    null,
-  );
+  const [find, setFind] = useState<{
+    query: string;
+    activeIndex: number;
+  } | null>(null);
   // The cell value the last right-click landed on (drives "Copy cell") + the text selected at that
   // moment (drives "Copy selection", captured on contextMenu because opening the menu clears it).
   const [contextCell, setContextCell] = useState<{
@@ -461,9 +462,7 @@ function DataGridImpl({
                     key={header.id}
                     style={{ width: header.getSize() }}
                     onClick={
-                      isSortable
-                        ? () => onSortColumn?.(columnId)
-                        : undefined
+                      isSortable ? () => onSortColumn?.(columnId) : undefined
                     }
                     // Sticky so vertical scroll keeps the header visible. With border-collapse a
                     // sticky cell's own border scrolls away, so the 1px bottom divider is an inset
@@ -631,7 +630,9 @@ function DataGridImpl({
                           // any cell; stopPropagation on the modified click keeps it from toggling the
                           // row selection.
                           const fk =
-                            onFollowForeignKey && foreignKeys && dirtyValue !== null
+                            onFollowForeignKey &&
+                            foreignKeys &&
+                            dirtyValue !== null
                               ? foreignKeyForColumn(foreignKeys, column)
                               : null;
                           const isFkLink =
@@ -715,9 +716,7 @@ function DataGridImpl({
                         </ContextMenuItem>
                       ) : null}
                       {onCloneRow && !isDraft ? (
-                        <ContextMenuItem
-                          onSelect={() => onCloneRow(row.index)}
-                        >
+                        <ContextMenuItem onSelect={() => onCloneRow(row.index)}>
                           Clone
                         </ContextMenuItem>
                       ) : null}
@@ -726,11 +725,14 @@ function DataGridImpl({
                             // Copy the selection if the right-clicked row is part of it, else just
                             // this row - same "act on the selection you clicked into" rule as delete.
                             const target =
-                              selectedRows.has(row.index) && selectedRows.size > 0
+                              selectedRows.has(row.index) &&
+                              selectedRows.size > 0
                                 ? [...selectedRows]
                                 : [row.index];
                             const suffix =
-                              target.length > 1 ? ` (${target.length} rows)` : "";
+                              target.length > 1
+                                ? ` (${target.length} rows)`
+                                : "";
                             return (
                               <>
                                 <ContextMenuItem
@@ -750,11 +752,14 @@ function DataGridImpl({
                       {onExportRows
                         ? (() => {
                             const target =
-                              selectedRows.has(row.index) && selectedRows.size > 0
+                              selectedRows.has(row.index) &&
+                              selectedRows.size > 0
                                 ? [...selectedRows]
                                 : [row.index];
                             const suffix =
-                              target.length > 1 ? ` (${target.length} rows)` : "";
+                              target.length > 1
+                                ? ` (${target.length} rows)`
+                                : "";
                             return (
                               <>
                                 <ContextMenuItem
@@ -774,11 +779,14 @@ function DataGridImpl({
                       {onCopySql
                         ? (() => {
                             const target =
-                              selectedRows.has(row.index) && selectedRows.size > 0
+                              selectedRows.has(row.index) &&
+                              selectedRows.size > 0
                                 ? [...selectedRows]
                                 : [row.index];
                             const suffix =
-                              target.length > 1 ? ` (${target.length} rows)` : "";
+                              target.length > 1
+                                ? ` (${target.length} rows)`
+                                : "";
                             return (
                               <ContextMenuItem
                                 onSelect={() => onCopySql(target)}

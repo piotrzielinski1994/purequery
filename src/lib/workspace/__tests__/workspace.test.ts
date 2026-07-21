@@ -1,12 +1,11 @@
-import { describe, it, expect } from "vitest";
-
+import { describe, expect, it } from "vitest";
+import type { DatabaseNode } from "@/lib/workspace/model";
 import {
   dehydrateDatabase,
   hydrateDatabase,
   mergeDatabaseFile,
   type PersistedDatabase,
 } from "@/lib/workspace/workspace";
-import type { DatabaseNode } from "@/lib/workspace/model";
 
 const validDatabase: PersistedDatabase = {
   kind: "database",
@@ -52,14 +51,20 @@ describe("mergeDatabaseFile engine variants", () => {
 
   // TC-003, AC-005 - behavior (a sqlserver node is a network engine and survives merge unchanged)
   it("should keep a sqlserver engine database node", () => {
-    const mssqlDb: PersistedDatabase = { ...validDatabase, engine: "sqlserver" };
+    const mssqlDb: PersistedDatabase = {
+      ...validDatabase,
+      engine: "sqlserver",
+    };
 
     expect(mergeDatabaseFile(mssqlDb)).toEqual(mssqlDb);
   });
 
   // TC-003, AC-005 - behavior (a sqlserver node round-trips through hydrate/dehydrate)
   it("should round-trip a sqlserver database through hydrate/dehydrate", () => {
-    const mssqlDb: PersistedDatabase = { ...validDatabase, engine: "sqlserver" };
+    const mssqlDb: PersistedDatabase = {
+      ...validDatabase,
+      engine: "sqlserver",
+    };
 
     expect(dehydrateDatabase(hydrateDatabase(mssqlDb))).toEqual(mssqlDb);
   });
@@ -150,7 +155,10 @@ describe("mergeDatabaseFile accent color (TC-004, TC-009)", () => {
 
   // AC-008, TC-009, E-2 - behavior (a 5-digit hex is dropped)
   it('should drop a 5-digit "#12345" accentColor but keep the rest of the database', () => {
-    const merged = mergeDatabaseFile({ ...validDatabase, accentColor: "#12345" });
+    const merged = mergeDatabaseFile({
+      ...validDatabase,
+      accentColor: "#12345",
+    });
 
     expect(merged).toEqual(validDatabase);
     expect(merged).not.toHaveProperty("accentColor");
@@ -209,7 +217,9 @@ describe("savedScripts persistence (AC-007, TC-006, TC-007)", () => {
     const merged = mergeDatabaseFile({
       ...validDatabase,
       savedScripts: [{ name: "good", sql: "SELECT 1" }, { name: "no_sql" }],
-    }) as PersistedDatabase & { savedScripts?: { name: string; sql: string }[] };
+    }) as PersistedDatabase & {
+      savedScripts?: { name: string; sql: string }[];
+    };
 
     expect(merged.savedScripts).toEqual([{ name: "good", sql: "SELECT 1" }]);
   });
@@ -219,14 +229,19 @@ describe("savedScripts persistence (AC-007, TC-006, TC-007)", () => {
     const merged = mergeDatabaseFile({
       ...validDatabase,
       savedScripts: ["just a string", { name: "good", sql: "SELECT 1" }, 42],
-    }) as PersistedDatabase & { savedScripts?: { name: string; sql: string }[] };
+    }) as PersistedDatabase & {
+      savedScripts?: { name: string; sql: string }[];
+    };
 
     expect(merged.savedScripts).toEqual([{ name: "good", sql: "SELECT 1" }]);
   });
 
   // AC-007, TC-007 - behavior (savedScripts that is not an array is dropped entirely, db otherwise intact)
   it("should drop a savedScripts value that is not an array but keep the rest of the database", () => {
-    const merged = mergeDatabaseFile({ ...validDatabase, savedScripts: "nope" });
+    const merged = mergeDatabaseFile({
+      ...validDatabase,
+      savedScripts: "nope",
+    });
 
     expect(merged).toEqual(validDatabase);
     expect(merged).not.toHaveProperty("savedScripts");

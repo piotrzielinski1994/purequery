@@ -1,14 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { UpdatesSection } from "@/components/settings/updates-section";
-import { UpdaterProvider } from "@/lib/updater/updater-context";
 import type {
   UpdateController,
   UpdateInfo,
 } from "@/lib/updater/update-controller";
+import { UpdaterProvider } from "@/lib/updater/updater-context";
 
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), {
@@ -75,9 +75,7 @@ describe("UpdatesSection", () => {
     });
     await waitFor(() => {
       expect(
-        mockToast.mock.calls.some((c) =>
-          /latest version/i.test(String(c[0])),
-        ),
+        mockToast.mock.calls.some((c) => /latest version/i.test(String(c[0]))),
       ).toBe(true);
     });
     await waitFor(() => {
@@ -121,8 +119,7 @@ describe("UpdatesSection", () => {
     await waitFor(() => {
       expect(
         (mockToast.error as unknown as ReturnType<typeof vi.fn>).mock.calls
-          .length +
-          mockToast.mock.calls.length,
+          .length + mockToast.mock.calls.length,
       ).toBeGreaterThan(0);
     });
     const failed = [

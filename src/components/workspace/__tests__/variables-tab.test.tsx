@@ -1,15 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { QueryWrapper } from "@/test/query-wrapper";
-import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseCard } from "@/components/workspace/database-card";
 import { __resetInFlightConnects } from "@/components/workspace/use-connection";
+import {
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 import type { DatabaseNode, TreeNode } from "@/lib/workspace/model";
+import { QueryWrapper } from "@/test/query-wrapper";
 
 // F18 Variables tab (AC-006 / AC-007, TC-011 / TC-012). The database card gains a "Variables" section
 // rendering an editable name/value grid seeded from the node's `variables`; editing it flows to the
@@ -74,9 +73,11 @@ function VariablesProbe() {
   const active = nodesById.get(DB_ID);
   const variables =
     active && active.kind === "database"
-      ? ((active as DatabaseNode & {
-          variables?: { name: string; value: string }[];
-        }).variables ?? [])
+      ? ((
+          active as DatabaseNode & {
+            variables?: { name: string; value: string }[];
+          }
+        ).variables ?? [])
       : [];
   return (
     <ul aria-label="variables-probe">
@@ -124,9 +125,7 @@ describe("DatabaseCard Variables tab (AC-006, TC-011)", () => {
   // AC-006, TC-011 - behavior: the card exposes a Variables section tab.
   it("should expose a Variables tab", () => {
     renderCard([]);
-    expect(
-      screen.getByRole("tab", { name: "Variables" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Variables" })).toBeInTheDocument();
   });
 
   // AC-006, TC-011 - behavior: selecting Variables renders the grid seeded with the node's variables.
@@ -203,9 +202,7 @@ describe("DatabaseCard Variables tab editing (AC-007, TC-012)", () => {
     await user.type(blankValue, "eng");
 
     // The blank row's value input still holds the typed text (not reset by a reseed).
-    expect(
-      gridInputs().some((input) => input.value === "eng"),
-    ).toBe(true);
+    expect(gridInputs().some((input) => input.value === "eng")).toBe(true);
   });
 });
 

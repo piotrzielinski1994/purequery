@@ -1,13 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import {
-  SettingsProvider,
-  useSettings,
-} from "@/lib/settings/settings-context";
+import { describe, expect, it, vi } from "vitest";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
-import { type Settings, type SettingsStore } from "@/lib/settings/settings";
+import type { Settings, SettingsStore } from "@/lib/settings/settings";
+import { SettingsProvider, useSettings } from "@/lib/settings/settings-context";
 
 const nonDefaultSettings: Settings = {
   version: 1,

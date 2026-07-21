@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 import { DataGrid } from "@/components/workspace/data-grid";
 
@@ -39,7 +39,9 @@ describe("DataGrid document editing (AC-013)", () => {
     const row = screen.getByText("Ada").closest("tr") as HTMLElement;
     await user.pointer({ keys: "[MouseRight]", target: row });
 
-    const item = await screen.findByRole("menuitem", { name: /edit document/i });
+    const item = await screen.findByRole("menuitem", {
+      name: /edit document/i,
+    });
     expect(item).toBeInTheDocument();
 
     await user.click(item);

@@ -175,9 +175,7 @@ function mergeSavedJsScripts(
 // Keeps only the `{ name, value }` string records; drops anything else. Returns the field only when
 // the cleaned list is non-empty, so an empty list is omitted from the persisted shape (mirrors
 // mergeSavedScripts). Guards a hand-edited/garbage db.json.
-function mergeVariables(
-  value: unknown,
-): { variables: Variable[] } | undefined {
+function mergeVariables(value: unknown): { variables: Variable[] } | undefined {
   if (!Array.isArray(value)) {
     return undefined;
   }
@@ -240,7 +238,9 @@ export function mergeDatabaseFile(value: unknown): PersistedDatabase | null {
         ? { sessionToken: value.sessionToken }
         : undefined;
     const endpoint =
-      typeof value.endpoint === "string" ? { endpoint: value.endpoint } : undefined;
+      typeof value.endpoint === "string"
+        ? { endpoint: value.endpoint }
+        : undefined;
     return {
       kind: "database",
       id,

@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
-import { useState } from "react";
-import { render, screen, within, fireEvent } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
+import { describe, expect, it, vi } from "vitest";
 
 import { DataGrid } from "@/components/workspace/data-grid";
 
@@ -118,7 +118,9 @@ describe("grid copy SQL from context menu", () => {
     // Ada (index 0) is the initial selection; right-click Linus (index 1), an unselected row.
     fireEvent.contextMenu(rowFor("Linus"));
 
-    expect(within(document.body).queryByText(/copy sql \(\d+ rows\)/i)).toBeNull();
+    expect(
+      within(document.body).queryByText(/copy sql \(\d+ rows\)/i),
+    ).toBeNull();
     const item =
       screen.queryByRole("menuitem", { name: /^copy sql$/i }) ??
       screen.getByText("Copy SQL");

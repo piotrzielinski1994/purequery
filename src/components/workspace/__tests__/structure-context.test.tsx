@@ -1,14 +1,13 @@
-import { describe, it, expect } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import {
-  WorkspaceProvider,
-  useWorkspace,
-  useStructureView,
-} from "@/components/workspace/workspace-context";
-import { ViewsTab } from "@/components/workspace/views-tab";
+import { describe, expect, it } from "vitest";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { ViewsTab } from "@/components/workspace/views-tab";
+import {
+  useStructureView,
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 
 // Drives setDatabaseViews for db-scratch (which starts with no views) so the ViewsTab, rendered for
 // the same active database tab, reflects the populated catalog. Mirrors the connection-schema Probe.
@@ -38,7 +37,9 @@ function StructureToggleProbe() {
   const { isStructureView, toggleStructureView } = useStructureView();
   return (
     <div>
-      <span data-testid="structure-state">{isStructureView ? "on" : "off"}</span>
+      <span data-testid="structure-state">
+        {isStructureView ? "on" : "off"}
+      </span>
       <button type="button" onClick={() => toggleStructureView()}>
         toggle structure
       </button>

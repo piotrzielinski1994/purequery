@@ -1,4 +1,8 @@
-import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from "react";
+import {
+  type ComponentPropsWithoutRef,
+  forwardRef,
+  type ReactNode,
+} from "react";
 import { cn } from "@/lib/utils";
 
 // One shared tab strip used by every tabbed surface (open content tabs, the database card's
@@ -63,7 +67,16 @@ type TabProps = {
 } & ComponentPropsWithoutRef<"div">;
 
 export const Tab = forwardRef<HTMLDivElement, TabProps>(function Tab(
-  { isActive, onSelect, ariaLabel, children, trailing, labelClassName, className, ...rest },
+  {
+    isActive,
+    onSelect,
+    ariaLabel,
+    children,
+    trailing,
+    labelClassName,
+    className,
+    ...rest
+  },
   ref,
 ) {
   return (
@@ -90,7 +103,9 @@ export const Tab = forwardRef<HTMLDivElement, TabProps>(function Tab(
         className={cn(
           "flex h-full items-center gap-1.5 truncate px-3 text-sm",
           trailing ? "pr-1" : "",
-          isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+          isActive
+            ? "text-foreground"
+            : "text-muted-foreground hover:text-foreground",
           labelClassName,
         )}
       >

@@ -1,16 +1,15 @@
-import { describe, it, expect } from "vitest";
-
-// Imported even though it does not exist yet: the test must fail on the missing
-// module, not on a typo. Once move.ts ships, these assertions pin the immutable
-// tree move (AC-001..AC-006, AC-012; edge cases E-1..E-6). purequery node kinds are
-// folder / database / table; only folder is a container, a database is NOT.
-import { moveNode } from "@/lib/workspace/move";
+import { describe, expect, it } from "vitest";
 import type {
   DatabaseNode,
   FolderNode,
   TableNode,
   TreeNode,
 } from "@/lib/workspace/model";
+// Imported even though it does not exist yet: the test must fail on the missing
+// module, not on a typo. Once move.ts ships, these assertions pin the immutable
+// tree move (AC-001..AC-006, AC-012; edge cases E-1..E-6). purequery node kinds are
+// folder / database / table; only folder is a container, a database is NOT.
+import { moveNode } from "@/lib/workspace/move";
 
 const database = (id: string, name = id): DatabaseNode => ({
   kind: "database",
@@ -172,11 +171,7 @@ describe("moveNode reordering siblings (AC-003)", () => {
 
     const result = moveNode(tree, "c3", { parentId: "f1", index: 0 });
 
-    expect(ids(findFolder(result, "f1").children)).toEqual([
-      "c3",
-      "c1",
-      "c2",
-    ]);
+    expect(ids(findFolder(result, "f1").children)).toEqual(["c3", "c1", "c2"]);
   });
 
   // AC-003, E-5 - behavior: clamp an out-of-range index to the end.
@@ -192,10 +187,7 @@ describe("moveNode reordering siblings (AC-003)", () => {
 describe("moveNode illegal moves (AC-005, AC-006)", () => {
   // AC-005, E-2, TC-005 - behavior: a folder dropped into itself is rejected.
   it("should return the original tree unchanged if a folder is dropped into itself", () => {
-    const tree: TreeNode[] = [
-      folder("f1", [database("c1")]),
-      database("r1"),
-    ];
+    const tree: TreeNode[] = [folder("f1", [database("c1")]), database("r1")];
 
     const result = moveNode(tree, "f1", { parentId: "f1", index: 0 });
 
@@ -265,11 +257,7 @@ describe("moveNode illegal moves (AC-005, AC-006)", () => {
 describe("moveNode no-op (AC-012, E-6)", () => {
   // AC-012, E-6, TC-009 - behavior: dropping a node where it already sits is a no-op.
   it("should return a value-equal tree if a root node is dropped at its own location", () => {
-    const tree: TreeNode[] = [
-      database("a"),
-      database("b"),
-      database("c"),
-    ];
+    const tree: TreeNode[] = [database("a"), database("b"), database("c")];
 
     // dropTarget compensates the same-parent shift, so "stay put" arrives as
     // index 1 for the node already at index 1.
@@ -297,10 +285,7 @@ describe("moveNode purity", () => {
   // side-effect-contract: a reparented folder subtree's objects are not mutated.
   it("should not mutate the input tree if a folder subtree is reparented", () => {
     const tree: TreeNode[] = [
-      folder("src", [
-        database("inner"),
-        folder("nested", [database("deep")]),
-      ]),
+      folder("src", [database("inner"), folder("nested", [database("deep")])]),
       folder("dst", []),
     ];
     const snapshot = structuredClone(tree);

@@ -1,5 +1,10 @@
-import { describe, it, expect } from "vitest";
-
+import { describe, expect, it } from "vitest";
+import type {
+  DatabaseNode,
+  FolderNode,
+  TableNode,
+  TreeNode,
+} from "@/lib/workspace/model";
 // Imported before the module exists so the first RED run fails on the missing
 // module, not a typo. buildQuickOpenEntries flattens the tree to one entry per
 // folder + database (+ one per LOADED table of a database); scoreQuickOpen ranks
@@ -8,21 +13,12 @@ import { describe, it, expect } from "vitest";
 import {
   buildQuickOpenEntries,
   filterQuickOpen,
+  type QuickOpenEntry,
   quickOpenTarget,
   scoreQuickOpen,
-  type QuickOpenEntry,
 } from "@/lib/workspace/quick-open";
-import type {
-  DatabaseNode,
-  FolderNode,
-  TableNode,
-  TreeNode,
-} from "@/lib/workspace/model";
 
-const database = (
-  id: string,
-  tables: TableNode[] = [],
-): DatabaseNode => ({
+const database = (id: string, tables: TableNode[] = []): DatabaseNode => ({
   kind: "database",
   id,
   name: id,
@@ -75,7 +71,10 @@ describe("buildQuickOpenEntries", () => {
   it("should emit folder + database entries plus loaded-table entries but skip a disconnected database's tables", () => {
     const tree: TreeNode[] = [
       folder("prod", []),
-      database("dev", [table("dev::::users", "users"), table("dev::::orders", "orders")]),
+      database("dev", [
+        table("dev::::users", "users"),
+        table("dev::::orders", "orders"),
+      ]),
       database("stg", []),
     ];
 

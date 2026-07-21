@@ -1,24 +1,24 @@
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useLayoutEffect,
   useMemo,
   useState,
-  type ReactNode,
 } from "react";
 import { toast } from "sonner";
-import { useSettings } from "@/lib/settings/settings-context";
 import type { ThemeColors, ThemeMode } from "@/lib/settings/settings";
-import {
-  resolveEffectiveMode,
-  type EffectiveMode,
-} from "@/lib/theme/effective-mode";
-import { applyDefaults } from "@/lib/theme/overrides";
+import { useSettings } from "@/lib/settings/settings-context";
 import { applyThemeVars } from "@/lib/theme/apply-vars";
 import { cycleThemeMode } from "@/lib/theme/cycle-mode";
-import { themeToggleMessage } from "@/lib/theme/toggle-message";
+import {
+  type EffectiveMode,
+  resolveEffectiveMode,
+} from "@/lib/theme/effective-mode";
+import { applyDefaults } from "@/lib/theme/overrides";
 import { DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
+import { themeToggleMessage } from "@/lib/theme/toggle-message";
 
 type ThemeContextValue = {
   mode: ThemeMode;

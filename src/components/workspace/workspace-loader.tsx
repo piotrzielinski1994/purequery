@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
-import { useSettings } from "@/lib/settings/settings-context";
-import type { Settings } from "@/lib/settings/settings";
-import { deserialize, serialize } from "@/lib/workspace/disk-format";
-import type { WorkspaceFs } from "@/lib/workspace/fs";
-import type { FolderPicker } from "@/lib/workspace/folder-picker";
-import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import { matchesAny } from "@/lib/shortcuts/match-hotkey";
-import type { TreeNode } from "@/lib/workspace/model";
-import type { LogStream } from "@/lib/logging/log-stream";
 import { logMessage } from "@/lib/logging/file-log";
+import type { LogStream } from "@/lib/logging/log-stream";
+import type { Settings } from "@/lib/settings/settings";
+import { useSettings } from "@/lib/settings/settings-context";
+import { matchesAny } from "@/lib/shortcuts/match-hotkey";
+import { resolveShortcuts } from "@/lib/shortcuts/resolve";
+import { deserialize, serialize } from "@/lib/workspace/disk-format";
+import type { FolderPicker } from "@/lib/workspace/folder-picker";
+import type { WorkspaceFs } from "@/lib/workspace/fs";
+import type { TreeNode } from "@/lib/workspace/model";
 
 type LoadState =
   | { status: "loading" }
@@ -123,7 +123,11 @@ export function WorkspaceLoader({
     (
       next: Omit<
         Settings,
-        "theme" | "shortcuts" | "windowFullscreen" | "rowLimit" | "workspacePath"
+        | "theme"
+        | "shortcuts"
+        | "windowFullscreen"
+        | "rowLimit"
+        | "workspacePath"
       >,
     ) => saveChrome(next),
     [saveChrome],

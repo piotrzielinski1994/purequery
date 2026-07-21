@@ -1,8 +1,8 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
 import { SettingsTab } from "@/components/workspace/settings-tab";
 import { SidebarTree } from "@/components/workspace/sidebar-tree";
@@ -14,7 +14,6 @@ import type {
   QueryResult,
   TreeNode,
 } from "@/lib/workspace/model";
-import { toast } from "sonner";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(),
@@ -79,9 +78,7 @@ describe("SettingsTab", () => {
   // AC-001 - behavior (form controls present)
   it("should render an engine selector, host/port/database/user/password inputs and a Connect button", () => {
     renderSettings();
-    expect(
-      screen.getByRole("combobox", { name: /type/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /type/i })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /host/i })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /port/i })).toBeInTheDocument();
     expect(
@@ -99,9 +96,9 @@ describe("SettingsTab", () => {
   // AC-002, AC-001 - behavior (engine selector shows the node's engine)
   it("should show the active database's engine in the selector trigger", () => {
     renderSettings();
-    expect(
-      screen.getByRole("combobox", { name: /type/i }),
-    ).toHaveTextContent(/postgres/i);
+    expect(screen.getByRole("combobox", { name: /type/i })).toHaveTextContent(
+      /postgres/i,
+    );
   });
 
   // AC-002 - behavior (form seeded from active node)
@@ -740,9 +737,9 @@ describe("SettingsTab MongoDB engine (TC-001, TC-002)", () => {
   // TC-001, AC-001 - behavior (the engine selector shows MongoDB)
   it("should show MongoDB in the engine selector for a mongodb node", () => {
     renderMongoSettings();
-    expect(
-      screen.getByRole("combobox", { name: /type/i }),
-    ).toHaveTextContent(/mongodb/i);
+    expect(screen.getByRole("combobox", { name: /type/i })).toHaveTextContent(
+      /mongodb/i,
+    );
   });
 
   // TC-002, AC-002 - behavior (Connect sends the mongodb engine + fields + uri to the backend)
@@ -862,9 +859,9 @@ describe("SettingsTab SQL Server engine (TC-001)", () => {
   // TC-001, AC-001 - behavior (the engine selector shows SQL Server)
   it("should show SQL Server in the engine selector for a sqlserver node", () => {
     renderMssqlSettings();
-    expect(
-      screen.getByRole("combobox", { name: /type/i }),
-    ).toHaveTextContent(/sql server/i);
+    expect(screen.getByRole("combobox", { name: /type/i })).toHaveTextContent(
+      /sql server/i,
+    );
   });
 
   // TC-001, AC-002 - behavior (host+database+user set -> Connect enabled)
@@ -943,9 +940,7 @@ function dynamoNode(overrides?: {
   };
 }
 
-function renderDynamoSettings(
-  overrides?: Parameters<typeof dynamoNode>[0],
-) {
+function renderDynamoSettings(overrides?: Parameters<typeof dynamoNode>[0]) {
   const tree: TreeNode[] = [dynamoNode(overrides)];
   return render(
     <WorkspaceProvider tree={tree} initialActiveTabId="db-dynamo">
@@ -1001,9 +996,9 @@ describe("SettingsTab DynamoDB engine (TC-001, TC-013)", () => {
   // TC-001, AC-001 - behavior (the engine selector shows DynamoDB)
   it("should show DynamoDB in the engine selector for a dynamodb node", () => {
     renderDynamoSettings();
-    expect(
-      screen.getByRole("combobox", { name: /type/i }),
-    ).toHaveTextContent(/dynamodb/i);
+    expect(screen.getByRole("combobox", { name: /type/i })).toHaveTextContent(
+      /dynamodb/i,
+    );
   });
 
   // TC-001, AC-002 - behavior (the region seeds from the node)

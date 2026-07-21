@@ -1,11 +1,10 @@
-import { describe, it, expect } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { SettingsProvider } from "@/lib/settings/settings-context";
+import { describe, expect, it } from "vitest";
+import { RowLimitSection } from "@/components/settings/row-limit-section";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings/settings";
-import { RowLimitSection } from "@/components/settings/row-limit-section";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 
 function renderSection(rowLimit = DEFAULT_SETTINGS.rowLimit) {
   const seeded: Settings = { ...DEFAULT_SETTINGS, rowLimit };

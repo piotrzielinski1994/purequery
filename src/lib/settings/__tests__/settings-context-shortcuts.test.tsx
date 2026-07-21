@@ -1,13 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import {
-  SettingsProvider,
-  useSettings,
-} from "@/lib/settings/settings-context";
+import { describe, expect, it, vi } from "vitest";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import type { SettingsStore } from "@/lib/settings/settings";
+import { SettingsProvider, useSettings } from "@/lib/settings/settings-context";
 import type { ShortcutActionId } from "@/lib/shortcuts/registry";
 
 // The C-slice shortcut actions REPLACE the old single saveShortcut: addShortcut

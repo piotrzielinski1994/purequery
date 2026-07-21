@@ -1,10 +1,9 @@
-import { describe, it, expect } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-
-import { QueryWrapper } from "@/test/query-wrapper";
+import { describe, expect, it } from "vitest";
+import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
-import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { QueryWrapper } from "@/test/query-wrapper";
 
 const COMMAND = "Generate mock data";
 

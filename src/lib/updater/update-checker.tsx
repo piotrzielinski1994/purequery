@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import type { UpdateController } from "@/lib/updater/update-controller";
 import { showUpdateToast } from "@/lib/updater/show-update-toast";
+import type { UpdateController } from "@/lib/updater/update-controller";
 
 export function UpdateChecker({
   controller,

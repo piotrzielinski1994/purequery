@@ -1,17 +1,20 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { QueryWrapper } from "@/test/query-wrapper";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceLoader } from "@/components/workspace/workspace-loader";
-import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
-import { createInMemoryWorkspaceFs } from "@/lib/workspace/in-memory-fs";
-import { createNoopFolderPicker } from "@/lib/workspace/folder-picker";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 import { serialize } from "@/lib/workspace/disk-format";
 import type { FolderPicker } from "@/lib/workspace/folder-picker";
-import type { DatabaseNode, QueryResult, TreeNode } from "@/lib/workspace/model";
+import { createNoopFolderPicker } from "@/lib/workspace/folder-picker";
+import { createInMemoryWorkspaceFs } from "@/lib/workspace/in-memory-fs";
+import type {
+  DatabaseNode,
+  QueryResult,
+  TreeNode,
+} from "@/lib/workspace/model";
+import { QueryWrapper } from "@/test/query-wrapper";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(() => Promise.resolve({ tables: [], views: [] })),

@@ -1,24 +1,24 @@
 import { useEffect, useRef } from "react";
-import { cn } from "@/lib/utils";
-import { Tab, TabBar } from "@/components/workspace/tab-bar";
-import { SqlTab } from "@/components/workspace/sql-tab";
-import { ViewsTab } from "@/components/workspace/views-tab";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { ObjectTab } from "@/components/workspace/object-tab";
 import { ScriptTab } from "@/components/workspace/script-tab";
-import { VariablesTab } from "@/components/workspace/variables-tab";
 import { SettingsTab } from "@/components/workspace/settings-tab";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  useWorkspace,
-  type DatabaseTab,
-} from "@/components/workspace/workspace-context";
+import { SqlTab } from "@/components/workspace/sql-tab";
+import { Tab, TabBar } from "@/components/workspace/tab-bar";
 import { useConnectionActions } from "@/components/workspace/use-connection";
-import { objectTabsFor } from "@/lib/workspace/object-tabs";
+import { VariablesTab } from "@/components/workspace/variables-tab";
+import { ViewsTab } from "@/components/workspace/views-tab";
+import {
+  type DatabaseTab,
+  useWorkspace,
+} from "@/components/workspace/workspace-context";
+import { cn } from "@/lib/utils";
 import {
   connectionOf,
   type DbEngine,
   type ObjectKind,
 } from "@/lib/workspace/model";
+import { objectTabsFor } from "@/lib/workspace/object-tabs";
 
 type Section = { id: DatabaseTab; label: string; objectKind?: ObjectKind };
 
@@ -63,7 +63,7 @@ export function DatabaseCard() {
   const { activeNode, activeDatabaseTab, setDatabaseTab } = useWorkspace();
   useAutoConnect();
 
-  if (!activeNode || activeNode.kind !== "database") {
+  if (activeNode?.kind !== "database") {
     return null;
   }
 

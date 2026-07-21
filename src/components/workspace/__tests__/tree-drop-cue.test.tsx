@@ -1,18 +1,17 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
 import { DndContext } from "@dnd-kit/core";
+import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { TreeRow } from "@/components/workspace/tree-row";
+import { describe, expect, it, vi } from "vitest";
+import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { DeleteRequestProvider } from "@/components/workspace/delete-request-context";
 import {
   TreeDndProvider,
   type TreeDndState,
 } from "@/components/workspace/tree-dnd";
-import { DeleteRequestProvider } from "@/components/workspace/delete-request-context";
-import { emptyZoneId } from "@/lib/workspace/tree-locate";
-import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { TreeRow } from "@/components/workspace/tree-row";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import type { TreeNode } from "@/lib/workspace/model";
+import { emptyZoneId } from "@/lib/workspace/tree-locate";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(),

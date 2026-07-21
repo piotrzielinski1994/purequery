@@ -1,60 +1,57 @@
-import { useMemo } from "react";
-import { createRoot } from "react-dom/client";
-import { Copy, PencilLine } from "lucide-react";
-import CodeMirror, { type BasicSetupOptions } from "@uiw/react-codemirror";
-import {
-  Decoration,
-  type DecorationSet,
-  EditorView,
-  MatchDecorator,
-  ViewPlugin,
-  type ViewUpdate,
-  hoverTooltip,
-  keymap,
-  placeholder as cmPlaceholder,
-  tooltips,
-} from "@codemirror/view";
-import { toast } from "sonner";
-import {
-  EditorState,
-  Prec,
-  type Extension,
-  type Transaction,
-} from "@codemirror/state";
-import {
-  PostgreSQL,
-  MySQL,
-  SQLite,
-  MSSQL,
-  StandardSQL,
-  schemaCompletionSource,
-} from "@codemirror/lang-sql";
-import { json as jsonLanguage } from "@codemirror/lang-json";
-import {
-  LanguageSupport,
-  syntaxHighlighting,
-} from "@codemirror/language";
 import {
   autocompletion,
-  completeFromList,
   type Completion,
   type CompletionContext,
   type CompletionSource,
+  completeFromList,
 } from "@codemirror/autocomplete";
-import { classHighlighter } from "@lezer/highlight";
+import { json as jsonLanguage } from "@codemirror/lang-json";
 import {
+  MSSQL,
+  MySQL,
+  PostgreSQL,
+  SQLite,
+  StandardSQL,
+  schemaCompletionSource,
+} from "@codemirror/lang-sql";
+import { LanguageSupport, syntaxHighlighting } from "@codemirror/language";
+import {
+  EditorState,
+  type Extension,
+  Prec,
+  type Transaction,
+} from "@codemirror/state";
+import {
+  placeholder as cmPlaceholder,
+  Decoration,
+  type DecorationSet,
+  EditorView,
+  hoverTooltip,
+  keymap,
+  MatchDecorator,
+  tooltips,
+  ViewPlugin,
+  type ViewUpdate,
+} from "@codemirror/view";
+import { classHighlighter } from "@lezer/highlight";
+import CodeMirror, { type BasicSetupOptions } from "@uiw/react-codemirror";
+import { Copy, PencilLine } from "lucide-react";
+import { useMemo } from "react";
+import { createRoot } from "react-dom/client";
+import { toast } from "sonner";
+import { editorFind } from "@/components/workspace/editor-find";
+import {
+  type EditorColors,
   makeSqlChrome,
   makeSqlHighlight,
-  type EditorColors,
 } from "@/components/workspace/sql-editor-theme";
-import { useThemeOptional } from "@/lib/theme/theme-context";
-import { applyDefaults } from "@/lib/theme/overrides";
-import { DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
-import { useSettingsOptional } from "@/lib/settings/settings-context";
 import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
+import { useSettingsOptional } from "@/lib/settings/settings-context";
 import { resolveShortcuts } from "@/lib/shortcuts/resolve";
 import { toCodeMirrorKey } from "@/lib/shortcuts/to-codemirror-key";
-import { editorFind } from "@/components/workspace/editor-find";
+import { applyDefaults } from "@/lib/theme/overrides";
+import { useThemeOptional } from "@/lib/theme/theme-context";
+import { DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
 import type { DbEngine, TableSchema, Variable } from "@/lib/workspace/model";
 
 const dialects = {
@@ -188,14 +185,64 @@ function actionButton(
 // noise; this is the relevant subset. Fuzzy matching is case-insensitive, so typing `sel` still
 // finds SELECT.
 const SQL_KEYWORDS = [
-  "SELECT", "FROM", "WHERE", "AND", "OR", "NOT", "NULL", "IS", "IN", "LIKE",
-  "BETWEEN", "EXISTS", "AS", "DISTINCT", "ORDER BY", "GROUP BY", "HAVING",
-  "LIMIT", "OFFSET", "ASC", "DESC", "JOIN", "INNER JOIN", "LEFT JOIN",
-  "RIGHT JOIN", "FULL JOIN", "ON", "USING", "UNION", "UNION ALL", "INTERSECT",
-  "EXCEPT", "INSERT INTO", "VALUES", "UPDATE", "SET", "DELETE FROM", "RETURNING",
-  "CREATE TABLE", "ALTER TABLE", "DROP TABLE", "TRUNCATE", "CASE", "WHEN",
-  "THEN", "ELSE", "END", "COUNT", "SUM", "AVG", "MIN", "MAX", "COALESCE",
-  "CAST", "TRUE", "FALSE", "WITH", "INTO",
+  "SELECT",
+  "FROM",
+  "WHERE",
+  "AND",
+  "OR",
+  "NOT",
+  "NULL",
+  "IS",
+  "IN",
+  "LIKE",
+  "BETWEEN",
+  "EXISTS",
+  "AS",
+  "DISTINCT",
+  "ORDER BY",
+  "GROUP BY",
+  "HAVING",
+  "LIMIT",
+  "OFFSET",
+  "ASC",
+  "DESC",
+  "JOIN",
+  "INNER JOIN",
+  "LEFT JOIN",
+  "RIGHT JOIN",
+  "FULL JOIN",
+  "ON",
+  "USING",
+  "UNION",
+  "UNION ALL",
+  "INTERSECT",
+  "EXCEPT",
+  "INSERT INTO",
+  "VALUES",
+  "UPDATE",
+  "SET",
+  "DELETE FROM",
+  "RETURNING",
+  "CREATE TABLE",
+  "ALTER TABLE",
+  "DROP TABLE",
+  "TRUNCATE",
+  "CASE",
+  "WHEN",
+  "THEN",
+  "ELSE",
+  "END",
+  "COUNT",
+  "SUM",
+  "AVG",
+  "MIN",
+  "MAX",
+  "COALESCE",
+  "CAST",
+  "TRUE",
+  "FALSE",
+  "WITH",
+  "INTO",
 ];
 
 // Keyword completions, suppressed in a qualified-column context (after `table.`) so column names
@@ -244,7 +291,9 @@ function columnsInScopeSource(schema: TableSchema[]): CompletionSource {
       .flatMap((ref) => {
         const [maybeSchema, maybeTable] = ref.split(".");
         const table = maybeTable
-          ? schema.find((t) => t.schema === maybeSchema && t.name === maybeTable)
+          ? schema.find(
+              (t) => t.schema === maybeSchema && t.name === maybeTable,
+            )
           : schema.find((t) => t.name === ref);
         return table?.columns ?? [];
       })
@@ -361,7 +410,8 @@ function variableCompletionSource(variables: Variable[]): CompletionSource {
       return null;
     }
     const leading = /^\{\{\s*/.exec(open.text)?.[0].length ?? 2;
-    const hasClose = context.state.sliceDoc(context.pos, context.pos + 2) === "}}";
+    const hasClose =
+      context.state.sliceDoc(context.pos, context.pos + 2) === "}}";
     return {
       from: open.from + leading,
       options: variables.map((variable) => ({
@@ -426,7 +476,9 @@ function buildSqlLanguage(
       dialect.language.data.of({ autocomplete }),
     ),
     dialect.language.data.of({ autocomplete: keywordSource }),
-    dialect.language.data.of({ autocomplete: variableCompletionSource(variables) }),
+    dialect.language.data.of({
+      autocomplete: variableCompletionSource(variables),
+    }),
   ]);
 }
 
@@ -463,7 +515,8 @@ function buildNamespace(
   const nested: Record<string, Record<string, string[]>> = {};
   for (const table of schema) {
     const schemaName = table.schema ?? builtinDefault;
-    (nested[schemaName] ??= {})[table.name] = table.columns.map((c) => c.name);
+    nested[schemaName] ??= {};
+    nested[schemaName][table.name] = table.columns.map((c) => c.name);
   }
   const preferred =
     pinnedSchema && pinnedSchema in nested ? pinnedSchema : undefined;
@@ -586,9 +639,9 @@ export function SqlEditor({
     // (the filter card already targets a single table; schema-qualified collisions don't surface
     // here since the editor is scoped to that one table's columns).
     const defaultTableColumns = defaultTable
-      ? (schema.find((table) => table.name === defaultTable)?.columns ?? []).map(
-          (c) => c.name,
-        )
+      ? (
+          schema.find((table) => table.name === defaultTable)?.columns ?? []
+        ).map((c) => c.name)
       : undefined;
     const submitKey = runKey;
     return [

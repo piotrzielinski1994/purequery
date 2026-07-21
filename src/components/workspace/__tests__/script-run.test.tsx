@@ -1,15 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within, act } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { ScriptTab } from "@/components/workspace/script-tab";
-import { Console } from "@/components/workspace/console";
-import { executeMongo, executeSql } from "@/lib/tauri";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Console } from "@/components/workspace/console";
+import { ScriptTab } from "@/components/workspace/script-tab";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import type { ScriptRunner } from "@/lib/script/runner";
-import type { ConnectionConfig, DatabaseNode, TreeNode } from "@/lib/workspace/model";
+import { executeMongo, executeSql } from "@/lib/tauri";
+import type {
+  ConnectionConfig,
+  DatabaseNode,
+  TreeNode,
+} from "@/lib/workspace/model";
 
 vi.mock("@/lib/tauri", () => ({
   executeSql: vi.fn(() => Promise.resolve([])),
@@ -154,7 +157,9 @@ describe("ScriptTab connection gating", () => {
     renderScript({ connected: false });
 
     expect(screen.getByRole("button", { name: /^run$/i })).toBeDisabled();
-    expect(screen.getByText(/connect first \(settings tab\)/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/connect first \(settings tab\)/i),
+    ).toBeInTheDocument();
   });
 
   // AC-008 - behavior (Run enabled once connected)
@@ -387,9 +392,7 @@ describe("ScriptTab db API routes to the backend (AC-004)", () => {
   // reply, never left unresolved - a rejected reply would deadlock the worker's await)
   it("should return an error reply (not hang) when executeSql rejects", async () => {
     const user = userEvent.setup();
-    mockExecuteSql.mockRejectedValueOnce(
-      new Error('syntax error near "name"'),
-    );
+    mockExecuteSql.mockRejectedValueOnce(new Error('syntax error near "name"'));
     const { state } = renderScript({ connected: true });
 
     await user.click(screen.getByRole("button", { name: /^run$/i }));

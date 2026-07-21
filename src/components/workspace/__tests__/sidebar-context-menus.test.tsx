@@ -1,12 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { SidebarTree } from "@/components/workspace/sidebar-tree";
-import { ContentHeader } from "@/components/workspace/content-header";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { ContentHeader } from "@/components/workspace/content-header";
+import { SidebarTree } from "@/components/workspace/sidebar-tree";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(),
@@ -40,9 +39,7 @@ function renderTree(opts?: {
 }
 
 function menuItem(name: RegExp | string) {
-  return (
-    screen.queryByRole("menuitem", { name }) ?? screen.getByText(name)
-  );
+  return screen.queryByRole("menuitem", { name }) ?? screen.getByText(name);
 }
 
 describe("sidebar empty-area context menu", () => {
@@ -150,9 +147,7 @@ describe("folder row context menu", () => {
     expect(
       screen.getByRole("treeitem", { name: "staging" }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("treeitem", { name: "discarded" }),
-    ).toBeNull();
+    expect(screen.queryByRole("treeitem", { name: "discarded" })).toBeNull();
   });
 
   // behavior: committing an empty/blank name is ignored - the row keeps its prior name.

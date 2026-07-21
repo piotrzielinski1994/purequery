@@ -1,19 +1,18 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-
-import { QueryWrapper } from "@/test/query-wrapper";
-import { SettingsProvider } from "@/lib/settings/settings-context";
-import { ThemeProvider } from "@/lib/theme/theme-context";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceLoader } from "@/components/workspace/workspace-loader";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
-import { createInMemoryWorkspaceFs } from "@/lib/workspace/in-memory-fs";
-import { createNoopFolderPicker } from "@/lib/workspace/folder-picker";
-import { serialize } from "@/lib/workspace/disk-format";
 import {
   DEFAULT_SETTINGS,
   type Settings,
   type ThemeColors,
 } from "@/lib/settings/settings";
+import { SettingsProvider } from "@/lib/settings/settings-context";
+import { ThemeProvider } from "@/lib/theme/theme-context";
+import { serialize } from "@/lib/workspace/disk-format";
+import { createNoopFolderPicker } from "@/lib/workspace/folder-picker";
+import { createInMemoryWorkspaceFs } from "@/lib/workspace/in-memory-fs";
+import { QueryWrapper } from "@/test/query-wrapper";
 
 // Regression: the workspace loader's onPersist (persistChrome) must FOLD the current theme back into
 // every UI-chrome write, so toggling the sidebar/console doesn't clobber theme.colors to a theme-less
@@ -26,7 +25,10 @@ vi.mock("@/lib/tauri", () => ({
   disconnectDatabase: vi.fn(),
 }));
 
-vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }), Toaster: () => null }));
+vi.mock("sonner", () => ({
+  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
+  Toaster: () => null,
+}));
 
 function stubMatchMedia() {
   window.matchMedia = ((query: string) => ({
@@ -89,7 +91,9 @@ describe("HomePage chrome persist preserves theme", () => {
       const last = saved.at(-1);
       expect(last).toBeDefined();
       // the chrome change landed AND the theme colors survived the write.
-      expect(last!.theme.colors.light.tokens.primary).toBe("oklch(0.55 0.22 27)");
+      expect(last!.theme.colors.light.tokens.primary).toBe(
+        "oklch(0.55 0.22 27)",
+      );
     });
   });
 });

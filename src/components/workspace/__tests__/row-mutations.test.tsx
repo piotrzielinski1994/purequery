@@ -1,19 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  fireEvent,
   render,
   screen,
   waitFor,
   within,
-  fireEvent,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { TableCard } from "@/components/workspace/table-card";
-import { Console } from "@/components/workspace/console";
 import { toast } from "sonner";
-import { fetchTable, countTable, applyRowMutations } from "@/lib/tauri";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Console } from "@/components/workspace/console";
+import { TableCard } from "@/components/workspace/table-card";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { applyRowMutations, countTable, fetchTable } from "@/lib/tauri";
 import type {
   ConnectionConfig,
   TableColumn,
@@ -213,9 +212,7 @@ describe("Row mutations - clone (AC-002, TC-002)", () => {
     const sourceRow = gridRows()[0];
     fireEvent.contextMenu(sourceRow);
 
-    await user.click(
-      await screen.findByRole("menuitem", { name: /clone/i }),
-    );
+    await user.click(await screen.findByRole("menuitem", { name: /clone/i }));
 
     await waitFor(() => {
       expect(gridRows()).toHaveLength(2);

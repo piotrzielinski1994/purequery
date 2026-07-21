@@ -1,12 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { EditorView } from "@codemirror/view";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { EditorView } from "@codemirror/view";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { SqlTab } from "@/components/workspace/sql-tab";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ContentHeader } from "@/components/workspace/content-header";
+import { SqlTab } from "@/components/workspace/sql-tab";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { beginTransaction, executeSql } from "@/lib/tauri";
 import type { ConnectionConfig, TreeNode } from "@/lib/workspace/model";
 
@@ -24,7 +23,12 @@ vi.mock("@/lib/tauri", () => ({
 }));
 
 vi.mock("sonner", () => ({
-  toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), dismiss: vi.fn() },
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    dismiss: vi.fn(),
+  },
 }));
 
 const mockBegin = vi.mocked(beginTransaction);
@@ -220,7 +224,9 @@ describe("Manual-commit Commit modal shows the transaction statements (AC-008)",
     // The first write fails (e.g. constraint violation aborts the tx); a later successful write is
     // the only one that should show.
     mockExecute
-      .mockRejectedValueOnce(new Error("duplicate key value violates unique constraint"))
+      .mockRejectedValueOnce(
+        new Error("duplicate key value violates unique constraint"),
+      )
       .mockResolvedValueOnce([
         {
           statement: "",

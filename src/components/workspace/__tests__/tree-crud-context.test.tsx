@@ -1,12 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
+import { describe, expect, it, vi } from "vitest";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import {
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 import { findNode } from "@/lib/workspace/tree-edit";
 
 vi.mock("@/lib/tauri", () => ({
@@ -49,7 +48,10 @@ function Probe() {
       <button type="button" onClick={() => createFolder("folder-staging")}>
         add folder inside staging
       </button>
-      <button type="button" onClick={() => renameNode("folder-staging", "prod-eu")}>
+      <button
+        type="button"
+        onClick={() => renameNode("folder-staging", "prod-eu")}
+      >
         rename staging
       </button>
       <button type="button" onClick={() => closeOtherTabs("db-admin")}>
@@ -70,7 +72,9 @@ describe("WorkspaceProvider tree CRUD actions", () => {
     );
 
     const before = screen.getByTestId("staging-children").textContent ?? "";
-    await user.click(screen.getByRole("button", { name: /add db inside staging/i }));
+    await user.click(
+      screen.getByRole("button", { name: /add db inside staging/i }),
+    );
 
     await waitFor(() => {
       const after = screen.getByTestId("staging-children").textContent ?? "";

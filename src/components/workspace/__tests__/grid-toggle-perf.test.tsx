@@ -1,22 +1,25 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { useCallback, useEffect, type ReactNode } from "react";
-import { render, screen, waitFor, act } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { EditorView } from "@codemirror/view";
-
-import {
-  WorkspaceProvider,
-  useChrome,
-} from "@/components/workspace/workspace-context";
-import { TableCard } from "@/components/workspace/table-card";
-import { SqlTab } from "@/components/workspace/sql-tab";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { type ReactNode, useCallback, useEffect } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { __dataGridRenderCount } from "@/components/workspace/data-grid";
-import { SettingsProvider, useSettings } from "@/lib/settings/settings-context";
+import { SqlTab } from "@/components/workspace/sql-tab";
+import { TableCard } from "@/components/workspace/table-card";
+import {
+  useChrome,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings/settings";
-import { fetchTable, countTable, executeSql } from "@/lib/tauri";
-import type { ConnectionConfig, TableRows, TreeNode } from "@/lib/workspace/model";
+import { SettingsProvider, useSettings } from "@/lib/settings/settings-context";
+import { countTable, executeSql, fetchTable } from "@/lib/tauri";
+import type {
+  ConnectionConfig,
+  TableRows,
+  TreeNode,
+} from "@/lib/workspace/model";
 
 vi.mock("@/lib/tauri", () => ({
   fetchTable: vi.fn(),
@@ -108,8 +111,12 @@ function Harness({
   const theme = settings.theme;
   const shortcuts = settings.shortcuts;
   const onPersist = useCallback(
-    (next: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen" | "rowLimit">) =>
-      persist({ ...next, theme, shortcuts } as Settings),
+    (
+      next: Omit<
+        Settings,
+        "theme" | "shortcuts" | "windowFullscreen" | "rowLimit"
+      >,
+    ) => persist({ ...next, theme, shortcuts } as Settings),
     [persist, theme, shortcuts],
   );
   return (
@@ -175,14 +182,20 @@ describe("grid does not re-render on a chrome toggle", () => {
       {
         statement: "stmt",
         columns: ["id", "name"],
-        rows: Array.from({ length: 50 }, (_, i) => [String(i + 1), `n${i + 1}`]),
+        rows: Array.from({ length: 50 }, (_, i) => [
+          String(i + 1),
+          `n${i + 1}`,
+        ]),
         rowsAffected: 50,
         returnsRows: true,
         message: "SELECT 50",
       },
     ]);
     const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
     });
     const store = createInMemorySettingsStore(DEFAULT_SETTINGS as Settings);
     const { container } = render(

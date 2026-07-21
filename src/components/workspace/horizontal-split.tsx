@@ -1,6 +1,6 @@
-import { useCallback, useRef, useState, type ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import { type ReactNode, useCallback, useRef, useState } from "react";
 import type { SplitOrientation } from "@/components/workspace/workspace-context";
+import { cn } from "@/lib/utils";
 
 // A two-pane split with a draggable divider, either side-by-side ("horizontal") or
 // stacked ("vertical"). Hand-rolled (not react-resizable-panels) because that library's
@@ -68,7 +68,11 @@ export function HorizontalSplit({
   return (
     <div
       ref={containerRef}
-      className={cn("flex min-h-0", isVertical ? "flex-col" : "w-full", className)}
+      className={cn(
+        "flex min-h-0",
+        isVertical ? "flex-col" : "w-full",
+        className,
+      )}
     >
       <div
         className={cn("overflow-hidden", isVertical ? "min-h-0" : "min-w-0")}
@@ -88,7 +92,12 @@ export function HorizontalSplit({
             : "w-px cursor-col-resize after:absolute after:inset-y-0 after:left-1/2 after:w-2 after:-translate-x-1/2",
         )}
       />
-      <div className={cn("flex-1 overflow-hidden", isVertical ? "min-h-0" : "min-w-0")}>
+      <div
+        className={cn(
+          "flex-1 overflow-hidden",
+          isVertical ? "min-h-0" : "min-w-0",
+        )}
+      >
         {right}
       </div>
     </div>

@@ -1,11 +1,10 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { EditorView } from "@codemirror/view";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { SqlTab } from "@/components/workspace/sql-tab";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { SqlTab } from "@/components/workspace/sql-tab";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 
 function liveView(container: HTMLElement): EditorView {
   const editorEl = container.querySelector<HTMLElement>(".cm-editor");

@@ -123,7 +123,10 @@ function uuid(rng: () => number): string {
 export function autoStrategy(column: ColumnMetaInput): MockColumnConfig {
   const name = column.name.toLowerCase();
   const type = column.dataType.toLowerCase();
-  const make = (kind: MockStrategyKind, params: MockParams = {}): MockColumnConfig => ({
+  const make = (
+    kind: MockStrategyKind,
+    params: MockParams = {},
+  ): MockColumnConfig => ({
     column: column.name,
     kind,
     params,

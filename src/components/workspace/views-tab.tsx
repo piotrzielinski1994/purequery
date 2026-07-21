@@ -3,7 +3,7 @@ import { useWorkspace } from "@/components/workspace/workspace-context";
 export function ViewsTab() {
   const { activeNode } = useWorkspace();
 
-  if (!activeNode || activeNode.kind !== "database") {
+  if (activeNode?.kind !== "database") {
     return null;
   }
 

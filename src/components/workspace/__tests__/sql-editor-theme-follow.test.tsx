@@ -1,17 +1,16 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, waitFor, act } from "@testing-library/react";
-import { useState } from "react";
 import { EditorView } from "@codemirror/view";
-
-import { SettingsProvider } from "@/lib/settings/settings-context";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
+import { afterEach, describe, expect, it } from "vitest";
+import { SqlEditor } from "@/components/workspace/sql-editor";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import {
   DEFAULT_SETTINGS,
   type ThemeColors,
   type ThemeMode,
 } from "@/lib/settings/settings";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 import { ThemeProvider, useTheme } from "@/lib/theme/theme-context";
-import { SqlEditor } from "@/components/workspace/sql-editor";
 
 // AC-009: switching the active mode (or colors) re-themes the open SQL editor
 // LIVE, WITHOUT remounting it - the open document recolors in place. SqlEditor now
@@ -147,7 +146,11 @@ describe("SqlEditor follows the theme", () => {
     // Seed a known edit through the live view (jsdom can't type the contentEditable).
     await act(async () => {
       liveView().dispatch({
-        changes: { from: 0, to: liveView().state.doc.length, insert: "SELECT 42 AS edited" },
+        changes: {
+          from: 0,
+          to: liveView().state.doc.length,
+          insert: "SELECT 42 AS edited",
+        },
       });
     });
     const before = liveView().state.doc.toString();
@@ -171,7 +174,12 @@ describe("SqlEditor follows the theme", () => {
   // to built-in defaults via useThemeOptional) - the isolated-subtree contract.
   it("should still mount with no ThemeProvider (built-in default fallback)", () => {
     render(
-      <SqlEditor value="SELECT 1" onChange={() => {}} engine="postgres" schema={[]} />,
+      <SqlEditor
+        value="SELECT 1"
+        onChange={() => {}}
+        engine="postgres"
+        schema={[]}
+      />,
     );
 
     expect(document.querySelector(".cm-editor")).not.toBeNull();

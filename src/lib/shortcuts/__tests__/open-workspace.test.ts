@@ -1,10 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/registry";
 
 describe("open-workspace shortcut action", () => {
-  const action = () =>
-    SHORTCUT_ACTIONS.find((a) => a.id === "open-workspace");
+  const action = () => SHORTCUT_ACTIONS.find((a) => a.id === "open-workspace");
 
   // AC-002 - behavior: the action is registered
   it("should be registered in SHORTCUT_ACTIONS", () => {

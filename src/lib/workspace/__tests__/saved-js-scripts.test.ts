@@ -1,12 +1,11 @@
-import { describe, it, expect } from "vitest";
-
+import { describe, expect, it } from "vitest";
+import type { SavedJsScript } from "@/lib/workspace/model";
 import {
   dehydrateDatabase,
   hydrateDatabase,
   mergeDatabaseFile,
   type PersistedDatabase,
 } from "@/lib/workspace/workspace";
-import type { SavedJsScript } from "@/lib/workspace/model";
 
 const validDatabase: PersistedDatabase = {
   kind: "database",
@@ -22,7 +21,10 @@ const validDatabase: PersistedDatabase = {
 
 // F7 adds a per-database `savedJsScripts` array (JS document tabs) mirroring `savedScripts`.
 // A SavedJsScript is `{ name, code }` (code, not sql).
-const sample: SavedJsScript = { name: "count_users", code: "return await db.tables();" };
+const sample: SavedJsScript = {
+  name: "count_users",
+  code: "return await db.tables();",
+};
 
 describe("savedJsScripts persistence (AC-010)", () => {
   // AC-010 - behavior (a persisted savedJsScripts array seeds the runtime node, not a hardcoded [])
@@ -55,9 +57,9 @@ describe("savedJsScripts persistence (AC-010)", () => {
       savedJsScripts: [sample],
     } as PersistedDatabase;
 
-    expect(dehydrateDatabase(hydrateDatabase(mergeDatabaseFile(record)!))).toEqual(
-      record,
-    );
+    expect(
+      dehydrateDatabase(hydrateDatabase(mergeDatabaseFile(record)!)),
+    ).toEqual(record);
   });
 
   // AC-010 - behavior (an empty savedJsScripts list is omitted from the dehydrated form, like savedScripts)
@@ -71,25 +73,39 @@ describe("savedJsScripts persistence (AC-010)", () => {
   it("should drop a savedJsScripts entry that is missing its code while keeping the valid ones", () => {
     const merged = mergeDatabaseFile({
       ...validDatabase,
-      savedJsScripts: [{ name: "good", code: "return 1;" }, { name: "no_code" }],
+      savedJsScripts: [
+        { name: "good", code: "return 1;" },
+        { name: "no_code" },
+      ],
     }) as PersistedDatabase & { savedJsScripts?: SavedJsScript[] };
 
-    expect(merged.savedJsScripts).toEqual([{ name: "good", code: "return 1;" }]);
+    expect(merged.savedJsScripts).toEqual([
+      { name: "good", code: "return 1;" },
+    ]);
   });
 
   // AC-010 - behavior (non-record entries are dropped on merge, valid siblings kept)
   it("should drop non-record savedJsScripts entries while keeping the valid ones", () => {
     const merged = mergeDatabaseFile({
       ...validDatabase,
-      savedJsScripts: ["just a string", { name: "good", code: "return 1;" }, 42],
+      savedJsScripts: [
+        "just a string",
+        { name: "good", code: "return 1;" },
+        42,
+      ],
     }) as PersistedDatabase & { savedJsScripts?: SavedJsScript[] };
 
-    expect(merged.savedJsScripts).toEqual([{ name: "good", code: "return 1;" }]);
+    expect(merged.savedJsScripts).toEqual([
+      { name: "good", code: "return 1;" },
+    ]);
   });
 
   // AC-010 - behavior (a savedJsScripts value that is not an array is dropped, db otherwise intact)
   it("should drop a savedJsScripts value that is not an array but keep the rest of the database", () => {
-    const merged = mergeDatabaseFile({ ...validDatabase, savedJsScripts: "nope" });
+    const merged = mergeDatabaseFile({
+      ...validDatabase,
+      savedJsScripts: "nope",
+    });
 
     expect(merged).toEqual(validDatabase);
     expect(merged).not.toHaveProperty("savedJsScripts");
@@ -117,6 +133,8 @@ describe("savedJsScripts persistence (AC-010)", () => {
     };
 
     expect(merged.savedScripts).toEqual([{ name: "sql_one", sql: "SELECT 1" }]);
-    expect(merged.savedJsScripts).toEqual([{ name: "js_one", code: "return 1;" }]);
+    expect(merged.savedJsScripts).toEqual([
+      { name: "js_one", code: "return 1;" },
+    ]);
   });
 });

@@ -1,35 +1,35 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import type { EditorView } from "@codemirror/view";
-import { toast } from "sonner";
 import { Plus, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  DataGrid,
   type Cell,
   type CopyFormat,
+  DataGrid,
 } from "@/components/workspace/data-grid";
-import type { RowSelectMode } from "@/lib/workspace/row-select";
 import { HorizontalSplit } from "@/components/workspace/horizontal-split";
+import { JsEditor } from "@/components/workspace/js-editor";
 import { SaveScriptDialog } from "@/components/workspace/save-script-dialog";
 import { Tab, TabBar } from "@/components/workspace/tab-bar";
-import { JsEditor } from "@/components/workspace/js-editor";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import { useSettingsOptional } from "@/lib/settings/settings-context";
-import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
-import { executeMongo, executeSql, fetchSchema } from "@/lib/tauri";
 import { isWriteSql } from "@/lib/script/dispatch";
-import { parseGridReturn, type GridReturn } from "@/lib/script/result";
+import { type GridReturn, parseGridReturn } from "@/lib/script/result";
 import {
   createWorkerRunner,
   type RpcReply,
   type ScriptRunner,
 } from "@/lib/script/runner";
+import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
+import { useSettingsOptional } from "@/lib/settings/settings-context";
+import { executeMongo, executeSql, fetchSchema } from "@/lib/tauri";
 import type {
   DbEngine,
   SavedJsScript,
   TableSchema,
 } from "@/lib/workspace/model";
+import type { RowSelectMode } from "@/lib/workspace/row-select";
 
 const noop = () => {};
 const alwaysFalse = () => false;
@@ -99,7 +99,7 @@ function lastOutcomeAsObjects(
 export function ScriptTab({ runner }: { runner?: ScriptRunner }) {
   const { activeNode, databaseSchemas } = useWorkspace();
 
-  if (!activeNode || activeNode.kind !== "database") {
+  if (activeNode?.kind !== "database") {
     return null;
   }
 
@@ -217,11 +217,7 @@ function ScriptPane({
   // script's `await` REJECTS - the host must never throw here, or the worker would await a reply that
   // never arrives (deadlock).
   const handleRpc = useCallback(
-    async (
-      _id: string,
-      method: string,
-      args: unknown[],
-    ): Promise<RpcReply> => {
+    async (_id: string, method: string, args: unknown[]): Promise<RpcReply> => {
       try {
         if (method === "query") {
           const sql = String(args[0] ?? "");
@@ -316,7 +312,12 @@ function ScriptPane({
         const parsed = parseGridReturn(value);
         // A return that is neither undefined/null nor a valid {header,rows} is a shape the user
         // probably meant as a grid - surface why it didn't render one (spec TC-006).
-        if (!parsed && value !== undefined && value !== null && isGridLike(value)) {
+        if (
+          !parsed &&
+          value !== undefined &&
+          value !== null &&
+          isGridLike(value)
+        ) {
           appendConsoleLine(
             "[error] return value is not a valid { header, rows } grid - no grid rendered",
           );

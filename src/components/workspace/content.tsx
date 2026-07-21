@@ -42,7 +42,11 @@ export const Content = memo(function Content() {
   }, [pendingPanelFocus, consumePanelFocus]);
 
   return (
-    <div ref={regionRef} tabIndex={-1} className="flex h-full flex-col outline-none">
+    <div
+      ref={regionRef}
+      tabIndex={-1}
+      className="flex h-full flex-col outline-none"
+    >
       <ContentHeader />
       <div className="min-h-0 flex-1">
         <ActiveCard />

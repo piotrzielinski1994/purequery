@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 // Pure reducer for grid row multi-selection. A plain click replaces the set with the one row, a
 // toggle (Cmd/Ctrl) flips one row, a range (Shift) selects the inclusive span from the anchor to
@@ -23,7 +23,11 @@ describe("nextRowSelection replace (plain click)", () => {
 describe("nextRowSelection toggle (Cmd/Ctrl click)", () => {
   // behavior: toggling an unselected row adds it and moves the anchor.
   it("should add an unselected row and set it as the anchor", () => {
-    const result = nextRowSelection({ selected: sel(1), anchor: 1 }, 4, "toggle");
+    const result = nextRowSelection(
+      { selected: sel(1), anchor: 1 },
+      4,
+      "toggle",
+    );
     expect([...result.selected].sort((a, b) => a - b)).toEqual([1, 4]);
     expect(result.anchor).toBe(4);
   });
@@ -42,7 +46,11 @@ describe("nextRowSelection toggle (Cmd/Ctrl click)", () => {
 describe("nextRowSelection range (Shift click)", () => {
   // behavior: a forward range selects the inclusive span anchor..index.
   it("should select the inclusive span if the anchor precedes the index", () => {
-    const result = nextRowSelection({ selected: sel(2), anchor: 2 }, 5, "range");
+    const result = nextRowSelection(
+      { selected: sel(2), anchor: 2 },
+      5,
+      "range",
+    );
     expect([...result.selected].sort((a, b) => a - b)).toEqual([2, 3, 4, 5]);
     // the anchor stays put across a range selection.
     expect(result.anchor).toBe(2);
@@ -50,7 +58,11 @@ describe("nextRowSelection range (Shift click)", () => {
 
   // behavior: a backward range is direction-independent.
   it("should select the inclusive span if the anchor follows the index", () => {
-    const result = nextRowSelection({ selected: sel(5), anchor: 5 }, 2, "range");
+    const result = nextRowSelection(
+      { selected: sel(5), anchor: 5 },
+      2,
+      "range",
+    );
     expect([...result.selected].sort((a, b) => a - b)).toEqual([2, 3, 4, 5]);
   });
 

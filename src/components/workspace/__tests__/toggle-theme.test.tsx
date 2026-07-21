@@ -1,20 +1,14 @@
-import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { QueryWrapper } from "@/test/query-wrapper";
-import { SettingsProvider } from "@/lib/settings/settings-context";
-import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
-import { DEFAULT_SETTINGS, type ThemeMode } from "@/lib/settings/settings";
-import { ThemeProvider } from "@/lib/theme/theme-context";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
-import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
+import { DEFAULT_SETTINGS, type ThemeMode } from "@/lib/settings/settings";
+import { SettingsProvider } from "@/lib/settings/settings-context";
+import { ThemeProvider } from "@/lib/theme/theme-context";
+import { QueryWrapper } from "@/test/query-wrapper";
 
 // AC-010: Cmd/Ctrl+Shift+L cycles the mode light -> dark -> system -> light and
 // shows a toast naming the new mode. AC-011: the command-palette "Toggle theme"

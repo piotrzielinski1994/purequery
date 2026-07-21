@@ -1,5 +1,5 @@
-import { z } from "zod";
 import type { JSONSchema7 } from "json-schema";
+import { z } from "zod";
 import { themeColorsSchema } from "@/lib/config-schema/zod-schemas";
 
 // Generate the IntelliSense JSON Schema from the zod source via zod v4's built-in generator. A

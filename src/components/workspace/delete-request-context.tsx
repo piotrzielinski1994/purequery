@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 import type { TreeNode } from "@/lib/workspace/model";
 
 type RequestDelete = (node: TreeNode) => void;
@@ -22,7 +22,9 @@ export function DeleteRequestProvider({
 export function useRequestDelete(): RequestDelete {
   const value = useContext(DeleteRequestContext);
   if (!value) {
-    throw new Error("useRequestDelete must be used within a DeleteRequestProvider");
+    throw new Error(
+      "useRequestDelete must be used within a DeleteRequestProvider",
+    );
   }
   return value;
 }

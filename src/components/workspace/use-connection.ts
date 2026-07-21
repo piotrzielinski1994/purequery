@@ -1,11 +1,11 @@
 import { toast } from "sonner";
+import { toResult } from "@/lib/result";
 import {
   cancelConnect,
   connectDatabase,
   disconnectDatabase,
   fetchSchema,
 } from "@/lib/tauri";
-import { toResult } from "@/lib/result";
 
 // The Rust connect path rejects a cancelled connect with this exact string (mirrors the query
 // cancel sentinel). A cancelled connect is neutral - it resets to idle without an error toast.
@@ -25,6 +25,7 @@ const inFlightConnects = new Set<string>();
 export function __resetInFlightConnects() {
   inFlightConnects.clear();
 }
+
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import type { ConnectionConfig } from "@/lib/workspace/model";
 

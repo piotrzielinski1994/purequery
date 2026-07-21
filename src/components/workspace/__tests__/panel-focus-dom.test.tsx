@@ -1,15 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-
-import {
-  WorkspaceProvider,
-  useChrome,
-} from "@/components/workspace/workspace-context";
-import { SidebarTree } from "@/components/workspace/sidebar-tree";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
 import { Console } from "@/components/workspace/console";
 import { Content } from "@/components/workspace/content";
+import { SidebarTree } from "@/components/workspace/sidebar-tree";
 import { __resetInFlightConnects } from "@/components/workspace/use-connection";
-import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import {
+  useChrome,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 
 // Closes the Slice C verifier's C-09 gap: panel-focus.test.tsx asserts the pendingPanelFocus STATE
 // transitions, but not that the consumer effects actually move DOM focus. Here we render the real
@@ -23,7 +22,12 @@ vi.mock("@/lib/tauri", () => ({
   fetchTable: vi.fn(() => Promise.resolve({ columns: [], rows: [] })),
   countTable: vi.fn(() => Promise.resolve(0)),
   fetchTableStructure: vi.fn(() =>
-    Promise.resolve({ columns: [], indexes: [], foreignKeys: [], constraints: [] }),
+    Promise.resolve({
+      columns: [],
+      indexes: [],
+      foreignKeys: [],
+      constraints: [],
+    }),
   ),
 }));
 
@@ -104,8 +108,6 @@ describe("panel focus DOM effect (C-09)", () => {
       expect(getByRole("button", { name: /focus content/i })).not.toHaveFocus();
     });
     // The content region is a tabIndex=-1 div (no role); assert it holds focus via activeElement.
-    expect(
-      document.activeElement?.getAttribute("tabindex"),
-    ).toBe("-1");
+    expect(document.activeElement?.getAttribute("tabindex")).toBe("-1");
   });
 });

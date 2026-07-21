@@ -1,9 +1,8 @@
-import { describe, it, expect } from "vitest";
 import { render, screen, within } from "@testing-library/react";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { SidebarTree } from "@/components/workspace/sidebar-tree";
+import { describe, expect, it } from "vitest";
 import { Console } from "@/components/workspace/console";
+import { SidebarTree } from "@/components/workspace/sidebar-tree";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { QueryWrapper } from "@/test/query-wrapper";
 
 // Renders the real WorkspaceProvider with NO tree / consoleLines props, so the

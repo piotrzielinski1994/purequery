@@ -1,12 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
+import { describe, expect, it, vi } from "vitest";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import {
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 import { findNode } from "@/lib/workspace/tree-edit";
 
 vi.mock("@/lib/tauri", () => ({
@@ -32,10 +31,7 @@ function Probe({ dbId }: { dbId: string }) {
   return (
     <div>
       <span data-testid="mc">{String(manualCommit)}</span>
-      <button
-        type="button"
-        onClick={() => setDatabaseManualCommit(dbId, true)}
-      >
+      <button type="button" onClick={() => setDatabaseManualCommit(dbId, true)}>
         enable manual commit
       </button>
       <button

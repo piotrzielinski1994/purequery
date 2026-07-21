@@ -1,11 +1,10 @@
-import { describe, it, expect } from "vitest";
-
+import { describe, expect, it } from "vitest";
+import { parseLogLine } from "@/lib/workspace/log-line";
 // F18 - pure structured search over parsed LogLines. Tokenizes a `field:value` / bare query
 // (double-quotes allow spaces in a value), matches case-insensitive substring per field, AND-combined.
 // Nothing exists yet - the import fails until log-search.ts ships, so each test fails on the
 // missing feature, not a typo.
 import { filterLogLines } from "@/lib/workspace/log-search";
-import { parseLogLine } from "@/lib/workspace/log-line";
 
 // A small fixture spanning the shapes/levels the filter must discriminate.
 const connectOk = parseLogLine(
@@ -80,7 +79,9 @@ describe("filterLogLines - quoted message term (AC-06)", () => {
   // AC-06 - behavior: the message field is matched, not kv - a kv-only value does not leak into
   // a message search unless it is literally in the message string (it is, e.g. "connection_id=db1").
   it("should not match a quoted message term that appears nowhere in message", () => {
-    expect(filterLogLines(lines, 'message:"totally absent phrase"')).toEqual([]);
+    expect(filterLogLines(lines, 'message:"totally absent phrase"')).toEqual(
+      [],
+    );
   });
 });
 

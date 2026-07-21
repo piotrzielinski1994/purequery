@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   exportExtension,
   exportFileName,
@@ -31,7 +31,9 @@ describe("exportFileName", () => {
 
   // behavior (TC-007, AC-007): the SQL result grid passes the caller default base "results".
   it("should honour a results base for the SQL result grid", () => {
-    expect(exportFileName("results", "CSV", FIXED)).toBe(`results-${STAMP}.csv`);
+    expect(exportFileName("results", "CSV", FIXED)).toBe(
+      `results-${STAMP}.csv`,
+    );
   });
 });
 

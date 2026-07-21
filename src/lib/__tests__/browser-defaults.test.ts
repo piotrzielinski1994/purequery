@@ -1,8 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
-  isReservedBrowserShortcut,
   installBrowserDefaultGuards,
+  isReservedBrowserShortcut,
 } from "@/lib/browser-defaults";
 
 type KeyArgs = {

@@ -1,13 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { SidebarTree } from "@/components/workspace/sidebar-tree";
-import { ContentHeader } from "@/components/workspace/content-header";
-import { __resetInFlightConnects } from "@/components/workspace/use-connection";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { ContentHeader } from "@/components/workspace/content-header";
+import { SidebarTree } from "@/components/workspace/sidebar-tree";
+import { __resetInFlightConnects } from "@/components/workspace/use-connection";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 
 // The tree keyboard nav is Slice B: it reads the resolved tree-* bindings (Slice C, already merged)
 // and drives roving tabIndex + arrow/Enter/Alt/Shift+F10 from a per-row onKeyDown. jsdom's
@@ -69,7 +68,10 @@ describe("tree roving tabIndex (B-06)", () => {
   });
 
   it("should keep exactly one tree row in the Tab order", () => {
-    renderTree({ expanded: ["folder-staging", "db-admin"], connected: ["db-admin"] });
+    renderTree({
+      expanded: ["folder-staging", "db-admin"],
+      connected: ["db-admin"],
+    });
 
     const tabbable = screen
       .getByRole("tree", { name: /navigator/i })
@@ -87,7 +89,10 @@ describe("tree keyboard navigation (B-01)", () => {
 
   it("should move focus and selection to the next visible row if ArrowDown", async () => {
     const user = userEvent.setup();
-    renderTree({ expanded: ["folder-staging", "db-admin"], connected: ["db-admin"] });
+    renderTree({
+      expanded: ["folder-staging", "db-admin"],
+      connected: ["db-admin"],
+    });
 
     row("staging").focus();
     await user.keyboard("{ArrowDown}");
@@ -98,7 +103,10 @@ describe("tree keyboard navigation (B-01)", () => {
 
   it("should move focus onto a connected database's table row if ArrowDown", async () => {
     const user = userEvent.setup();
-    renderTree({ expanded: ["folder-staging", "db-admin"], connected: ["db-admin"] });
+    renderTree({
+      expanded: ["folder-staging", "db-admin"],
+      connected: ["db-admin"],
+    });
 
     row("admin_db").focus();
     await user.keyboard("{ArrowDown}");
@@ -146,7 +154,9 @@ describe("tree keyboard alt-move (B-07)", () => {
     renderTree({ expanded: [] });
 
     const before = treeitemNames();
-    expect(before.indexOf("scratch_db")).toBeGreaterThan(before.indexOf("staging"));
+    expect(before.indexOf("scratch_db")).toBeGreaterThan(
+      before.indexOf("staging"),
+    );
 
     row("scratch_db").focus();
     await user.keyboard("{Alt>}{ArrowUp}{/Alt}");
@@ -157,7 +167,10 @@ describe("tree keyboard alt-move (B-07)", () => {
 
   it("should never move a table row on Alt+Arrow", async () => {
     const user = userEvent.setup();
-    renderTree({ expanded: ["folder-staging", "db-admin"], connected: ["db-admin"] });
+    renderTree({
+      expanded: ["folder-staging", "db-admin"],
+      connected: ["db-admin"],
+    });
 
     // Control: a database Alt-move DOES reorder (proves the Alt handler is wired), so the table
     // no-op below is not a vacuous pass. scratch_db is last at root -> Alt+ArrowUp moves it up.

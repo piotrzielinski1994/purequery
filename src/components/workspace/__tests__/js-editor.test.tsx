@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { render } from "@testing-library/react";
-import { EditorView } from "@codemirror/view";
 import { CompletionContext } from "@codemirror/autocomplete";
+import { EditorView } from "@codemirror/view";
+import { render } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { JsEditor } from "@/components/workspace/js-editor";
 import type { TableSchema } from "@/lib/workspace/model";
@@ -57,7 +57,12 @@ describe("JsEditor completion - globals", () => {
   it("should complete db, console and print as top-level globals", async () => {
     const doc = "d";
     const { container } = render(
-      <JsEditor value={doc} onChange={() => {}} engine="postgres" schema={[]} />,
+      <JsEditor
+        value={doc}
+        onChange={() => {}}
+        engine="postgres"
+        schema={[]}
+      />,
     );
 
     const labels = await completionLabels(container, doc);
@@ -70,7 +75,12 @@ describe("JsEditor completion - globals", () => {
   it("should complete log and error after console.", async () => {
     const doc = "console.";
     const { container } = render(
-      <JsEditor value={doc} onChange={() => {}} engine="postgres" schema={[]} />,
+      <JsEditor
+        value={doc}
+        onChange={() => {}}
+        engine="postgres"
+        schema={[]}
+      />,
     );
 
     const labels = await completionLabels(container, doc);
@@ -84,7 +94,12 @@ describe("JsEditor completion - db methods (SQL)", () => {
   it("should complete query, tables and schema after db. on a SQL engine", async () => {
     const doc = "db.";
     const { container } = render(
-      <JsEditor value={doc} onChange={() => {}} engine="postgres" schema={[]} />,
+      <JsEditor
+        value={doc}
+        onChange={() => {}}
+        engine="postgres"
+        schema={[]}
+      />,
     );
 
     const labels = await completionLabels(container, doc);

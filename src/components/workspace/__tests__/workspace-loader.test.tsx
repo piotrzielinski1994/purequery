@@ -1,19 +1,22 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { QueryWrapper } from "@/test/query-wrapper";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceLoader } from "@/components/workspace/workspace-loader";
-import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
-import { createInMemoryWorkspaceFs } from "@/lib/workspace/in-memory-fs";
-import { createNoopFolderPicker } from "@/lib/workspace/folder-picker";
-import { serialize } from "@/lib/workspace/disk-format";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 import type { FileMap } from "@/lib/workspace/disk-format";
+import { serialize } from "@/lib/workspace/disk-format";
 import type { FolderPicker } from "@/lib/workspace/folder-picker";
+import { createNoopFolderPicker } from "@/lib/workspace/folder-picker";
 import type { WorkspaceFs } from "@/lib/workspace/fs";
-import type { DatabaseNode, QueryResult, TreeNode } from "@/lib/workspace/model";
+import { createInMemoryWorkspaceFs } from "@/lib/workspace/in-memory-fs";
+import type {
+  DatabaseNode,
+  QueryResult,
+  TreeNode,
+} from "@/lib/workspace/model";
+import { QueryWrapper } from "@/test/query-wrapper";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(() => Promise.resolve({ tables: [], views: [] })),
@@ -114,7 +117,10 @@ describe("WorkspaceLoader loaded workspace (TC-004)", () => {
   // AC-009 - behavior: a partial load surfaces the skipped file in the console
   it("should load the good nodes and surface a skipped malformed file", async () => {
     const files: FileMap = {
-      "purequery.workspace.json": JSON.stringify({ schemaVersion: 1, name: "Partial" }),
+      "purequery.workspace.json": JSON.stringify({
+        schemaVersion: 1,
+        name: "Partial",
+      }),
       "good.db.json": JSON.stringify({
         id: "db-good",
         name: "good_db",
@@ -129,7 +135,10 @@ describe("WorkspaceLoader loaded workspace (TC-004)", () => {
       "broken.db.json": "{ not valid json",
     };
 
-    renderLoader({ workspacePath: "/ws/partial", workspaces: { "/ws/partial": files } });
+    renderLoader({
+      workspacePath: "/ws/partial",
+      workspaces: { "/ws/partial": files },
+    });
 
     expect(await screen.findByText("good_db")).toBeInTheDocument();
     expect(screen.getByText(/broken\.db\.json/)).toBeInTheDocument();
@@ -169,8 +178,7 @@ describe("WorkspaceLoader empty state (TC-014)", () => {
   it("should never write to the fs if there is no workspacePath", async () => {
     const writeWorkspace = vi.fn(() => Promise.resolve({ ok: true as const }));
     const fs: WorkspaceFs = {
-      readWorkspace: () =>
-        Promise.resolve({ ok: false, error: "no path" }),
+      readWorkspace: () => Promise.resolve({ ok: false, error: "no path" }),
       writeWorkspace,
     };
 
@@ -208,7 +216,9 @@ describe("WorkspaceLoader fresh writable (TC-016)", () => {
     );
 
     await waitFor(() =>
-      expect(workspaces["/ws/fresh"]?.["purequery.workspace.json"]).toBeDefined(),
+      expect(
+        workspaces["/ws/fresh"]?.["purequery.workspace.json"],
+      ).toBeDefined(),
     );
     const written = Object.keys(workspaces["/ws/fresh"] ?? {});
     expect(written.some((path) => path.endsWith(".db.json"))).toBe(true);

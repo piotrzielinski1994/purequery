@@ -1,11 +1,10 @@
-import { describe, it, expect } from "vitest";
-
+import { describe, expect, it } from "vitest";
+import type { TableNode } from "@/lib/workspace/model";
 // Pure display helpers for the per-database Default schema feature.
 // - visibleTables(tables, defaultSchema): identity when null; STRICT filter to `.schema === schema`
 //   when set (empty when none match).
 // - schemaOptions(tables): distinct NON-null `.schema` values, sorted ascending.
-import { visibleTables, schemaOptions } from "@/lib/workspace/tree-schema";
-import type { TableNode } from "@/lib/workspace/model";
+import { schemaOptions, visibleTables } from "@/lib/workspace/tree-schema";
 
 function tbl(id: string, name: string, schema: string | null): TableNode {
   return { kind: "table", id, name, schema, columns: [], rows: [] };
@@ -29,7 +28,10 @@ describe("visibleTables (AC-005, AC-007, TC-005)", () => {
   it("should return only tables whose schema equals the defaultSchema", () => {
     const tables = [publicUsers, publicOrders, quartzJobs, quartzTriggers];
 
-    expect(visibleTables(tables, "quartz")).toEqual([quartzJobs, quartzTriggers]);
+    expect(visibleTables(tables, "quartz")).toEqual([
+      quartzJobs,
+      quartzTriggers,
+    ]);
   });
 
   // AC-005, TC-005 - behavior (STRICT: a defaultSchema matching zero tables returns an empty array)

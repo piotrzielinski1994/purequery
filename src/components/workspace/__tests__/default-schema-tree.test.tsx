@@ -1,9 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SidebarTree } from "@/components/workspace/sidebar-tree";
 import { __resetInFlightConnects } from "@/components/workspace/use-connection";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import type {
   ConnectionConfig,
   DatabaseNode,

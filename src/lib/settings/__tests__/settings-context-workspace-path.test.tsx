@@ -1,13 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import {
-  SettingsProvider,
-  useSettings,
-} from "@/lib/settings/settings-context";
+import { describe, expect, it, vi } from "vitest";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import type { Settings, SettingsStore } from "@/lib/settings/settings";
+import { SettingsProvider, useSettings } from "@/lib/settings/settings-context";
 
 // The chrome slice the workspace persists - workspacePath is EXCLUDED (written
 // separately by saveWorkspacePath), so saveChrome must merge it from current
@@ -34,10 +30,7 @@ function WorkspacePathProbe() {
       <span data-testid="workspace-path">
         {settings.workspacePath ?? "none"}
       </span>
-      <button
-        type="button"
-        onClick={() => saveWorkspacePath("/ws/picked")}
-      >
+      <button type="button" onClick={() => saveWorkspacePath("/ws/picked")}>
         save path
       </button>
       <button type="button" onClick={() => saveChrome(chromeSlice)}>

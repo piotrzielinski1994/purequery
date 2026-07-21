@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
-import { useState } from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
+import { describe, expect, it, vi } from "vitest";
 
 import { DataGrid } from "@/components/workspace/data-grid";
 
@@ -98,6 +98,8 @@ describe("draft row copy context menu", () => {
     expect(
       await screen.findByRole("menuitem", { name: /^delete$/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /clone/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: /clone/i }),
+    ).toBeInTheDocument();
   });
 });

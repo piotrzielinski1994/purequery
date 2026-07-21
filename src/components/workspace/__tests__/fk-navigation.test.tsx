@@ -1,19 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
-import { TableCard } from "@/components/workspace/table-card";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { TableCard } from "@/components/workspace/table-card";
 import {
-  fetchTable,
-  countTable,
-  fetchTableStructure,
-} from "@/lib/tauri";
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
+import { countTable, fetchTable, fetchTableStructure } from "@/lib/tauri";
 import type {
   ConnectionConfig,
   TableColumn,
@@ -260,7 +255,14 @@ describe("FK navigation - row menu item", () => {
   // menu item.
   it("should show a Go to item for a row with a non-null foreign-key value", async () => {
     mockFetch.mockResolvedValue(
-      rowsResult(["id", "customer_id"], [["1", "42"], ["2", null]], "id"),
+      rowsResult(
+        ["id", "customer_id"],
+        [
+          ["1", "42"],
+          ["2", null],
+        ],
+        "id",
+      ),
     );
     mockStructure.mockResolvedValue(customerFkStructure);
     renderPg();
@@ -279,7 +281,14 @@ describe("FK navigation - row menu item", () => {
   // AC-004, TC-003 - behavior: a row whose FK value is NULL shows no "Go to" item.
   it("should show no Go to item for a row with a null foreign-key value", async () => {
     mockFetch.mockResolvedValue(
-      rowsResult(["id", "customer_id"], [["1", "42"], ["2", null]], "id"),
+      rowsResult(
+        ["id", "customer_id"],
+        [
+          ["1", "42"],
+          ["2", null],
+        ],
+        "id",
+      ),
     );
     mockStructure.mockResolvedValue(customerFkStructure);
     renderPg();
@@ -316,7 +325,14 @@ describe("FK navigation - selecting the item", () => {
   it("should open the customers tab and apply the pinning filter when the Go to item is selected", async () => {
     const user = userEvent.setup();
     mockFetch.mockResolvedValue(
-      rowsResult(["id", "customer_id"], [["1", "42"], ["2", null]], "id"),
+      rowsResult(
+        ["id", "customer_id"],
+        [
+          ["1", "42"],
+          ["2", null],
+        ],
+        "id",
+      ),
     );
     mockStructure.mockResolvedValue(customerFkStructure);
     renderPg();
@@ -384,7 +400,14 @@ describe("FK navigation - clickable link cell", () => {
   // navigable.
   it("should render a non-null foreign-key value as a link", async () => {
     mockFetch.mockResolvedValue(
-      rowsResult(["id", "customer_id"], [["1", "42"], ["2", null]], "id"),
+      rowsResult(
+        ["id", "customer_id"],
+        [
+          ["1", "42"],
+          ["2", null],
+        ],
+        "id",
+      ),
     );
     mockStructure.mockResolvedValue(customerFkStructure);
     renderPg();
@@ -396,7 +419,14 @@ describe("FK navigation - clickable link cell", () => {
   // behavior: a NULL FK value is NOT a link (nothing to navigate to).
   it("should not render a link for a null foreign-key value", async () => {
     mockFetch.mockResolvedValue(
-      rowsResult(["id", "customer_id"], [["1", "42"], ["2", null]], "id"),
+      rowsResult(
+        ["id", "customer_id"],
+        [
+          ["1", "42"],
+          ["2", null],
+        ],
+        "id",
+      ),
     );
     mockStructure.mockResolvedValue(customerFkStructure);
     renderPg();
@@ -408,7 +438,14 @@ describe("FK navigation - clickable link cell", () => {
   // AC-013 - behavior: Cmd/Ctrl+click on an FK link navigates to the referenced table + filter.
   it("should navigate to the referenced table when the link is Cmd/Ctrl-clicked", async () => {
     mockFetch.mockResolvedValue(
-      rowsResult(["id", "customer_id"], [["1", "42"], ["2", null]], "id"),
+      rowsResult(
+        ["id", "customer_id"],
+        [
+          ["1", "42"],
+          ["2", null],
+        ],
+        "id",
+      ),
     );
     mockStructure.mockResolvedValue(customerFkStructure);
     renderPg();
@@ -430,7 +467,14 @@ describe("FK navigation - clickable link cell", () => {
   // plain click still selects the row like any cell).
   it("should not navigate on a plain click of an FK link", async () => {
     mockFetch.mockResolvedValue(
-      rowsResult(["id", "customer_id"], [["1", "42"], ["2", null]], "id"),
+      rowsResult(
+        ["id", "customer_id"],
+        [
+          ["1", "42"],
+          ["2", null],
+        ],
+        "id",
+      ),
     );
     mockStructure.mockResolvedValue(customerFkStructure);
     renderPg();

@@ -33,7 +33,10 @@ export function backupFilters(
   engine: DbEngine,
 ): { name: string; extensions: string[] }[] {
   return [
-    { name: FILTER_LABEL_BY_ENGINE[engine], extensions: [backupExtension(engine)] },
+    {
+      name: FILTER_LABEL_BY_ENGINE[engine],
+      extensions: [backupExtension(engine)],
+    },
     { name: "All files", extensions: ["*"] },
   ];
 }

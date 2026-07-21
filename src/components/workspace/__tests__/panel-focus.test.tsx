@@ -1,12 +1,11 @@
-import { describe, it, expect } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import {
-  WorkspaceProvider,
-  useChrome,
-} from "@/components/workspace/workspace-context";
+import { describe, expect, it } from "vitest";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import {
+  useChrome,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 
 // Panel focus-on-toggle (C-09) lives on the ChromeContext: toggling a panel
 // visible requests focus on that panel, toggling it hidden requests "content".
@@ -20,12 +19,17 @@ type ChromeFocus = {
 
 function ChromeProbe() {
   const value = useChrome();
-  const { pendingPanelFocus, consumePanelFocus } = value as unknown as ChromeFocus;
+  const { pendingPanelFocus, consumePanelFocus } =
+    value as unknown as ChromeFocus;
   return (
     <div>
       <span data-testid="pending">{pendingPanelFocus ?? "null"}</span>
-      <span data-testid="sidebar-visible">{String(value.isSidebarVisible)}</span>
-      <span data-testid="console-visible">{String(value.isConsoleVisible)}</span>
+      <span data-testid="sidebar-visible">
+        {String(value.isSidebarVisible)}
+      </span>
+      <span data-testid="console-visible">
+        {String(value.isConsoleVisible)}
+      </span>
       <button type="button" onClick={value.toggleSidebar}>
         toggle sidebar
       </button>

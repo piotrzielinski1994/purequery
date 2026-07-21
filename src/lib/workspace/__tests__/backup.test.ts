@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-
+import { describe, expect, it } from "vitest";
+import type { DatabaseNode, QueryResult } from "@/lib/workspace/model";
 // Pure backup helpers (F16). `backup.ts` does not exist yet - the RED state.
 // - backupExtension(engine): the dump file extension per engine.
 // - backupFilters(engine): the native save-dialog filter list for the engine.
@@ -9,7 +9,6 @@ import {
   backupFilters,
   defaultBackupFileName,
 } from "../backup";
-import type { DatabaseNode, QueryResult } from "@/lib/workspace/model";
 
 const emptyResult: QueryResult = {
   status: "success",

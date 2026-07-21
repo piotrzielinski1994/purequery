@@ -1,28 +1,28 @@
-import { useMemo } from "react";
-import CodeMirror from "@uiw/react-codemirror";
-import { EditorView, keymap } from "@codemirror/view";
-import { Prec, type Extension } from "@codemirror/state";
-import { javascript } from "@codemirror/lang-javascript";
-import { syntaxHighlighting } from "@codemirror/language";
-import { classHighlighter } from "@lezer/highlight";
 import type {
   CompletionContext,
   CompletionSource,
 } from "@codemirror/autocomplete";
-import type { DbEngine, TableSchema } from "@/lib/workspace/model";
+import { javascript } from "@codemirror/lang-javascript";
+import { syntaxHighlighting } from "@codemirror/language";
+import { type Extension, Prec } from "@codemirror/state";
+import { EditorView, keymap } from "@codemirror/view";
+import { classHighlighter } from "@lezer/highlight";
+import CodeMirror from "@uiw/react-codemirror";
+import { useMemo } from "react";
+import { editorFind } from "@/components/workspace/editor-find";
 import {
+  type EditorColors,
   makeSqlChrome,
   makeSqlHighlight,
-  type EditorColors,
 } from "@/components/workspace/sql-editor-theme";
-import { useThemeOptional } from "@/lib/theme/theme-context";
-import { applyDefaults } from "@/lib/theme/overrides";
-import { DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
-import { useSettingsOptional } from "@/lib/settings/settings-context";
 import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
+import { useSettingsOptional } from "@/lib/settings/settings-context";
 import { resolveShortcuts } from "@/lib/shortcuts/resolve";
 import { toCodeMirrorKey } from "@/lib/shortcuts/to-codemirror-key";
-import { editorFind } from "@/components/workspace/editor-find";
+import { applyDefaults } from "@/lib/theme/overrides";
+import { useThemeOptional } from "@/lib/theme/theme-context";
+import { DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
+import type { DbEngine, TableSchema } from "@/lib/workspace/model";
 
 // The injected `db` read methods per engine (mirrors the worker's `db` stub + the ScriptHost's
 // handleRpc). SQL: query/tables/schema; Mongo: find/aggregate/collections/schema.

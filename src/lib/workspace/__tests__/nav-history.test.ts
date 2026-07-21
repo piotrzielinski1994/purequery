@@ -1,13 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  EMPTY_NAV,
-  pushNavigation,
   canGoBack,
   canGoForward,
+  currentEntry,
+  EMPTY_NAV,
   goBack,
   goForward,
-  currentEntry,
   type NavEntry,
+  pushNavigation,
 } from "@/lib/workspace/nav-history";
 
 const orders: NavEntry = { tableId: "db::public::orders", filter: "" };
@@ -38,7 +38,9 @@ describe("nav-history", () => {
   });
 
   it("should go forward again to the target after going back", () => {
-    const state = goForward(goBack(pushNavigation(EMPTY_NAV, orders, customers)));
+    const state = goForward(
+      goBack(pushNavigation(EMPTY_NAV, orders, customers)),
+    );
     expect(currentEntry(state)).toEqual(customers);
     expect(canGoForward(state)).toBe(false);
   });

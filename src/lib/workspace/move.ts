@@ -21,7 +21,7 @@ export function moveNode(
   if (target.parentId !== null) {
     const parent = findNode(tree, target.parentId);
     // Only a folder is a container; a database/table parent is rejected (AC-006/AC-007).
-    if (!parent || parent.kind !== "folder") {
+    if (parent?.kind !== "folder") {
       return tree;
     }
     // A folder cannot be dropped into itself or its own descendant (AC-005).
@@ -81,7 +81,7 @@ export function moveNodes(
   }
   if (target.parentId !== null) {
     const parent = findNode(tree, target.parentId);
-    if (!parent || parent.kind !== "folder") {
+    if (parent?.kind !== "folder") {
       return tree;
     }
     // Reject dropping into any dragged folder (its own subtree) - a cycle.

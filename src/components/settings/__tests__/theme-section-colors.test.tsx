@@ -1,20 +1,20 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, waitFor, act } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { EditorView } from "@codemirror/view";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { ThemeSection } from "@/components/settings/theme-section";
-import { SettingsProvider } from "@/lib/settings/settings-context";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import {
   DEFAULT_SETTINGS,
   type Settings,
   type ThemeColors,
 } from "@/lib/settings/settings";
-import { ThemeProvider } from "@/lib/theme/theme-context";
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 import { applyDefaults } from "@/lib/theme/overrides";
+import { ThemeProvider } from "@/lib/theme/theme-context";
+import { DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
 import { QueryWrapper } from "@/test/query-wrapper";
 
 // The ThemeSection renders a raw-JSON color editor seeded with the FULL effective

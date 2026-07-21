@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
-  navigableForeignKeys,
   fkTargetTableId,
+  navigableForeignKeys,
 } from "@/lib/workspace/foreign-key-nav";
 import type { ForeignKey } from "@/lib/workspace/model";
 

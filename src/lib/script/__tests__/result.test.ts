@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { parseGridReturn } from "@/lib/script/result";
 
@@ -51,7 +51,10 @@ describe("parseGridReturn cell coercion", () => {
       header: ["yes", "no"],
       rows: [[true, false]],
     });
-    expect(parsed).toEqual({ header: ["yes", "no"], rows: [["true", "false"]] });
+    expect(parsed).toEqual({
+      header: ["yes", "no"],
+      rows: [["true", "false"]],
+    });
   });
 
   // AC-007 - behavior (null and undefined cells become null)

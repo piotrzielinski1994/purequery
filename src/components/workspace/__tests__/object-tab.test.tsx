@@ -1,18 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { QueryWrapper } from "@/test/query-wrapper";
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 // The lazy object master/detail tab (F14). Does not exist yet - the import fails until
 // object-tab.tsx ships, so each test fails on the missing component, not a typo.
 import { ObjectTab } from "@/components/workspace/object-tab";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { fetchDatabaseObjects } from "@/lib/tauri";
 import type {
   ConnectionConfig,
   DatabaseNode,
   TreeNode,
 } from "@/lib/workspace/model";
-import { fetchDatabaseObjects } from "@/lib/tauri";
+import { QueryWrapper } from "@/test/query-wrapper";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(() => Promise.resolve({ tables: [], views: [] })),
@@ -96,8 +95,16 @@ describe("ObjectTab", () => {
   // AC-005, TC-005 - behavior (opening a connected object tab fetches that kind and lists names)
   it("should fetch objects for its kind and list their names if connected", async () => {
     mockFetchObjects.mockResolvedValue([
-      { schema: "public", name: "fn_calc_total", definition: "CREATE FUNCTION fn_calc_total()" },
-      { schema: "public", name: "fn_norm_email", definition: "CREATE FUNCTION fn_norm_email()" },
+      {
+        schema: "public",
+        name: "fn_calc_total",
+        definition: "CREATE FUNCTION fn_calc_total()",
+      },
+      {
+        schema: "public",
+        name: "fn_norm_email",
+        definition: "CREATE FUNCTION fn_norm_email()",
+      },
     ]);
     renderObjectTab();
 
@@ -141,8 +148,16 @@ describe("ObjectTab", () => {
   it("should show the clicked object's own definition if two share a name across schemas", async () => {
     const user = userEvent.setup();
     mockFetchObjects.mockResolvedValue([
-      { schema: "public", name: "audit", definition: "CREATE FUNCTION public.audit RETURNS void" },
-      { schema: "app", name: "audit", definition: "CREATE FUNCTION app.audit RETURNS integer" },
+      {
+        schema: "public",
+        name: "audit",
+        definition: "CREATE FUNCTION public.audit RETURNS void",
+      },
+      {
+        schema: "app",
+        name: "audit",
+        definition: "CREATE FUNCTION app.audit RETURNS integer",
+      },
     ]);
     renderObjectTab();
 
@@ -191,7 +206,9 @@ describe("ObjectTab", () => {
 
   // AC-010, TC-010 - behavior (a fetch rejection renders an inline error line, no crash)
   it("should render an inline error line if the fetch rejects", async () => {
-    mockFetchObjects.mockRejectedValue(new Error("permission denied for function"));
+    mockFetchObjects.mockRejectedValue(
+      new Error("permission denied for function"),
+    );
     renderObjectTab();
 
     expect(

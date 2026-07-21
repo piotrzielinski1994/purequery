@@ -14,12 +14,12 @@ const target = db.getSiblingDB("purequery_test");
 const users = [];
 for (let g = 1; g <= 500; g += 1) {
   users.push({
-    name: "user_" + g,
-    email: g % 7 === 0 ? null : "user" + g + "@example.com",
+    name: `user_${g}`,
+    email: g % 7 === 0 ? null : `user${g}@example.com`,
     age: 18 + (g % 50),
     balance: Math.round(g * 1.5 * 100) / 100,
     address: { city: g % 2 === 0 ? "Warsaw" : "Berlin", zip: 10000 + g },
-    tags: g % 3 === 0 ? [] : ["t" + (g % 4), "t" + (g % 7)],
+    tags: g % 3 === 0 ? [] : [`t${g % 4}`, `t${g % 7}`],
     vip: g % 5 === 0,
   });
 }
@@ -30,12 +30,19 @@ const orders = [];
 for (let g = 1; g <= 300; g += 1) {
   orders.push({
     userId: (g % 500) + 1,
-    status: g % 4 === 0 ? "paid" : g % 4 === 1 ? "pending" : g % 4 === 2 ? "shipped" : "cancelled",
-    total: Math.round((g % 999 + 1) * 0.99 * 100) / 100,
-    note: g % 3 === 0 ? null : "note " + g,
+    status:
+      g % 4 === 0
+        ? "paid"
+        : g % 4 === 1
+          ? "pending"
+          : g % 4 === 2
+            ? "shipped"
+            : "cancelled",
+    total: Math.round(((g % 999) + 1) * 0.99 * 100) / 100,
+    note: g % 3 === 0 ? null : `note ${g}`,
     items: [
-      { sku: "SKU" + g, qty: (g % 5) + 1 },
-      { sku: "SKU" + (g + 1), qty: (g % 3) + 1 },
+      { sku: `SKU${g}`, qty: (g % 5) + 1 },
+      { sku: `SKU${g + 1}`, qty: (g % 3) + 1 },
     ],
   });
 }

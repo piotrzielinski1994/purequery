@@ -1,19 +1,21 @@
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 import type { GroupImperativeHandle } from "react-resizable-panels";
+import { createNoopLogStream, type LogStream } from "@/lib/logging/log-stream";
 import type {
   PanelGroupKey,
   PanelLayout,
   Settings,
 } from "@/lib/settings/settings";
+import { type LogLine, parseLogLine } from "@/lib/workspace/log-line";
 import type {
   ConnectionConfig,
   ConnectionStatus,
@@ -29,24 +31,22 @@ import type {
   ViewObject,
 } from "@/lib/workspace/model";
 import {
+  type MoveTarget,
   moveNode as moveTreeNode,
   moveNodes as moveTreeNodes,
-  type MoveTarget,
 } from "@/lib/workspace/move";
-import { flattenSelectable, rangeBetween } from "@/lib/workspace/tree-select";
-import { insertNode } from "@/lib/workspace/tree-edit";
-import { parseLogLine, type LogLine } from "@/lib/workspace/log-line";
-import { createNoopLogStream, type LogStream } from "@/lib/logging/log-stream";
 import {
-  EMPTY_NAV,
-  pushNavigation,
   canGoBack,
   canGoForward,
+  currentEntry,
+  EMPTY_NAV,
   goBack as goBackNav,
   goForward as goForwardNav,
-  currentEntry,
   type NavState,
+  pushNavigation,
 } from "@/lib/workspace/nav-history";
+import { insertNode } from "@/lib/workspace/tree-edit";
+import { flattenSelectable, rangeBetween } from "@/lib/workspace/tree-select";
 
 // How a click adjusts the sidebar multi-selection: a plain click replaces it, a
 // Cmd/Ctrl click toggles one row, a Shift click selects the range from the
@@ -976,10 +976,12 @@ export function WorkspaceProvider({
   // second time per toggle (the measured lag). Ref + persist keeps the layout durable, zero render.
   const [layoutsSeed] = useState(initialLayouts);
   const layoutsRef = useRef<Settings["layouts"]>(initialLayouts);
-  const [isSidebarVisible, setIsSidebarVisible] =
-    useState(!initialSidebarHidden);
-  const [isConsoleVisible, setIsConsoleVisible] =
-    useState(!initialConsoleHidden);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(
+    !initialSidebarHidden,
+  );
+  const [isConsoleVisible, setIsConsoleVisible] = useState(
+    !initialConsoleHidden,
+  );
   const [pendingPanelFocus, setPendingPanelFocus] =
     useState<PanelFocusTarget>(null);
   const [isJsonView, setIsJsonView] = useState(initialJsonView);
@@ -1207,19 +1209,25 @@ export function WorkspaceProvider({
           return current;
         }
         const next = new Set(current);
-        ids.forEach((id) => next.delete(id));
+        ids.forEach((id) => {
+          next.delete(id);
+        });
         return next;
       });
       removedDbIds.forEach(closeTab);
       if (removedDbIds.length > 0) {
         setConnectionsMap((current) => {
           const next = new Map(current);
-          removedDbIds.forEach((dbId) => next.delete(dbId));
+          removedDbIds.forEach((dbId) => {
+            next.delete(dbId);
+          });
           return next;
         });
         setConnectionStatusMap((current) => {
           const next = new Map(current);
-          removedDbIds.forEach((dbId) => next.delete(dbId));
+          removedDbIds.forEach((dbId) => {
+            next.delete(dbId);
+          });
           return next;
         });
       }
@@ -1324,7 +1332,7 @@ export function WorkspaceProvider({
       saveScript: (databaseId, name, sql) => {
         const trimmed = name.trim();
         const node = nodesById.get(databaseId);
-        if (!node || node.kind !== "database") {
+        if (node?.kind !== "database") {
           return false;
         }
         if (node.savedScripts.some((script) => script.name === trimmed)) {
@@ -1340,7 +1348,7 @@ export function WorkspaceProvider({
       renameScript: (databaseId, oldName, newName) => {
         const trimmed = newName.trim();
         const node = nodesById.get(databaseId);
-        if (!node || node.kind !== "database") {
+        if (node?.kind !== "database") {
           return false;
         }
         if (
@@ -1410,7 +1418,7 @@ export function WorkspaceProvider({
       saveJsScript: (databaseId, name, code) => {
         const trimmed = name.trim();
         const node = nodesById.get(databaseId);
-        if (!node || node.kind !== "database") {
+        if (node?.kind !== "database") {
           return false;
         }
         if (node.savedJsScripts.some((script) => script.name === trimmed)) {
@@ -1428,7 +1436,7 @@ export function WorkspaceProvider({
       renameJsScript: (databaseId, oldName, newName) => {
         const trimmed = newName.trim();
         const node = nodesById.get(databaseId);
-        if (!node || node.kind !== "database") {
+        if (node?.kind !== "database") {
           return false;
         }
         if (

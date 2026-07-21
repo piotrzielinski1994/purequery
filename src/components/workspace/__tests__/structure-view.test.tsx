@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 // The read-only structure panel (F6 #14). It does not exist yet; the import fails at runtime until
 // structure-view.tsx ships, so each test fails on the missing component, not a typo.

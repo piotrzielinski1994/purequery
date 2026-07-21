@@ -30,8 +30,7 @@ function cellToJson(cell: Cell): unknown {
   }
   try {
     const parsed: unknown = JSON.parse(cell);
-    const isStructured =
-      typeof parsed === "object" && parsed !== null;
+    const isStructured = typeof parsed === "object" && parsed !== null;
     return isStructured ? parsed : cell;
   } catch {
     return cell;
@@ -181,7 +180,9 @@ export function diffToMutations(input: {
       if (name === primaryKey) {
         return false;
       }
-      const original = canonicalCell(rows[rowIndex]?.[columns.indexOf(name)] ?? null);
+      const original = canonicalCell(
+        rows[rowIndex]?.[columns.indexOf(name)] ?? null,
+      );
       return jsonToCell(obj[name]) !== original;
     });
     if (changedColumns.length === 0) {
@@ -191,14 +192,14 @@ export function diffToMutations(input: {
       intents.push({ type: "replace", rowIndex });
       return;
     }
-    changedColumns.forEach((column) =>
+    changedColumns.forEach((column) => {
       intents.push({
         type: "cell",
         rowIndex,
         column,
         newValue: jsonToCell(obj[column]) ?? "",
-      }),
-    );
+      });
+    });
   });
 
   const editedPkSet = new Set(editedPks.map((pk) => pk ?? ""));

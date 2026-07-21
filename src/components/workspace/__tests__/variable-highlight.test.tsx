@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { render } from "@testing-library/react";
-import { EditorView } from "@codemirror/view";
 import { CompletionContext } from "@codemirror/autocomplete";
+import { EditorView } from "@codemirror/view";
+import { render } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 // F18 CodeMirror `{{name}}` decoration (AC-011 / TC-017 + variable-aware color). A `{{name}}` DEFINED
 // in the editor's variable set is decorated `.cm-purequery-variable` (green); an UNDEFINED one
@@ -26,9 +26,10 @@ function liveView(container: HTMLElement): EditorView {
 // test asserts what the `{{` variable-completion source offers regardless of source ordering.
 async function completionsAt(container: HTMLElement) {
   const state = liveView(container).state;
-  const sources = state.languageDataAt<
-    (ctx: CompletionContext) => unknown
-  >("autocomplete", state.doc.length);
+  const sources = state.languageDataAt<(ctx: CompletionContext) => unknown>(
+    "autocomplete",
+    state.doc.length,
+  );
   const ctx = new CompletionContext(state, state.doc.length, true);
   const results = (await Promise.all(
     sources.map((source) => source(ctx)),

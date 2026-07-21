@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "@/components/workspace/workspace-context";
+import { cn } from "@/lib/utils";
 import type { DatabaseNode, Variable } from "@/lib/workspace/model";
 
 const BLANK: Variable = { name: "", value: "" };
@@ -18,7 +18,7 @@ const dropBlankNames = (rows: Variable[]) =>
 export function VariablesTab() {
   const { activeNode } = useWorkspace();
 
-  if (!activeNode || activeNode.kind !== "database") {
+  if (activeNode?.kind !== "database") {
     return null;
   }
   return <VariablesGrid key={activeNode.id} node={activeNode} />;
@@ -67,52 +67,52 @@ function VariablesGrid({ node }: { node: DatabaseNode }) {
       style={{ gridTemplateColumns: "1fr 1fr 2.25rem" }}
     >
       {display.map((row, index) => {
-          const isBlankRow = index === draft.length;
-          return (
-            <div key={index} className="contents">
-              <div className={cell}>
-                <input
-                  aria-label={`name ${index + 1}`}
-                  value={row.name}
-                  placeholder={isBlankRow ? "name" : undefined}
-                  autoComplete="off"
-                  spellCheck={false}
-                  onChange={(event) =>
-                    editCell(index, { name: event.target.value })
-                  }
-                  className={input}
-                />
-              </div>
-              <div className={cell}>
-                <input
-                  aria-label={`value ${index + 1}`}
-                  value={row.value}
-                  placeholder={isBlankRow ? "value" : undefined}
-                  autoComplete="off"
-                  spellCheck={false}
-                  onChange={(event) =>
-                    editCell(index, { value: event.target.value })
-                  }
-                  className={input}
-                />
-              </div>
-              <div className={cn(cell, "flex items-center justify-center")}>
-                {!isBlankRow && (
-                  <button
-                    type="button"
-                    aria-label={`Remove ${row.name || "row"}`}
-                    onClick={() =>
-                      apply(draftRef.current.filter((_, i) => i !== index))
-                    }
-                    className="flex items-center text-muted-foreground hover:text-foreground"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                )}
-              </div>
+        const isBlankRow = index === draft.length;
+        return (
+          <div key={index} className="contents">
+            <div className={cell}>
+              <input
+                aria-label={`name ${index + 1}`}
+                value={row.name}
+                placeholder={isBlankRow ? "name" : undefined}
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(event) =>
+                  editCell(index, { name: event.target.value })
+                }
+                className={input}
+              />
             </div>
-          );
-        })}
+            <div className={cell}>
+              <input
+                aria-label={`value ${index + 1}`}
+                value={row.value}
+                placeholder={isBlankRow ? "value" : undefined}
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(event) =>
+                  editCell(index, { value: event.target.value })
+                }
+                className={input}
+              />
+            </div>
+            <div className={cn(cell, "flex items-center justify-center")}>
+              {!isBlankRow && (
+                <button
+                  type="button"
+                  aria-label={`Remove ${row.name || "row"}`}
+                  onClick={() =>
+                    apply(draftRef.current.filter((_, i) => i !== index))
+                  }
+                  className="flex items-center text-muted-foreground hover:text-foreground"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -1,13 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { dragOverlayLabel } from "@/lib/workspace/drag-overlay-label";
 
 describe("dragOverlayLabel", () => {
   // behavior: dragging a row that is part of a multi-selection shows the count.
   it("should show the selection count if the dragged row is in a multi-selection", () => {
-    expect(
-      dragOverlayLabel("a", "alpha", new Set(["a", "b", "c"])),
-    ).toBe("3 items");
+    expect(dragOverlayLabel("a", "alpha", new Set(["a", "b", "c"]))).toBe(
+      "3 items",
+    );
   });
 
   // behavior: dragging a selected row in a 2-item selection still pluralizes.
@@ -22,9 +22,7 @@ describe("dragOverlayLabel", () => {
 
   // behavior: dragging an UNselected row (even with others selected) shows its name.
   it("should show the node name if the dragged row is not part of the selection", () => {
-    expect(
-      dragOverlayLabel("z", "zeta", new Set(["a", "b"])),
-    ).toBe("zeta");
+    expect(dragOverlayLabel("z", "zeta", new Set(["a", "b"]))).toBe("zeta");
   });
 
   // behavior: no selection -> the node name.

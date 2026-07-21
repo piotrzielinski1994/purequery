@@ -1,11 +1,11 @@
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
-  type ReactNode,
 } from "react";
 import {
   DEFAULT_SETTINGS,
@@ -28,7 +28,10 @@ type SettingsContextValue = {
   // (fullscreen sync / the settings page) and must survive a chrome write, so saveChrome merges
   // them from current settings.
   saveChrome: (
-    chrome: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen" | "rowLimit">,
+    chrome: Omit<
+      Settings,
+      "theme" | "shortcuts" | "windowFullscreen" | "rowLimit"
+    >,
   ) => void;
   saveThemeMode: (mode: ThemeMode) => void;
   saveThemeColors: (colors: ThemeColors) => void;
@@ -86,7 +89,12 @@ export function SettingsProvider({ store, children }: SettingsProviderProps) {
   // Closing over `settings` is stable across chrome toggles (saveChrome never setState's, and theme/
   // shortcut edits - the only writers - are rare), so a toggle never re-renders settings consumers.
   const saveChrome = useCallback(
-    (chrome: Omit<Settings, "theme" | "shortcuts" | "windowFullscreen" | "rowLimit">) => {
+    (
+      chrome: Omit<
+        Settings,
+        "theme" | "shortcuts" | "windowFullscreen" | "rowLimit"
+      >,
+    ) => {
       store.save({ ...(settings ?? DEFAULT_SETTINGS), ...chrome });
     },
     [store, settings],

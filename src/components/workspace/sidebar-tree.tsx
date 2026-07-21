@@ -1,45 +1,48 @@
 import {
+  DndContext,
+  type DragEndEvent,
+  type DragOverEvent,
+  DragOverlay,
+  type DragStartEvent,
+  PointerSensor,
+  pointerWithin,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  pointerWithin,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragOverEvent,
-  type DragStartEvent,
-} from "@dnd-kit/core";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { DeleteNodeDialog } from "@/components/workspace/delete-node-dialog";
+import { DeleteRequestProvider } from "@/components/workspace/delete-request-context";
+import {
+  type DropIndicator,
+  TreeDndProvider,
+} from "@/components/workspace/tree-dnd";
+import { TreeNavProvider } from "@/components/workspace/tree-nav";
+import { TreeRow } from "@/components/workspace/tree-row";
 import {
   useChrome,
   useWorkspace,
 } from "@/components/workspace/workspace-context";
-import { TreeRow } from "@/components/workspace/tree-row";
-import { TreeNavProvider } from "@/components/workspace/tree-nav";
-import {
-  flattenVisible,
-  resolveTreeKey,
-} from "@/lib/workspace/tree-navigate";
-import {
-  TreeDndProvider,
-  type DropIndicator,
-} from "@/components/workspace/tree-dnd";
-import { DeleteRequestProvider } from "@/components/workspace/delete-request-context";
-import { DeleteNodeDialog } from "@/components/workspace/delete-node-dialog";
+import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
+import { useSettingsOptional } from "@/lib/settings/settings-context";
+import { matchesAny } from "@/lib/shortcuts/match-hotkey";
+import { resolveShortcuts } from "@/lib/shortcuts/resolve";
+import { dragOverlayLabel } from "@/lib/workspace/drag-overlay-label";
+import { isEditableTarget } from "@/lib/workspace/is-editable-target";
+import type { TreeNode } from "@/lib/workspace/model";
 import {
   dropTarget,
   findNode,
@@ -48,13 +51,7 @@ import {
   projectDropPosition,
   rawDropTarget,
 } from "@/lib/workspace/tree-locate";
-import { isEditableTarget } from "@/lib/workspace/is-editable-target";
-import { dragOverlayLabel } from "@/lib/workspace/drag-overlay-label";
-import { useSettingsOptional } from "@/lib/settings/settings-context";
-import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
-import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import { matchesAny } from "@/lib/shortcuts/match-hotkey";
-import type { TreeNode } from "@/lib/workspace/model";
+import { flattenVisible, resolveTreeKey } from "@/lib/workspace/tree-navigate";
 
 function pointerY(event: DragOverEvent): number | null {
   const activator = event.activatorEvent;
@@ -229,7 +226,11 @@ export function SidebarTree() {
         openNode(command.id);
         return;
       }
-      if (command.type === "toggle" || command.type === "expand" || command.type === "collapse") {
+      if (
+        command.type === "toggle" ||
+        command.type === "expand" ||
+        command.type === "collapse"
+      ) {
         toggleExpand(command.id);
         return;
       }
@@ -237,7 +238,15 @@ export function SidebarTree() {
       moveNode(command.id, command.target);
       pendingFocusId.current = command.id;
     },
-    [tree, expandedIds, shortcuts, selectInTree, openNode, toggleExpand, moveNode],
+    [
+      tree,
+      expandedIds,
+      shortcuts,
+      selectInTree,
+      openNode,
+      toggleExpand,
+      moveNode,
+    ],
   );
 
   const contextMenuBindings = resolveShortcuts(shortcuts)["open-context-menu"];
@@ -265,7 +274,11 @@ export function SidebarTree() {
     if (isOverFolder && !expandedIds.has(overId)) {
       toggleExpand(overId);
     }
-    const position = projectPosition(event, Boolean(isOverFolder), isOverFolder);
+    const position = projectPosition(
+      event,
+      Boolean(isOverFolder),
+      isOverFolder,
+    );
     setIndicator({ overId, position });
   };
 
@@ -328,58 +341,63 @@ export function SidebarTree() {
         >
           <TreeDndProvider value={{ activeId, indicator }}>
             <TreeNavProvider
-              value={{ rovingId, contextMenuBindings, registerRow, handleKeyDown }}
+              value={{
+                rovingId,
+                contextMenuBindings,
+                registerRow,
+                handleKeyDown,
+              }}
             >
-            <ContextMenu>
-              {/* Right-clicking the empty sidebar area opens this root menu; a row's own menu (nested
+              <ContextMenu>
+                {/* Right-clicking the empty sidebar area opens this root menu; a row's own menu (nested
                   trigger) takes precedence when the click lands on a row. min-h keeps the empty-area
                   target tall even with few rows. */}
-              <ContextMenuTrigger asChild>
-                <ul
-                  role="tree"
-                  aria-label="Navigator"
-                  className="min-h-40"
-                  // A plain left-click on the empty area clears the selection.
-                  onClick={(event) => {
-                    if (event.target === event.currentTarget) {
-                      clearSelection();
-                    }
-                  }}
-                >
-                  {tree.map((node) => (
-                    <TreeRow key={node.id} node={node} depth={0} />
-                  ))}
-                </ul>
-              </ContextMenuTrigger>
-              <ContextMenuContent>
-                <ContextMenuItem onSelect={() => addDatabase()}>
-                  New database
-                </ContextMenuItem>
-                <ContextMenuItem onSelect={() => createFolder()}>
-                  New folder
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
-            <DragOverlay>
-              {activeNode ? (
-                <div className="relative">
-                  {/* A second offset card behind the chip reads as a stack when dragging many. */}
-                  {isMultiActive ? (
-                    <div className="absolute left-1 top-1 size-full bg-accent shadow" />
-                  ) : null}
-                  <div
-                    data-testid="drag-overlay"
-                    className="relative bg-accent px-2 py-1 text-[13px] shadow"
+                <ContextMenuTrigger asChild>
+                  <ul
+                    role="tree"
+                    aria-label="Navigator"
+                    className="min-h-40"
+                    // A plain left-click on the empty area clears the selection.
+                    onClick={(event) => {
+                      if (event.target === event.currentTarget) {
+                        clearSelection();
+                      }
+                    }}
                   >
-                    {dragOverlayLabel(
-                      activeNode.id,
-                      activeNode.name,
-                      selectedIds,
-                    )}
+                    {tree.map((node) => (
+                      <TreeRow key={node.id} node={node} depth={0} />
+                    ))}
+                  </ul>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuItem onSelect={() => addDatabase()}>
+                    New database
+                  </ContextMenuItem>
+                  <ContextMenuItem onSelect={() => createFolder()}>
+                    New folder
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
+              <DragOverlay>
+                {activeNode ? (
+                  <div className="relative">
+                    {/* A second offset card behind the chip reads as a stack when dragging many. */}
+                    {isMultiActive ? (
+                      <div className="absolute left-1 top-1 size-full bg-accent shadow" />
+                    ) : null}
+                    <div
+                      data-testid="drag-overlay"
+                      className="relative bg-accent px-2 py-1 text-[13px] shadow"
+                    >
+                      {dragOverlayLabel(
+                        activeNode.id,
+                        activeNode.name,
+                        selectedIds,
+                      )}
+                    </div>
                   </div>
-                </div>
-              ) : null}
-            </DragOverlay>
+                ) : null}
+              </DragOverlay>
             </TreeNavProvider>
           </TreeDndProvider>
         </DndContext>

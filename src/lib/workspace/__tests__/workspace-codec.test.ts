@@ -1,12 +1,11 @@
-import { describe, it, expect } from "vitest";
-
+import { describe, expect, it } from "vitest";
+import type { DatabaseNode, QueryResult } from "@/lib/workspace/model";
 import {
   dehydrateDatabase,
   hydrateDatabase,
   mergeDatabaseFile,
   type PersistedDatabase,
 } from "@/lib/workspace/workspace";
-import type { DatabaseNode, QueryResult } from "@/lib/workspace/model";
 
 const EMPTY_RESULT: QueryResult = {
   status: "success",
@@ -58,7 +57,9 @@ function pgNode(overrides: Partial<DatabaseNode> = {}): DatabaseNode {
 describe("mergeDatabaseFile", () => {
   // AC-005 - behavior: a valid postgres record passes through
   it("should keep a valid network database record", () => {
-    expect(mergeDatabaseFile({ ...validPersistedPg })).toEqual(validPersistedPg);
+    expect(mergeDatabaseFile({ ...validPersistedPg })).toEqual(
+      validPersistedPg,
+    );
   });
 
   // AC-005, AC-006 - behavior: a missing id/name yields null

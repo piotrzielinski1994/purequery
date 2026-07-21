@@ -1,25 +1,24 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
+  fireEvent,
   render,
   screen,
-  within,
   waitFor,
-  fireEvent,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import type { ConnectionConfig } from "@/lib/workspace/model";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { SidebarTree } from "@/components/workspace/sidebar-tree";
-import { SettingsTab } from "@/components/workspace/settings-tab";
-import { ContentHeader } from "@/components/workspace/content-header";
-import { connectDatabase, cancelConnect } from "@/lib/tauri";
-import { __resetInFlightConnects } from "@/components/workspace/use-connection";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  fixtureTree,
   expandedToAppDb,
+  fixtureTree,
 } from "@/components/workspace/__tests__/fixtures";
+import { ContentHeader } from "@/components/workspace/content-header";
+import { SettingsTab } from "@/components/workspace/settings-tab";
+import { SidebarTree } from "@/components/workspace/sidebar-tree";
+import { __resetInFlightConnects } from "@/components/workspace/use-connection";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { cancelConnect, connectDatabase } from "@/lib/tauri";
+import type { ConnectionConfig } from "@/lib/workspace/model";
 
 vi.mock("@/lib/tauri", () => ({
   connectDatabase: vi.fn(),
@@ -252,9 +251,7 @@ describe("SidebarTree", () => {
 
     // expand -> connect fails -> red error dot, row stays expanded
     await user.click(chevron());
-    expect(
-      await screen.findByLabelText(/admin_db error/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByLabelText(/admin_db error/i)).toBeInTheDocument();
     expect(mockConnect).toHaveBeenCalledTimes(1);
 
     // collapse -> no second connect, no amber connecting dot, and the red error dot clears to idle
@@ -355,9 +352,10 @@ describe("SidebarTree", () => {
       await screen.findByRole("menuitem", { name: /^disconnect$/i }),
     );
 
-    expect(
-      screen.getByRole("treeitem", { name: "admin_db" }),
-    ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("treeitem", { name: "admin_db" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
     expect(
       screen.queryByRole("treeitem", { name: "accounts" }),
     ).not.toBeInTheDocument();
@@ -526,7 +524,13 @@ describe("SidebarTree connection status dot", () => {
   // AC-006, TC-001 — behavior (green dot once a connect succeeds)
   it("should show a connected status dot on the database row after a successful connect", async () => {
     const user = userEvent.setup();
-    mockConnect.mockResolvedValueOnce({ tables: [{ schema: null, name: "a" }, { schema: null, name: "b" }], views: [] });
+    mockConnect.mockResolvedValueOnce({
+      tables: [
+        { schema: null, name: "a" },
+        { schema: null, name: "b" },
+      ],
+      views: [],
+    });
     renderWithSettings({
       activeTabId: "db-admin",
       expanded: ["folder-staging"],
@@ -565,7 +569,10 @@ describe("SidebarTree Postgres schema labelling (flat)", () => {
     __resetInFlightConnects();
   });
 
-  function renderWithSettings(opts: { activeTabId: string; expanded: string[] }) {
+  function renderWithSettings(opts: {
+    activeTabId: string;
+    expanded: string[];
+  }) {
     return render(
       <WorkspaceProvider
         tree={fixtureTree}

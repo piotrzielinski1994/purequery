@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { variableTooltipDom } from "@/components/workspace/sql-editor";
 
@@ -52,7 +52,11 @@ describe("variableTooltipDom (AC-011 hover popup)", () => {
   // side-effect-contract: Edit invokes the onEdit callback with the variable name (jump to the tab).
   it("should call onEdit with the variable name when Edit is pressed", () => {
     const onEdit = vi.fn();
-    const dom = variableTooltipDom("userId", new Map([["userId", "42"]]), onEdit);
+    const dom = variableTooltipDom(
+      "userId",
+      new Map([["userId", "42"]]),
+      onEdit,
+    );
     const edit = dom.querySelector<HTMLButtonElement>(
       '[aria-label="Edit variable"]',
     );

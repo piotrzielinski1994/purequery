@@ -1,23 +1,5 @@
 import { formatForDisplay } from "@tanstack/react-hotkeys";
 import {
-  useChrome,
-  useJsonView,
-  useMockData,
-  useQuickOpen,
-  useStructureView,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
-import { useThemeToggle } from "@/lib/theme/theme-context";
-import {
-  PALETTE_COMMANDS,
-  PALETTE_GROUP_ORDER,
-  type PaletteCommandId,
-} from "@/components/workspace/command-registry";
-import { useSettingsOptional } from "@/lib/settings/settings-context";
-import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
-import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import { PANEL_RESIZE_STEP } from "@/lib/workspace/panel-resize";
-import {
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -26,6 +8,24 @@ import {
   CommandList,
   CommandShortcut,
 } from "@/components/ui/command";
+import {
+  PALETTE_COMMANDS,
+  PALETTE_GROUP_ORDER,
+  type PaletteCommandId,
+} from "@/components/workspace/command-registry";
+import {
+  useChrome,
+  useJsonView,
+  useMockData,
+  useQuickOpen,
+  useStructureView,
+  useWorkspace,
+} from "@/components/workspace/workspace-context";
+import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
+import { useSettingsOptional } from "@/lib/settings/settings-context";
+import { resolveShortcuts } from "@/lib/shortcuts/resolve";
+import { useThemeToggle } from "@/lib/theme/theme-context";
+import { PANEL_RESIZE_STEP } from "@/lib/workspace/panel-resize";
 
 type CommandPaletteProps = {
   open: boolean;

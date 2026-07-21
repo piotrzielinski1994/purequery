@@ -1,27 +1,13 @@
+import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { save } from "@tauri-apps/plugin-dialog";
+import { ChevronDown, ChevronRight, Table } from "lucide-react";
 import {
+  type KeyboardEvent as ReactKeyboardEvent,
   useEffect,
   useRef,
   useState,
-  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import { ChevronDown, ChevronRight, Table } from "lucide-react";
-import { save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
-import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { EngineIcon } from "@/components/workspace/engine-icon";
-import { backupDatabase, estimateBackupRows } from "@/lib/tauri";
-import {
-  backupFilters,
-  defaultBackupFileName,
-  MAX_BACKUP_ROWS,
-} from "@/lib/workspace/backup";
-import { cn } from "@/lib/utils";
-import { visibleTables } from "@/lib/workspace/tree-schema";
-import { useWorkspace } from "@/components/workspace/workspace-context";
-import { useConnectionActions } from "@/components/workspace/use-connection";
-import { useRequestDelete } from "@/components/workspace/delete-request-context";
-import { useTreeDnd } from "@/components/workspace/tree-dnd";
-import { useTreeNav, openContextMenuOnKey } from "@/components/workspace/tree-nav";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -29,15 +15,32 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { emptyZoneId } from "@/lib/workspace/tree-locate";
+import { useRequestDelete } from "@/components/workspace/delete-request-context";
+import { EngineIcon } from "@/components/workspace/engine-icon";
+import { useTreeDnd } from "@/components/workspace/tree-dnd";
 import {
-  connectionOf,
+  openContextMenuOnKey,
+  useTreeNav,
+} from "@/components/workspace/tree-nav";
+import { useConnectionActions } from "@/components/workspace/use-connection";
+import { useWorkspace } from "@/components/workspace/workspace-context";
+import { backupDatabase, estimateBackupRows } from "@/lib/tauri";
+import { cn } from "@/lib/utils";
+import {
+  backupFilters,
+  defaultBackupFileName,
+  MAX_BACKUP_ROWS,
+} from "@/lib/workspace/backup";
+import {
   type ConnectionStatus,
+  connectionOf,
   type DatabaseNode,
   type FolderNode,
   type TableNode,
   type TreeNode,
 } from "@/lib/workspace/model";
+import { emptyZoneId } from "@/lib/workspace/tree-locate";
+import { visibleTables } from "@/lib/workspace/tree-schema";
 
 // Inline rename editor for a tree row (ported from requi). Commits on Enter/blur, cancels on
 // Escape. Guards the freshly-mounted input against a radix-menu focus-teardown blur that would
@@ -154,7 +157,11 @@ function DropLine() {
 
 // The selection mode a click implies: Cmd/Ctrl toggles one row, Shift ranges from the anchor, a
 // plain click replaces. (macOS uses metaKey, others ctrlKey.)
-function selectModeOf(event: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }) {
+function selectModeOf(event: {
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+}) {
   if (event.shiftKey) {
     return "range" as const;
   }

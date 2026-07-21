@@ -1,12 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { SidebarTree } from "@/components/workspace/sidebar-tree";
-import { connectDatabase } from "@/lib/tauri";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { SidebarTree } from "@/components/workspace/sidebar-tree";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { connectDatabase } from "@/lib/tauri";
 
 // Mirror sidebar-tree.test.tsx: the tree pulls live catalog leaves through the
 // tauri bridge and toasts; both are stubbed so render is deterministic.
@@ -56,9 +55,10 @@ describe("SidebarTree drag affordance wiring (AC-007)", () => {
   it("should expose a drag affordance on a folder row", () => {
     renderTree();
 
-    expect(
-      screen.getByRole("treeitem", { name: "prod" }),
-    ).toHaveAttribute("aria-roledescription", "draggable");
+    expect(screen.getByRole("treeitem", { name: "prod" })).toHaveAttribute(
+      "aria-roledescription",
+      "draggable",
+    );
   });
 
   // AC-001 (database draggable) - side-effect-contract
@@ -74,18 +74,22 @@ describe("SidebarTree drag affordance wiring (AC-007)", () => {
   it("should expose a drag affordance on a nested folder row", () => {
     renderTree({ expanded: ["folder-prod"] });
 
-    expect(
-      screen.getByRole("treeitem", { name: "team" }),
-    ).toHaveAttribute("aria-roledescription", "draggable");
+    expect(screen.getByRole("treeitem", { name: "team" })).toHaveAttribute(
+      "aria-roledescription",
+      "draggable",
+    );
   });
 
   // AC-007, TC-007 - side-effect-contract (a table leaf carries NO drag affordance)
   it("should not expose a drag affordance on a table leaf row", async () => {
     const user = userEvent.setup();
-    mockConnect.mockResolvedValueOnce({ tables: [
-      { schema: null, name: "accounts" },
-      { schema: null, name: "audit_log" },
-    ], views: [] });
+    mockConnect.mockResolvedValueOnce({
+      tables: [
+        { schema: null, name: "accounts" },
+        { schema: null, name: "audit_log" },
+      ],
+      views: [],
+    });
     renderTree({ expanded: ["folder-staging"], connected: ["db-admin"] });
 
     const dbRow = screen.getByRole("treeitem", { name: "admin_db" });
@@ -96,9 +100,6 @@ describe("SidebarTree drag affordance wiring (AC-007)", () => {
     const tableLeaf = await screen.findByRole("treeitem", {
       name: "accounts",
     });
-    expect(tableLeaf).not.toHaveAttribute(
-      "aria-roledescription",
-      "draggable",
-    );
+    expect(tableLeaf).not.toHaveAttribute("aria-roledescription", "draggable");
   });
 });

@@ -1,15 +1,12 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { cn } from "@/lib/utils";
+import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SqlText } from "@/components/workspace/sql-text";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import {
-  objectEmptyLabel,
-  objectListLabel,
-} from "@/lib/workspace/object-tabs";
 import { fetchDatabaseObjects } from "@/lib/tauri";
+import { cn } from "@/lib/utils";
 import type { DatabaseObject, ObjectKind } from "@/lib/workspace/model";
+import { objectEmptyLabel, objectListLabel } from "@/lib/workspace/object-tabs";
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {

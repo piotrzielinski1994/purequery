@@ -1,16 +1,25 @@
 import { useMemo } from "react";
-import { highlightSql, type SqlSegmentKind } from "@/lib/workspace/sql-highlight";
 import type { EditorColors } from "@/components/workspace/sql-editor-theme";
-import { useThemeOptional } from "@/lib/theme/theme-context";
 import { applyDefaults } from "@/lib/theme/overrides";
+import { useThemeOptional } from "@/lib/theme/theme-context";
 import { DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
+import {
+  highlightSql,
+  type SqlSegmentKind,
+} from "@/lib/workspace/sql-highlight";
 
 // Inline read-only SQL highlighter for every place a stored SQL string is shown (History log,
 // Changes list, the manual-commit Commit modal) - the same token COLOURS as the SQL editor (theme
 // `editorColors`) applied to the pure `highlightSql` segments, WITHOUT a CodeMirror instance per row
 // (a list of dozens of statements can't each mount an editor). Renders inline (a `<span>`), so the
 // caller controls the block/wrapping via className.
-export function SqlText({ sql, className }: { sql: string; className?: string }) {
+export function SqlText({
+  sql,
+  className,
+}: {
+  sql: string;
+  className?: string;
+}) {
   const theme = useThemeOptional();
   const effectiveColors =
     theme?.effectiveColors ??

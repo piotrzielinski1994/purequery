@@ -1,12 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { TableCard } from "@/components/workspace/table-card";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Console } from "@/components/workspace/console";
-import { fetchTable, countTable } from "@/lib/tauri";
+import { TableCard } from "@/components/workspace/table-card";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { countTable, fetchTable } from "@/lib/tauri";
 import type {
   ConnectionConfig,
   TableColumn,
@@ -132,7 +131,9 @@ function renderLive(opts: {
       <WorkspaceProvider
         tree={tree(engine, opts.readOnly ?? false)}
         initialActiveTabId="db-1::users"
-        initialConnections={[["db-1", engine === "mongodb" ? mongoConfig : pgConfig]]}
+        initialConnections={[
+          ["db-1", engine === "mongodb" ? mongoConfig : pgConfig],
+        ]}
         initialMockDataOpen
       >
         <TableCard />
@@ -234,7 +235,9 @@ describe("Mock data dialog preview (AC-005)", () => {
     await user.clear(countInput);
     await user.type(countInput, "3");
 
-    await user.click(within(dialog).getByRole("button", { name: /regenerate/i }));
+    await user.click(
+      within(dialog).getByRole("button", { name: /regenerate/i }),
+    );
 
     await waitFor(() => {
       expect(within(dialog).getAllByRole("table")).toHaveLength(2);

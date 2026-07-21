@@ -1,20 +1,25 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { ScriptTab } from "@/components/workspace/script-tab";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseCard } from "@/components/workspace/database-card";
+import { ScriptTab } from "@/components/workspace/script-tab";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { createNoopRunner } from "@/lib/script/runner";
-import type { ConnectionConfig, DatabaseNode, TreeNode } from "@/lib/workspace/model";
+import type {
+  ConnectionConfig,
+  DatabaseNode,
+  TreeNode,
+} from "@/lib/workspace/model";
 
 vi.mock("@/lib/tauri", () => ({
   executeSql: vi.fn(() => Promise.resolve([])),
   executeMongo: vi.fn(() => Promise.resolve([])),
   fetchSchema: vi.fn(() => Promise.resolve([])),
   connectDatabase: vi.fn(() => Promise.resolve({ tables: [], views: [] })),
-  fetchTable: vi.fn(() => Promise.resolve({ columns: [], rows: [], primaryKey: null })),
+  fetchTable: vi.fn(() =>
+    Promise.resolve({ columns: [], rows: [], primaryKey: null }),
+  ),
   countTable: vi.fn(() => Promise.resolve(0)),
   applyRowMutations: vi.fn(),
   cancelQuery: vi.fn(),
@@ -77,7 +82,11 @@ function newClient() {
   });
 }
 
-function renderScript(opts: { tree: TreeNode[]; activeId: string; connected?: boolean }) {
+function renderScript(opts: {
+  tree: TreeNode[];
+  activeId: string;
+  connected?: boolean;
+}) {
   return render(
     <QueryClientProvider client={newClient()}>
       <WorkspaceProvider
@@ -139,7 +148,9 @@ describe("ScriptTab saved-JS document tabs", () => {
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     const strip = screen.getByRole("tablist", { name: /saved scripts/i });
-    const untitled = await within(strip).findByRole("tab", { name: "untitled" });
+    const untitled = await within(strip).findByRole("tab", {
+      name: "untitled",
+    });
     expect(untitled).toHaveAttribute("aria-selected", "true");
   });
 
@@ -179,14 +190,18 @@ describe("ScriptTab saved-JS document tabs", () => {
     });
 
     const strip = screen.getByRole("tablist", { name: /saved scripts/i });
-    expect(within(strip).getByRole("tab", { name: "drop" })).toBeInTheDocument();
+    expect(
+      within(strip).getByRole("tab", { name: "drop" }),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /delete drop/i }));
 
     await waitFor(() =>
       expect(within(strip).queryByRole("tab", { name: "drop" })).toBeNull(),
     );
-    expect(within(strip).getByRole("tab", { name: "keep" })).toBeInTheDocument();
+    expect(
+      within(strip).getByRole("tab", { name: "keep" }),
+    ).toBeInTheDocument();
   });
 
   // AC-010, TC-007 - behavior (Cmd/Ctrl+S on an untitled JS document opens the name dialog)

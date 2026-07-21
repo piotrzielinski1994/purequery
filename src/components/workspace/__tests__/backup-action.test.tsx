@@ -1,13 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { SidebarTree } from "@/components/workspace/sidebar-tree";
-import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
-import { backupDatabase, estimateBackupRows } from "@/lib/tauri";
 import { save } from "@tauri-apps/plugin-dialog";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fixtureTree } from "@/components/workspace/__tests__/fixtures";
+import { SidebarTree } from "@/components/workspace/sidebar-tree";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { backupDatabase, estimateBackupRows } from "@/lib/tauri";
 import { MAX_BACKUP_ROWS } from "@/lib/workspace/backup";
 
 vi.mock("@/lib/tauri", () => ({
@@ -16,7 +15,9 @@ vi.mock("@/lib/tauri", () => ({
   cancelConnect: vi.fn(),
   disconnectDatabase: vi.fn(),
   estimateBackupRows: vi.fn(() => Promise.resolve(0)),
-  backupDatabase: vi.fn(() => Promise.resolve({ path: "/tmp/x.sql", bytes: 10, ms: 5 })),
+  backupDatabase: vi.fn(() =>
+    Promise.resolve({ path: "/tmp/x.sql", bytes: 10, ms: 5 }),
+  ),
 }));
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
@@ -30,7 +31,10 @@ vi.mock("sonner", () => ({
 
 function renderTree() {
   return render(
-    <WorkspaceProvider tree={fixtureTree} initialExpandedIds={["folder-staging"]}>
+    <WorkspaceProvider
+      tree={fixtureTree}
+      initialExpandedIds={["folder-staging"]}
+    >
       <SidebarTree />
     </WorkspaceProvider>,
   );

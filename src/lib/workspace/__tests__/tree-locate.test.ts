@@ -1,24 +1,23 @@
-import { describe, it, expect } from "vitest";
-
-// Imported even though it does not exist yet: the test must fail on the missing
-// module, not on a typo. Once tree-locate.ts ships, these assertions pin the
-// pointer-relative drop projection and the over -> MoveTarget resolution that
-// drives the tree DnD. purequery node kinds are folder / database / table; only a
-// folder is a container (inside band), a database/table is a leaf (no inside).
-import {
-  locateNode,
-  findNode,
-  dropTarget,
-  projectDropPosition,
-  emptyZoneId,
-  parseEmptyZoneId,
-} from "@/lib/workspace/tree-locate";
+import { describe, expect, it } from "vitest";
 import type {
   DatabaseNode,
   FolderNode,
   TableNode,
   TreeNode,
 } from "@/lib/workspace/model";
+// Imported even though it does not exist yet: the test must fail on the missing
+// module, not on a typo. Once tree-locate.ts ships, these assertions pin the
+// pointer-relative drop projection and the over -> MoveTarget resolution that
+// drives the tree DnD. purequery node kinds are folder / database / table; only a
+// folder is a container (inside band), a database/table is a leaf (no inside).
+import {
+  dropTarget,
+  emptyZoneId,
+  findNode,
+  locateNode,
+  parseEmptyZoneId,
+  projectDropPosition,
+} from "@/lib/workspace/tree-locate";
 
 const database = (id: string, name = id): DatabaseNode => ({
   kind: "database",
@@ -187,9 +186,9 @@ describe("dropTarget empty-zone (AC-011, TC-008)", () => {
 
   // behavior: dropping on an empty folder's zone targets inside that folder.
   it("should target inside the folder if the over id is its empty-zone id", () => {
-    expect(
-      dropTarget(emptyTree, "r1", emptyZoneId("empty"), "inside"),
-    ).toEqual({ parentId: "empty", index: 0 });
+    expect(dropTarget(emptyTree, "r1", emptyZoneId("empty"), "inside")).toEqual(
+      { parentId: "empty", index: 0 },
+    );
   });
 
   // behavior: an empty-zone id for a database / missing id is rejected.

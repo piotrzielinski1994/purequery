@@ -1,9 +1,12 @@
-import { describe, it, expect } from "vitest";
-
-import { serialize, deserialize } from "@/lib/workspace/disk-format";
+import { describe, expect, it } from "vitest";
 import type { FileMap } from "@/lib/workspace/disk-format";
+import { deserialize, serialize } from "@/lib/workspace/disk-format";
 import { createInMemoryWorkspaceFs } from "@/lib/workspace/in-memory-fs";
-import type { DatabaseNode, QueryResult, TreeNode } from "@/lib/workspace/model";
+import type {
+  DatabaseNode,
+  QueryResult,
+  TreeNode,
+} from "@/lib/workspace/model";
 
 const EMPTY_RESULT: QueryResult = {
   status: "success",
@@ -52,7 +55,12 @@ describe("createInMemoryWorkspaceFs", () => {
   // TC-010 - behavior: read after write returns the written FileMap
   it("should return the written FileMap if read back after a write", async () => {
     const tree: TreeNode[] = [
-      { kind: "folder", id: "f1", name: "Users API", children: [pgDatabase("db-1", "app_db")] },
+      {
+        kind: "folder",
+        id: "f1",
+        name: "Users API",
+        children: [pgDatabase("db-1", "app_db")],
+      },
       pgDatabase("db-2", "scratch_db"),
     ];
     const files = serialize(tree);

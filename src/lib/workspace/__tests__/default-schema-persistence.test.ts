@@ -1,12 +1,11 @@
-import { describe, it, expect } from "vitest";
-
+import { describe, expect, it } from "vitest";
+import type { DatabaseNode } from "@/lib/workspace/model";
 import {
   dehydrateDatabase,
   hydrateDatabase,
   mergeDatabaseFile,
   type PersistedDatabase,
 } from "@/lib/workspace/workspace";
-import type { DatabaseNode } from "@/lib/workspace/model";
 
 // Per-database "Default schema" (sidebar filter + bare label). A `defaultSchema: string | null` on
 // the database node, persisted as an OPTIONAL string on the three Persisted* shapes (mirrors
@@ -112,8 +111,8 @@ describe("dehydrateDatabase defaultSchema (AC-001, TC-001)", () => {
       defaultSchema: "quartz",
     } as PersistedDatabase;
 
-    expect(dehydrateDatabase(hydrateDatabase(mergeDatabaseFile(record)!))).toEqual(
-      record,
-    );
+    expect(
+      dehydrateDatabase(hydrateDatabase(mergeDatabaseFile(record)!)),
+    ).toEqual(record);
   });
 });
