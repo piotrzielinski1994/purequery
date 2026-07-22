@@ -1,3 +1,4 @@
+import { cn } from "@pziel/pureui";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -7,7 +8,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import type { TreeNode } from "@/lib/workspace/model";
 
 type DeleteNodeDialogProps = {

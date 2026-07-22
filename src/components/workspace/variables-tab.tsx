@@ -1,7 +1,7 @@
+import { cn } from "@pziel/pureui";
 import { Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import { cn } from "@/lib/utils";
 import type { DatabaseNode, Variable } from "@/lib/workspace/model";
 
 const BLANK: Variable = { name: "", value: "" };

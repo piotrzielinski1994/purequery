@@ -1,4 +1,5 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { cn } from "@pziel/pureui";
 import { save } from "@tauri-apps/plugin-dialog";
 import { ChevronDown, ChevronRight, Table } from "lucide-react";
 import {
@@ -25,7 +26,6 @@ import {
 import { useConnectionActions } from "@/components/workspace/use-connection";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { backupDatabase, estimateBackupRows } from "@/lib/tauri";
-import { cn } from "@/lib/utils";
 import {
   backupFilters,
   defaultBackupFileName,

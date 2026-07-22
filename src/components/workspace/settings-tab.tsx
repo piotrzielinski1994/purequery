@@ -1,3 +1,4 @@
+import { cn } from "@pziel/pureui";
 import { Eye, EyeOff } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,6 @@ import {
 } from "@/components/ui/select";
 import { useConnectionActions } from "@/components/workspace/use-connection";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import { cn } from "@/lib/utils";
 import type {
   ConnectionConfig,
   DatabaseNode,

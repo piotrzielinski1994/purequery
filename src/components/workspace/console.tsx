@@ -1,3 +1,4 @@
+import { cn } from "@pziel/pureui";
 import { Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,7 +9,6 @@ import {
   useLogLines,
   useWorkspace,
 } from "@/components/workspace/workspace-context";
-import { cn } from "@/lib/utils";
 import type { LogLevel, LogLine } from "@/lib/workspace/log-line";
 import {
   filterLogLines,

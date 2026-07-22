@@ -1,9 +1,9 @@
+import { cn } from "@pziel/pureui";
 import {
   type ComponentPropsWithoutRef,
   forwardRef,
   type ReactNode,
 } from "react";
-import { cn } from "@/lib/utils";
 
 // One shared tab strip used by every tabbed surface (open content tabs, the database card's
 // SQL/Views/Script/Settings, the console's History/Changes/Console). Centralising it kills the
