@@ -1,3 +1,4 @@
+import { cn } from "@pziel/pureui";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -60,7 +61,6 @@ import {
   fetchTableStructure,
   type RowMutation,
 } from "@/lib/tauri";
-import { cn } from "@/lib/utils";
 import { fkTargetTableId } from "@/lib/workspace/foreign-key-nav";
 import { isEditableTarget } from "@/lib/workspace/is-editable-target";
 import {

@@ -1,3 +1,4 @@
+import { cn } from "@pziel/pureui";
 import { useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ObjectTab } from "@/components/workspace/object-tab";
@@ -12,7 +13,6 @@ import {
   type DatabaseTab,
   useWorkspace,
 } from "@/components/workspace/workspace-context";
-import { cn } from "@/lib/utils";
 import {
   connectionOf,
   type DbEngine,

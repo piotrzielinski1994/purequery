@@ -1,6 +1,6 @@
+import { cn } from "@pziel/pureui";
 import { type ReactNode, useCallback, useRef, useState } from "react";
 import type { SplitOrientation } from "@/components/workspace/workspace-context";
-import { cn } from "@/lib/utils";
 
 // A two-pane split with a draggable divider, either side-by-side ("horizontal") or
 // stacked ("vertical"). Hand-rolled (not react-resizable-panels) because that library's

@@ -1,3 +1,4 @@
+import { cn } from "@pziel/pureui";
 import {
   createColumnHelper,
   flexRender,
@@ -32,7 +33,6 @@ import {
 import { matchesAny } from "@/lib/shortcuts/match-hotkey";
 import type { ShortcutOverrides } from "@/lib/shortcuts/registry";
 import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import { cn } from "@/lib/utils";
 import {
   foreignKeyForColumn,
   isForeignKeyNavigable,

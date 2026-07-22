@@ -1,10 +1,10 @@
+import { cn } from "@pziel/pureui";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SqlText } from "@/components/workspace/sql-text";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { fetchDatabaseObjects } from "@/lib/tauri";
-import { cn } from "@/lib/utils";
 import type { DatabaseObject, ObjectKind } from "@/lib/workspace/model";
 import { objectEmptyLabel, objectListLabel } from "@/lib/workspace/object-tabs";
 
