@@ -1,13 +1,7 @@
 import {
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandShortcut,
+  type PaletteCommand,
+  CommandPalette as PaletteShell,
 } from "@pziel/pureui";
-import { formatForDisplay } from "@tanstack/react-hotkeys";
 import {
   PALETTE_COMMANDS,
   PALETTE_GROUP_ORDER,
@@ -159,41 +153,22 @@ export function CommandPalette({
     canGoBack,
     canGoForward,
   };
-  const commands = PALETTE_COMMANDS.filter((def) => def.when(state));
+  const commands: PaletteCommand[] = PALETTE_COMMANDS.filter((def) =>
+    def.when(state),
+  ).map((def) => ({
+    key: def.id,
+    name: def.name,
+    group: def.group,
+    binding: def.actionId ? (effective[def.actionId][0] ?? "") : undefined,
+    run: () => handlers[def.id](),
+  }));
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandInput placeholder="Type a command…" />
-      <CommandList>
-        <CommandEmpty>No matching commands</CommandEmpty>
-        {PALETTE_GROUP_ORDER.map((group) => {
-          const groupCommands = commands.filter((def) => def.group === group);
-          if (groupCommands.length === 0) {
-            return null;
-          }
-          return (
-            <CommandGroup key={group} heading={group}>
-              {groupCommands.map((def) => (
-                <CommandItem
-                  key={def.id}
-                  value={def.name}
-                  onSelect={() => {
-                    handlers[def.id]();
-                    onOpenChange(false);
-                  }}
-                >
-                  <span>{def.name}</span>
-                  {def.actionId && effective[def.actionId][0] && (
-                    <CommandShortcut>
-                      {formatForDisplay(effective[def.actionId][0])}
-                    </CommandShortcut>
-                  )}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          );
-        })}
-      </CommandList>
-    </CommandDialog>
+    <PaletteShell
+      open={open}
+      onOpenChange={onOpenChange}
+      groups={PALETTE_GROUP_ORDER}
+      commands={commands}
+    />
   );
 }
