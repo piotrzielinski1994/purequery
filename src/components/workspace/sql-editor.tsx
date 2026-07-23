@@ -34,7 +34,7 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { classHighlighter } from "@lezer/highlight";
-import { toCodeMirrorKey } from "@pziel/pureui";
+import { applyDefaults, toCodeMirrorKey } from "@pziel/pureui";
 import CodeMirror, { type BasicSetupOptions } from "@uiw/react-codemirror";
 import { Copy, PencilLine } from "lucide-react";
 import { useMemo } from "react";
@@ -49,7 +49,6 @@ import {
 import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
 import { useSettingsOptional } from "@/lib/settings/settings-context";
 import { resolveShortcuts } from "@/lib/shortcuts/resolve";
-import { applyDefaults } from "@/lib/theme/overrides";
 import { useThemeOptional } from "@/lib/theme/theme-context";
 import { DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
 import type { DbEngine, TableSchema, Variable } from "@/lib/workspace/model";

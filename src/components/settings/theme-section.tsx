@@ -1,6 +1,6 @@
 import { Prec } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
-import { Button } from "@pziel/pureui";
+import { applyDefaults, Button, diffOverrides } from "@pziel/pureui";
 import CodeMirror from "@uiw/react-codemirror";
 import { useMemo, useState } from "react";
 import { makeSchemaExtensions } from "@/components/workspace/schema-intellisense";
@@ -11,8 +11,11 @@ import type {
   ThemeMode,
 } from "@/lib/settings/settings";
 import { useSettings } from "@/lib/settings/settings-context";
-import { applyDefaults, diffOverrides } from "@/lib/theme/overrides";
-import { DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
+import {
+  APP_TOKENS,
+  DEFAULT_THEME_COLORS,
+  EDITOR_TOKENS,
+} from "@/lib/theme/theme-defaults";
 
 const MODES: { id: ThemeMode; label: string }[] = [
   { id: "light", label: "Light" },
@@ -60,7 +63,9 @@ function ColorEditor() {
     if (!value) {
       return;
     }
-    saveThemeColors(diffOverrides(value, DEFAULT_THEME_COLORS));
+    saveThemeColors(
+      diffOverrides(value, DEFAULT_THEME_COLORS, APP_TOKENS, EDITOR_TOKENS),
+    );
   };
   const save = () => persist(text);
 
@@ -75,7 +80,14 @@ function ColorEditor() {
             run: (view) => {
               const value = parseThemeColors(view.state.doc.toString());
               if (value) {
-                saveThemeColors(diffOverrides(value, DEFAULT_THEME_COLORS));
+                saveThemeColors(
+                  diffOverrides(
+                    value,
+                    DEFAULT_THEME_COLORS,
+                    APP_TOKENS,
+                    EDITOR_TOKENS,
+                  ),
+                );
               }
               return true;
             },

@@ -1,6 +1,6 @@
+import { applyDefaults } from "@pziel/pureui";
 import { useMemo } from "react";
 import type { EditorColors } from "@/components/workspace/sql-editor-theme";
-import { applyDefaults } from "@/lib/theme/overrides";
 import { useThemeOptional } from "@/lib/theme/theme-context";
 import { DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
 import {
