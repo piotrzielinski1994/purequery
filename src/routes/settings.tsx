@@ -1,11 +1,13 @@
-import { ShortcutsSection } from "@pziel/pureui";
+import { ShortcutsSection, UpdatesSection, useUpdater } from "@pziel/pureui";
 import { createRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { toast } from "sonner";
 import { RowLimitSection } from "@/components/settings/row-limit-section";
 import { ThemeSection } from "@/components/settings/theme-section";
-import { UpdatesSection } from "@/components/settings/updates-section";
 import { useSettings } from "@/lib/settings/settings-context";
 import { SHORTCUT_ACTIONS, type ShortcutScope } from "@/lib/shortcuts/registry";
 import { findConflict, resolveShortcuts } from "@/lib/shortcuts/resolve";
+import { createSonnerUpdateToastSink } from "@/lib/updater/update-toast-sink";
 import { rootRoute } from "@/routes/__root";
 
 const SCOPE_LABELS: Record<ShortcutScope, string> = {
@@ -62,6 +64,9 @@ function ShortcutSettings() {
 }
 
 function SettingsPage() {
+  const { controller, getVersion } = useUpdater();
+  const [sink] = useState(createSonnerUpdateToastSink);
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-baseline gap-3">
@@ -73,7 +78,12 @@ function SettingsPage() {
       <ThemeSection />
       <RowLimitSection />
       <ShortcutSettings />
-      <UpdatesSection />
+      <UpdatesSection
+        controller={controller}
+        getVersion={getVersion}
+        sink={sink}
+        notify={{ info: toast, error: toast.error }}
+      />
     </div>
   );
 }
