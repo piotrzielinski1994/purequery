@@ -1,12 +1,64 @@
+import { ShortcutsSection } from "@pziel/pureui";
 import { formatForDisplay, HotkeysProvider } from "@tanstack/react-hotkeys";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { ShortcutsSection } from "@/components/settings/shortcuts-section";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings/settings";
-import { SettingsProvider } from "@/lib/settings/settings-context";
-import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/registry";
+import { SettingsProvider, useSettings } from "@/lib/settings/settings-context";
+import { SHORTCUT_ACTIONS, type ShortcutScope } from "@/lib/shortcuts/registry";
+import { findConflict, resolveShortcuts } from "@/lib/shortcuts/resolve";
+
+const SCOPE_LABELS: Record<ShortcutScope, string> = {
+  global: "Global",
+  tab: "Tabs",
+  grid: "Data grid",
+  tree: "Sidebar",
+  editor: "Query editor",
+};
+
+const SCOPE_ORDER: ShortcutScope[] = [
+  "global",
+  "tab",
+  "grid",
+  "tree",
+  "editor",
+];
+
+// Wire the hoisted pureui ShortcutsSection with purequery's real registry, resolve
+// and settings mutators + its scope grouping - the same wiring as the settings
+// route, so this stays a consume-integration proof over the real action catalog.
+function WiredShortcutsSection() {
+  const {
+    settings,
+    addShortcut,
+    removeShortcut,
+    replaceShortcut,
+    resetShortcut,
+  } = useSettings();
+
+  const groups = SCOPE_ORDER.map((scope) => ({
+    label: SCOPE_LABELS[scope],
+    actions: SHORTCUT_ACTIONS.filter((action) => action.scope === scope),
+  }));
+
+  return (
+    <ShortcutsSection
+      actions={SHORTCUT_ACTIONS}
+      effective={resolveShortcuts(settings.shortcuts)}
+      overrides={settings.shortcuts}
+      store={{
+        add: addShortcut,
+        remove: removeShortcut,
+        replace: replaceShortcut,
+        reset: resetShortcut,
+      }}
+      findConflict={findConflict}
+      groups={groups}
+      help="Press Edit and type a new combination."
+    />
+  );
+}
 
 // `shortcuts` now holds a per-action string[]; seed it through a cast so a
 // failure means the section/array model is missing, not a test-file typo.
@@ -20,7 +72,7 @@ function renderSection(overrides: Record<string, string[]> = {}) {
   return render(
     <HotkeysProvider>
       <SettingsProvider store={store}>
-        <ShortcutsSection />
+        <WiredShortcutsSection />
       </SettingsProvider>
     </HotkeysProvider>,
   );
@@ -53,6 +105,21 @@ describe("ShortcutsSection", () => {
 
     for (const action of SHORTCUT_ACTIONS) {
       expect(await screen.findByText(action.name)).toBeInTheDocument();
+    }
+  });
+
+  // TC-013 - behavior: purequery renders scope-grouped sub-headings for every
+  // scope its registry actually uses, each as an uppercase group label.
+  it("should render a labelled sub-group per used scope", async () => {
+    renderSection();
+
+    await screen.findByText(/keyboard shortcuts/i);
+
+    const usedScopes = new Set(SHORTCUT_ACTIONS.map((a) => a.scope));
+    for (const scope of usedScopes) {
+      expect(
+        screen.getByRole("heading", { name: SCOPE_LABELS[scope] }),
+      ).toBeInTheDocument();
     }
   });
 
