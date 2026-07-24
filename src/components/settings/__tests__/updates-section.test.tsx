@@ -1,13 +1,20 @@
 import {
   type UpdateController,
   type UpdateInfo,
-  UpdaterProvider,
+  UpdatesSection,
 } from "@pziel/pureui";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { UpdatesSection } from "@/components/settings/updates-section";
+import { createSonnerUpdateToastSink } from "@/lib/updater/update-toast-sink";
+
+// R18 consume-integration: purequery no longer owns UpdatesSection - it renders
+// the hoisted pureui section wired with its REAL sonner sink
+// (createSonnerUpdateToastSink, untouched) plus the two one-shot messages routed
+// { info: toast, error: toast.error } so the FAILED message stays error-styled.
+// sonner is the observable boundary (mocked); the controller + version source are
+// injected as props from the SettingsPage call site (useUpdater()).
 
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), {
@@ -34,22 +41,22 @@ function renderSection(opts: {
 }): { controller: UpdateController & { check: ReturnType<typeof vi.fn> } } {
   const controller = { check: vi.fn(opts.check) };
   render(
-    <UpdaterProvider
+    <UpdatesSection
       controller={controller}
       getVersion={async () => opts.version ?? "1.2.3"}
-    >
-      <UpdatesSection />
-    </UpdaterProvider>,
+      sink={createSonnerUpdateToastSink()}
+      notify={{ info: toast, error: toast.error }}
+    />,
   );
   return { controller };
 }
 
-describe("UpdatesSection", () => {
+describe("UpdatesSection (purequery consume)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  // behavior (TC-011): the current version from the injected source is shown
+  // behavior (TC-010): the current version from the injected source is shown
   it("should render the current app version from the version source", async () => {
     renderSection({ check: async () => null, version: "1.4.2" });
 
@@ -58,8 +65,8 @@ describe("UpdatesSection", () => {
     });
   });
 
-  // side-effect-contract (TC-007): a manual check with no update shows the
-  // up-to-date toast and returns the button to idle
+  // side-effect-contract (TC-010): a manual check with no update routes the
+  // latest-version message through plain sonner `toast`
   it("should show a latest-version toast if the manual check finds no update", async () => {
     const user = userEvent.setup();
     const { controller } = renderSection({ check: async () => null });
@@ -82,8 +89,8 @@ describe("UpdatesSection", () => {
     });
   });
 
-  // side-effect-contract (TC-008): a manual check that finds an update shows the
-  // update toast (message carries the version)
+  // side-effect-contract (TC-010): a manual check that finds an update drives the
+  // update toast through the sonner sink (message carries the version)
   it("should show the update toast if the manual check finds an available update", async () => {
     const user = userEvent.setup();
     renderSection({ check: async () => makeUpdate("0.2.0") });
@@ -100,9 +107,9 @@ describe("UpdatesSection", () => {
     });
   });
 
-  // side-effect-contract (TC-009): a rejected manual check shows the failure
-  // toast and returns the button to idle (not stuck disabled)
-  it("should show a check-failed toast and re-enable the button if the check rejects", async () => {
+  // side-effect-contract (TC-010): a rejected manual check routes the FAILED
+  // message through toast.error (error-styled), and re-enables the button
+  it("should show a check-failed error toast and re-enable the button if the check rejects", async () => {
     const user = userEvent.setup();
     renderSection({
       check: async () => {
@@ -117,17 +124,17 @@ describe("UpdatesSection", () => {
 
     await waitFor(() => {
       expect(
-        (mockToast.error as unknown as ReturnType<typeof vi.fn>).mock.calls
-          .length + mockToast.mock.calls.length,
-      ).toBeGreaterThan(0);
+        (
+          mockToast.error as unknown as ReturnType<typeof vi.fn>
+        ).mock.calls.some((c) => /update check failed/i.test(String(c[0]))),
+      ).toBe(true);
     });
-    const failed = [
-      ...mockToast.mock.calls.map((c) => String(c[0])),
-      ...(
-        mockToast.error as unknown as ReturnType<typeof vi.fn>
-      ).mock.calls.map((c) => String(c[0])),
-    ].some((m) => /update check failed/i.test(m));
-    expect(failed).toBe(true);
+    // the plain toast never carried the failure - it is error-styled
+    expect(
+      mockToast.mock.calls.some((c) =>
+        /update check failed/i.test(String(c[0])),
+      ),
+    ).toBe(false);
     await waitFor(() => {
       expect(button).not.toBeDisabled();
     });
@@ -151,7 +158,6 @@ describe("UpdatesSection", () => {
     await waitFor(() => {
       expect(button).toBeDisabled();
     });
-    // a second click while in flight must not fire another check
     await user.click(button).catch(() => {});
     expect(controller.check).toHaveBeenCalledTimes(1);
 
@@ -161,7 +167,7 @@ describe("UpdatesSection", () => {
     });
   });
 
-  // behavior (TC-005/TC-010 UI state): the in-flight label reads Checking…
+  // behavior (TC-010 UI state): the in-flight label reads Checking…
   it("should show a Checking… label while a check is in flight", async () => {
     const user = userEvent.setup();
     const pending = new Promise<UpdateInfo | null>(() => {});
