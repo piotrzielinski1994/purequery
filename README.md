@@ -34,19 +34,8 @@ npm install
 
 | Command | Description |
 | --- | --- |
-| `npm start` | Launch the desktop app (`tauri dev`) - native window + Vite dev server. |
-| `npm run dev` | Frontend-only Vite dev server (browser, no native shell). |
-| `npm run build` | Typecheck + production frontend build (`dist/`). |
-| `npm run tauri build` | Produce a native desktop bundle. |
-| `npm run lint` | ESLint (flat config). |
-| `npm run typecheck` | `tsc --noEmit`. |
-| `npm run format` | Prettier write. |
-| `npm test` | Frontend behavior tests (Vitest, run once). |
-| `npm run test:watch` | Vitest in watch mode. |
-
-Rust backend tests: `cd src-tauri && cargo test`.
-
-The dev server runs on port 1431 (set in both `vite.config.ts` and `src-tauri/tauri.conf.json`).
+| `npm start` | Run the app in development (`tauri dev`). |
+| `npm run tauri build` | Build the distributable desktop bundle. |
 
 ## Features
 
@@ -92,17 +81,6 @@ minisign keypair whose public half is baked into `tauri.conf.json`
 `plugins.updater.pubkey`). **Caveat:** auto-update only works *forward* from the
 first updater-enabled release - a build already installed predating the updater
 must be upgraded by a manual download once.
-
-## Repo layout
-
-```
-src/                    React app: main entry, router, routes, components, lib
-src-tauri/              Rust desktop shell: db.rs (Postgres/MySQL/SQLite via sqlx Any), mongo.rs,
-                        mssql.rs (SQL Server via tiberius TDS), dynamo.rs (AWS SDK), backup.rs
-                        (native dumps), lib.rs (per-connection engine dispatch), logging.rs
-tests/e2e/              Behavior smoke tests
-docs/                   spec/plan per feature, ADR, learnings, design.md
-```
 
 UI conventions (no rounded corners, 1px dividers, density, etc.) live in
 [docs/design.md](docs/design.md).
