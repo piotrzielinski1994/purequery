@@ -7,6 +7,8 @@ import {
   createNoopLogStream,
   createTauriLogStream,
 } from "@/lib/logging/log-stream";
+import { isDevBrowser } from "@/lib/runtime/environment";
+import { DEMO_WORKSPACE_PATH, demoFiles } from "@/lib/workspace/demo-seed";
 import { createInMemoryWorkspaceFs } from "@/lib/workspace/in-memory-fs";
 import { createTauriFolderPicker } from "@/lib/workspace/tauri-folder-picker";
 import { createTauriWorkspaceFs } from "@/lib/workspace/tauri-fs";
@@ -19,9 +21,15 @@ function createLogStreamForEnv() {
 }
 
 // The real Tauri host reads/writes the picked workspace folder via plugin-fs + plugin-dialog; the
-// dev-browser + jsdom get an in-memory fs + a noop picker (no webview to drive).
+// dev-browser gets an in-memory fs seeded with the demo workspace, jsdom an empty one (no webview
+// to drive).
 function createWorkspaceFsForEnv() {
-  return isTauri() ? createTauriWorkspaceFs() : createInMemoryWorkspaceFs({});
+  if (isTauri()) {
+    return createTauriWorkspaceFs();
+  }
+  return isDevBrowser()
+    ? createInMemoryWorkspaceFs({ [DEMO_WORKSPACE_PATH]: demoFiles() })
+    : createInMemoryWorkspaceFs({});
 }
 
 function createFolderPickerForEnv() {

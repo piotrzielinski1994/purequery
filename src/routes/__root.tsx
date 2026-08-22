@@ -13,12 +13,15 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { isDevBrowser } from "@/lib/runtime/environment";
+import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createTauriSettingsStore } from "@/lib/settings/tauri-store";
 import { ThemeProvider } from "@/lib/theme/theme-context";
 import { createSonnerUpdateToastSink } from "@/lib/updater/update-toast-sink";
 import { createWindowController } from "@/lib/window/window-controller";
 import { WindowFullscreenSync } from "@/lib/window/window-fullscreen-sync";
+import { demoSettings } from "@/lib/workspace/demo-seed";
 
 // Only the real Tauri host has a window to drive; the dev-browser AND the jsdom test env (both
 // non-Tauri) get the noop, so getCurrentWindow() - which throws without a Tauri host - is never
@@ -38,7 +41,14 @@ function createUpdateControllerForEnv() {
 const getAppVersion = createAppVersionGetter({ isTauri, getVersion });
 
 function RootLayout() {
-  const [settingsStore] = useState(createTauriSettingsStore);
+  // The dev-browser build seeds the in-memory store with the demo settings
+  // (workspacePath -> the demo workspace); the Tauri build and jsdom keep the
+  // Tauri-backed adapter.
+  const [settingsStore] = useState(() =>
+    isDevBrowser()
+      ? createInMemorySettingsStore(demoSettings())
+      : createTauriSettingsStore(),
+  );
   const [windowController] = useState(createWindowControllerForEnv);
   const [updateController] = useState(createUpdateControllerForEnv);
   const [updateToastSink] = useState(createSonnerUpdateToastSink);
