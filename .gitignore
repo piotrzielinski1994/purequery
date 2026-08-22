@@ -26,3 +26,7 @@ dist-ssr
 # Private working notes
 .pzielinski/
 CLAUDE.local.md
+
+# Playwright
+test-results
+playwright-report
