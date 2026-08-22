@@ -14,6 +14,7 @@
     "format": "biome format --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e": "playwright test",
     "lint:fix": "biome check --write ."
   },
   "dependencies": {
@@ -57,6 +58,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.5",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2",
     "@testing-library/jest-dom": "^7.0.0",
